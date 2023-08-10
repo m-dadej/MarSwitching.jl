@@ -1,4 +1,4 @@
-# MARS
+## MARS.jl: MARkov Switching models in Julia
 
 [![Build Status](https://github.com/m-dadej/MARS.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/m-dadej/MARS.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![Build Status](https://travis-ci.com/m-dadej/MARS.jl.svg?branch=main)](https://travis-ci.com/m-dadej/MARS.jl)

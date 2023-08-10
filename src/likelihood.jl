@@ -20,10 +20,6 @@ struct MSM
     Likelihood::Float64
 end
 
-include("helpers.jl")
-include("results.jl")
-
-
 function trans_θ(θ::Vector{Float64}, k::Int64, n_β::Int64)
     
     σ = θ[1:k].^2 
@@ -173,42 +169,4 @@ function smoothed_probs(msm_model::MSM, x::Matrix{Float64}=Matrix{Float64}(undef
     return ξ_T
 end
 
-
-
-k = 3
-p = 0
-# σ = sample(0.5:0.5:10, k)
-# μ = sample(-2:0.5:5, k*(p+1))
-# P = rand(1:10, k,k) ; P = P ./ sum(P, dims=1)
-μ = [1.0, -0.5, 2.0] 
-σ = [0.8,  1.5, 0.5] 
-P = [0.7 0.2; 0.3 0.8]
-P = [0.7 0.15 0.2; 0.2 0.75 0.15; 0.1 0.1 0.65] #[0.8 0.1; 0.2 0.9]  #
-T = 200
-
-θ = [sqrt.(σ); μ; vec(P[1:k*(k-1)])]
-
-X, s_t = generate_mars(μ, σ, P, T+p, 0)
-
-# using DelimitedFiles
-# writedlm( "data/artificial.csv",  X, ',')
-
-model = MSModel(X,k, p) 
-model.β 
-state_coeftable(model, 1)
-model.P
-
-summary(model)
-
-transition_mat(model)
-
-state_coeftable(model, 1)
-
-using Plots
-
-plot(smoothed_probs(model))
-
-for color in [:red, :cyan, :blue, :magenta]
-    printstyled("Hello World $(color)\n"; color = color)
-end
 
