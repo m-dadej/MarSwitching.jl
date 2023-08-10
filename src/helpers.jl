@@ -74,26 +74,3 @@ function trans_θ(θ::Vector{Float64}, k::Int64, n_β::Int64)
 
     return σ, β, P
 end
-
-
-write(stdout, "Hello World");  # suppress return value 11 with ;
-read(stdin, Char)
-
-x = zeros(UInt8, 4)
-read!(stdin, x)
-
-for i in 1:100 
-    inv(rand(10,10))
-    println(" tera : $i")
-    flush(stdout)
-end
-
-fp = open("foo", "w");           # empty file
-write(fp, "The answer is 42.\n");
-flush(fp)
-show(fp)
-
-
-         # empty file
-
-@printf(fp, "Hello World\n");    # write to file

@@ -20,19 +20,6 @@ struct MSM
     Likelihood::Float64
 end
 
-function trans_θ(θ::Vector{Float64}, k::Int64, n_β::Int64)
-    
-    σ = θ[1:k].^2 
-    β = [θ[k+1:(k+k*n_β)][1+n_β*i:n_β*(i+1)] for i in 0:k-1]
-
-    @views P = reshape(θ[(k+k*n_β+1):end], k-1, k)
-    P        = [P; ones(1, k)]
-    P        = P ./ sum(P, dims=1)
-
-    return σ, β, P
-end
-
-
 function loglik(θ::Vector{Float64}, 
                 X::Matrix{Float64}, 
                 k::Int64,
@@ -168,5 +155,6 @@ function smoothed_probs(msm_model::MSM, x::Matrix{Float64}=Matrix{Float64}(undef
 
     return ξ_T
 end
+
 
 
