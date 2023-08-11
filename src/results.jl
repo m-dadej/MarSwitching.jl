@@ -13,8 +13,22 @@ end
 
 function state_coeftable(model::MSM, state::Int64; digits::Int64=3)
     
+    # function to clean estimates and provide stats for coefficients
+    function coef_clean(coef::Float64, std_err::Float64)
+        
+        coef       = my_round.(coef)
+        std_err    = my_round.(std_err)
+        z          = my_round.(coef / std_err)
+        pr         = 1-cdf(Chi(1), abs(z))
+        pr         = pr < 0.1^(digits) ? "< 1e-$digits" : round.(pr)
+
+        return coef, std_err, z, pr
+    end
+    
+    # function to round to digits
     my_round(x) = round(x, digits = digits)
 
+    # header
     println("------------------------------")
     println("Summary of regime $state: ")
     println("------------------------------")
@@ -25,21 +39,13 @@ function state_coeftable(model::MSM, state::Int64; digits::Int64=3)
 
     # β statistics
     for i in 1:length(model.β[state])
-        estimate = my_round.(model.β[state][i])
-        std_err  = my_round.(V_β[state][i])
-        z        = my_round.(estimate / std_err)
-        pr       = 1-cdf(Chi(1), abs(z))
-        pr       = pr < 0.1^(digits) ? "< 1e-$digits" : my_round.(pr)
+        estimate, std_err, z, pr = coef_clean(model.β[state][i], V_β[state][i])
         @printf "%0s%11s%13s%15s%12s%12s\n" "β_$i" "|" "$estimate  |" "$std_err  |" "$z  |" "$pr  "
     end
-
-    # σ statistics
-    estimate_σ = my_round.(model.σ[state])
-    σ_std_err  = my_round.(V_σ[state])
-    σ_z        = my_round.(estimate_σ / σ_std_err)
-    σ_pr       = 1-cdf(Chi(1), abs(σ_z))
-    σ_pr       = σ_pr < 0.1^(digits) ? "< 1e-$digits" : round.(σ_pr)
     
+    # σ statistics
+    estimate_σ, σ_std_err, σ_z, σ_pr = coef_clean(model.σ[state], V_σ[state])
+
     @printf "%0s%13s%13s%15s%12s%12s\n" "σ" "|" "$estimate_σ  |" "$σ_std_err  |" "$σ_z  |" "$σ_pr  "
     @printf "-------------------------------------------------------------------\n"
     @printf "Expected regime duration: %0.2f periods\n" expected_duration(model)[state]
@@ -76,7 +82,7 @@ function transition_mat(model::MSM; digits::Int64=2)
     end 
 end
 
-function summary_mars(model::MSM; digits::Int64=2)
+function summary_mars(model::MSM; digits::Int64=3)
 
     loglik   = round.(model.Likelihood, digits = digits)
     n_params = model.k + model.k*(size(model.x)[2]-1) + (model.k-1)*model.k

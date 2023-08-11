@@ -18,5 +18,6 @@ include("results.jl")
 
 export generate_mars, MSM, loglik, MSModel, filtered_probs, smoothed_probs, add_lags
 export get_std_errors, expected_duration, state_coeftable, transition_mat, summary_mars
+export loglik
 
 end
