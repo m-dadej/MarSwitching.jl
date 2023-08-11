@@ -40,7 +40,7 @@ function state_coeftable(model::MSM, state::Int64; digits::Int64=3)
     σ_pr       = 1-cdf(Chi(1), abs(σ_z))
     σ_pr       = σ_pr < 0.1^(digits) ? "< 1e-$digits" : round.(σ_pr)
     
-    @printf "%0s%11s%13s%15s%12s%12s\n" "σ" "|" "$estimate_σ  |" "$σ_std_err  |" "$σ_z  |" "$σ_pr  "
+    @printf "%0s%13s%13s%15s%12s%12s\n" "σ" "|" "$estimate_σ  |" "$σ_std_err  |" "$σ_z  |" "$σ_pr  "
     @printf "-------------------------------------------------------------------\n"
     @printf "Expected regime duration: %0.2f periods\n" expected_duration(model)[state]
     @printf "-------------------------------------------------------------------\n"
@@ -76,8 +76,7 @@ function transition_mat(model::MSM; digits::Int64=2)
     end 
 end
 
-
-function summary(model::MSM; digits::Int64=2)
+function summary_mars(model::MSM; digits::Int64=2)
 
     loglik   = round.(model.Likelihood, digits = digits)
     n_params = model.k + model.k*(size(model.x)[2]-1) + (model.k-1)*model.k

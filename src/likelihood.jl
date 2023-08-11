@@ -1,12 +1,3 @@
-using Distributions
-using LinearAlgebra
-using NLopt
-using Random
-using StatsBase
-using FiniteDiff
-using LineSearches
-using Clustering
-using Printf
 
 struct MSM 
     β::Vector{Vector{Float64}} # β[state][i] vector of β for each state
@@ -19,6 +10,7 @@ struct MSM
     T::Int64    
     Likelihood::Float64
 end
+
 
 function loglik(θ::Vector{Float64}, 
                 X::Matrix{Float64}, 
