@@ -55,12 +55,6 @@ function obj_func(θ, fΔ, x, k, n_β, n_β_ns)
     return -loglik(θ, x, k, n_β, n_β_ns)[1]
 end
 
-# T = 100
-# y = randn(T)
-# k = 2
-# θ_test = collect(0.3:0.1:0.8)
-
-# loglik(θ_test, x, k, 1, 0)
 
 
 function MSModel(y::Vector{Float64},
@@ -135,7 +129,7 @@ function MSModel(y::Vector{Float64},
     σ, β, P = trans_θ(θ_hat, k, n_β, n_β_ns)
     rawP = θ_hat[(k + k*n_β + n_β_ns + 1):end]
 
-    return MSM(β, σ, P, rawP, k, p, x, T, -minf)
+    return MSM(β, σ, P, rawP, k, 0, x, T, -minf)
 end
 
 function filtered_probs(msm_model::MSM, x::Matrix{Float64}=Matrix{Float64}(undef, 0, 0))
