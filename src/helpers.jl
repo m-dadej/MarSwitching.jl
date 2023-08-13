@@ -74,3 +74,9 @@ function trans_θ(θ::Vector{Float64}, k::Int64, n_β::Int64)
 
     return σ, β, P
 end
+
+
+
+
+
+

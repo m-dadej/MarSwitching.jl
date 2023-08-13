@@ -21,7 +21,7 @@ function loglik(θ::Vector{Float64},
     n_β    = size(X)[2]-1 # number of β coefficients. Including lagged y
     ξ      = zeros(T, k)  # unconditional transition probabilities at t
     L      = zeros(T)     # likelihood 
-    ξ_next = zeros(k)  
+    ξ_next = zeros(k)     # unconditional transition probabilities at t+1
 
     σ, β, P = trans_θ(θ, k, n_β)
 
@@ -58,9 +58,10 @@ end
 function MSModel(y::Vector{Float64},
                  k::Int64, 
                  p::Int64,
-                 ;exog_vars::Matrix{Float64}=Matrix{Float64}(undef, 0, 0),
-                 x0::Vector{Float64}=Vector{Float64}(undef, 0),
-                 algorithm::Symbol=:LN_SBPLX)
+                 ;exog_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
+                 exog_switching_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
+                 x0::Vector{Float64} = Vector{Float64}(undef, 0),
+                 algorithm::Symbol = :LN_SBPLX)
 
     @assert p >= 0 "Amount of lags shoould not be negative"
     @assert k >= 0 "Amount of states shoould not be negative"

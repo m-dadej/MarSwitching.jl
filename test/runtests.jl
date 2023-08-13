@@ -33,7 +33,7 @@ using Test
 
 end
 
-@testset begin
+@testset "3 state model" begin
     k = 3
     p = 0
     μ = [1.0, -0.5, 2.0] 
