@@ -15,15 +15,16 @@ end
 function loglik(θ::Vector{Float64}, 
                 X::Matrix{Float64}, 
                 k::Int64,
+                n_β::Int64,
+                n_β_ns::Int64,
                 logsum::Bool=true)
 
     T      = size(X)[1]
-    n_β    = size(X)[2]-1 # number of β coefficients. Including lagged y
     ξ      = zeros(T, k)  # unconditional transition probabilities at t
     L      = zeros(T)     # likelihood 
     ξ_next = zeros(k)     # unconditional transition probabilities at t+1
 
-    σ, β, P = trans_θ(θ, k, n_β)
+    σ, β, P = trans_θ(θ, k, n_β, n_β_ns)
 
     #initial guess for the unconditional probabilities
     A = [I - P; ones(k)']
@@ -45,48 +46,69 @@ function loglik(θ::Vector{Float64},
     return (logsum ? sum(log.(L)) : L ), ξ #sum(log.(L)), ξ
 end
 
-function obj_func(θ, fΔ, x, k)
+function obj_func(θ, fΔ, x, k, n_β, n_β_ns)
     
     if length(fΔ) > 0
-        fΔ[1:length(θ)] .= FiniteDiff.finite_difference_gradient(θ -> -loglik(θ, x, k)[1], θ)
+        fΔ[1:length(θ)] .= FiniteDiff.finite_difference_gradient(θ -> -loglik(θ, x, k, n_β, n_β_ns)[1], θ)
     end
 
-    return -loglik(θ, x, k)[1]
+    return -loglik(θ, x, k, n_β, n_β_ns)[1]
 end
+
+# T = 100
+# y = randn(T)
+# k = 2
+# θ_test = collect(0.3:0.1:0.8)
+
+# loglik(θ_test, x, k, 1, 0)
 
 
 function MSModel(y::Vector{Float64},
                  k::Int64, 
-                 p::Int64,
-                 ;exog_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
+                 ;intercept::String = "switching", # or "non-switching", "no"
+                 exog_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
                  exog_switching_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
                  x0::Vector{Float64} = Vector{Float64}(undef, 0),
                  algorithm::Symbol = :LN_SBPLX)
 
-    @assert p >= 0 "Amount of lags shoould not be negative"
     @assert k >= 0 "Amount of states shoould not be negative"
 
-    T   = size(y)[1] - p
-    x   = add_lags(y, p)    
-    x   = [x[:,1] ones(T) x[:, 2:end]]
-    n_β = size(exog_vars)[2]+1+p
+    T   = size(y)[1]
+    x   = intercept == "no" ? reshape(y, T, 1) : [y ones(T)]
+
+    switching_intercept = intercept == "switching"
+
+    n_β_ns = size(exog_vars)[2] + !(switching_intercept)
+    n_β = size(exog_switching_vars)[2] + switching_intercept
 
     if !isempty(exog_vars)
         @assert size(y)[1] == size(exog_vars)[1] "Number of observations is not the same between y and exog_vars"
-        x = [x exog_vars[p+1:end, :]]
+        x = [x exog_vars]
+    end
+
+    if !isempty(exog_switching_vars)
+        @assert size(y)[1] == size(exog_switching_vars)[1] "Number of observations is not the same between y and exog_switching_vars"
+        x = [x exog_switching_vars]
     end
     
     # also: LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX
-    opt               = Opt(algorithm, k + k*(size(x)[2]-1) + (k-1)*k)
-    opt.lower_bounds  = [repeat([10e-10], k); repeat([-Inf], k*(size(x)[2]-1)); repeat([10e-10], (k-1)*k)]
+    opt               = Opt(algorithm, k + n_β_ns + k*n_β + (k-1)*k)
+    opt.lower_bounds  = [repeat([10e-10], k); repeat([-Inf], k*(size(x)[2]-1) + n_β_ns); repeat([10e-10], (k-1)*k)]
     opt.xtol_rel      = 0
-    opt.min_objective = (θ, fΔ) -> obj_func(θ, fΔ, x, k)
+    opt.min_objective = (θ, fΔ) -> obj_func(θ, fΔ, x, k, n_β, n_β_ns)
     
     if isempty(x0)
         
         kmeans_res = kmeans(reshape(x[:,1], 1, T), k)
 
-        μ_em = kmeans_res.centers' 
+        if intercept == "switching"
+            μ_em = kmeans_res.centers'
+        elseif intercept == "non-switching"
+            μ_em = [mean(x[:,1]) for _ in 1:k]
+        else
+            μ_em = [0 for _ in 1:k]
+        end
+
         σ_em = [std(x[kmeans_res.assignments .== i, 1]) for i in 1:k]
         p_em = [sum(kmeans_res.assignments .== i ) / T for i in 1:k]
 
@@ -103,15 +125,15 @@ function MSModel(y::Vector{Float64},
         μx0[1:n_β:n_β*k] .= μ_em[:] # kmeans centers are intercepts of the state equation  
         # μ_em = [μ_em[:][i] for i in 1:k for _ in 1:n_β] # alternatively: kmeans center is repeated n_β times
 
-        x0 = [σ_em.^2; μx0; p_em]
+        x0 = [σ_em.^2; μx0; zeros(n_β_ns); p_em]
         #x0 = [repeat([std(x[:,1])], k).^2; repeat([mean(x[:,1])], k*(size(x)[2]-1)); repeat([0.5],(k-1)*k)]
     end
     
     (minf,θ_hat,ret) = NLopt.optimize(opt, x0)
     
     println(ret)
-    σ, β, P = trans_θ(θ_hat, k, n_β)
-    rawP = θ_hat[(k+k*n_β+1):end]
+    σ, β, P = trans_θ(θ_hat, k, n_β, n_β_ns)
+    rawP = θ_hat[(k + k*n_β + n_β_ns + 1):end]
 
     return MSM(β, σ, P, rawP, k, p, x, T, -minf)
 end
