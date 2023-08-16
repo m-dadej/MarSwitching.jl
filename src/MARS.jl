@@ -16,8 +16,10 @@ include("helpers.jl")
 include("results.jl")
 # Write your package code here.
 
-export generate_mars, MSM, loglik, MSModel, filtered_probs, smoothed_probs, add_lags
+export generate_mars,  MSModel, filtered_probs, smoothed_probs
 export get_std_errors, expected_duration, state_coeftable, transition_mat, summary_mars
-export loglik, test_struct
+
+# delete after development
+export loglik, MSM, add_lags, vec2param, trans_θ
 
 end

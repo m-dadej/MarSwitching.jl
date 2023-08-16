@@ -12,31 +12,17 @@ struct MSM
     Likelihood::Float64
 end
 
-# mutable struct MSMparams
-#     β::Vector{Vector{Float64}} # β[state][i] vector of β for each state
-#     σ::Vector{Float64}         
-#     P::Matrix{Float64}         # transition matrix
-#     rawP::Vector{Float64}      # raw probabilites vector before [P 1] / sum(P) transformation
-#     k::Int64                   
-#     n_β::Int64                 # number of β parameters
-#     n_β_ns::Int64              # number of non-switching β parameters
-#     intercept::String
+mutable struct MSMparams
+    β::Vector{Vector{Float64}} # β[state][i] vector of β for each state
+    σ::Vector{Float64}         
+    P::Matrix{Float64}         # transition matrix
+    rawP::Vector{Float64}      # raw probabilites vector before [P 1] / sum(P) transformation
+    k::Int64                   
+    n_β::Int64                 # number of β parameters
+    n_β_ns::Int64              # number of non-switching β parameters
+    intercept::String
 
-#     function n_params()
-        
-#     end
-# end
-
-
-mutable struct test_struct
-    x::Vector{Float64}
-    y::Vector{Float64}
-
-    function test_f(x,y)
-        return x + y
-    end
 end
-
 
 
 function loglik(θ::Vector{Float64}, 
@@ -74,7 +60,7 @@ function loglik(θ::Vector{Float64},
     return (logsum ? sum(log.(L)) : L ), ξ #sum(log.(L)), ξ
 end
 
-function obj_func(θ, fΔ, x, k, n_β, n_β_ns)
+function obj_func(θ, fΔ, x, k, n_β, n_β_ns, intercept)
     
     if length(fΔ) > 0
         fΔ[1:length(θ)] .= FiniteDiff.finite_difference_gradient(θ -> -loglik(θ, x, k, n_β, n_β_ns)[1], θ)
@@ -96,8 +82,9 @@ function MSModel(y::Vector{Float64},
     T   = size(y)[1]
     x   = intercept == "no" ? reshape(y, T, 1) : [y ones(T)]
 
-    n_β_ns = size(exog_vars)[2]             # non-switching number of β
-    n_β = size(exog_switching_vars)[2] + 1  # switching number of β
+    # number of β parameters without intercept
+    n_β_ns = size(exog_vars)[2]                 # non-switching number of β
+    n_β = size(exog_switching_vars)[2]          # switching number of β
 
     if !isempty(exog_vars)
         @assert size(y)[1] == size(exog_vars)[1] "Number of observations is not the same between y and exog_vars"
@@ -110,10 +97,11 @@ function MSModel(y::Vector{Float64},
     end
     
     # also: LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX
-    opt               = Opt(algorithm, k + n_β_ns + k*n_β + (k-1)*k)
-    opt.lower_bounds  = [repeat([10e-10], k); repeat([-Inf], k*n_β + n_β_ns); repeat([10e-10], (k-1)*k)]
+    n_intercept       = intercept == "switching" ? k : 1
+    opt               = Opt(algorithm, k + n_β_ns + k*n_β + n_intercept + (k-1)*k) 
+    opt.lower_bounds  = [repeat([10e-10], k); repeat([-Inf], k*n_β + n_β_ns + n_intercept); repeat([10e-10], (k-1)*k)]
     opt.xtol_rel      = 0
-    opt.min_objective = (θ, fΔ) -> obj_func(θ, fΔ, x, k, n_β, n_β_ns)
+    opt.min_objective = (θ, fΔ) -> obj_func(θ, fΔ, x, k, n_β, n_β_ns, intercept)
     
     if isempty(x0)
         
