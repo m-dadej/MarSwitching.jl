@@ -5,11 +5,38 @@ struct MSM
     P::Matrix{Float64}         # transition matrix
     rawP::Vector{Float64}      # raw probabilites vector before [P 1] / sum(P) transformation
     k::Int64                   
-    p::Int64                   # number of lags
+    n_β::Int64                 # number of β parameters
+    n_β_ns::Int64              # number of non-switching β parameters
     x::Matrix{Float64}         # data matrix
     T::Int64    
     Likelihood::Float64
 end
+
+# mutable struct MSMparams
+#     β::Vector{Vector{Float64}} # β[state][i] vector of β for each state
+#     σ::Vector{Float64}         
+#     P::Matrix{Float64}         # transition matrix
+#     rawP::Vector{Float64}      # raw probabilites vector before [P 1] / sum(P) transformation
+#     k::Int64                   
+#     n_β::Int64                 # number of β parameters
+#     n_β_ns::Int64              # number of non-switching β parameters
+#     intercept::String
+
+#     function n_params()
+        
+#     end
+# end
+
+
+mutable struct test_struct
+    x::Vector{Float64}
+    y::Vector{Float64}
+
+    function test_f(x,y)
+        return x + y
+    end
+end
+
 
 
 function loglik(θ::Vector{Float64}, 
@@ -17,6 +44,7 @@ function loglik(θ::Vector{Float64},
                 k::Int64,
                 n_β::Int64,
                 n_β_ns::Int64,
+                intercept::String = "switching", # or "non-switching"
                 logsum::Bool=true)
 
     T      = size(X)[1]
@@ -55,11 +83,9 @@ function obj_func(θ, fΔ, x, k, n_β, n_β_ns)
     return -loglik(θ, x, k, n_β, n_β_ns)[1]
 end
 
-
-
 function MSModel(y::Vector{Float64},
                  k::Int64, 
-                 ;intercept::String = "switching", # or "non-switching", "no"
+                 ;intercept::String = "switching", # or "non-switching"
                  exog_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
                  exog_switching_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
                  x0::Vector{Float64} = Vector{Float64}(undef, 0),
@@ -70,10 +96,8 @@ function MSModel(y::Vector{Float64},
     T   = size(y)[1]
     x   = intercept == "no" ? reshape(y, T, 1) : [y ones(T)]
 
-    switching_intercept = intercept == "switching"
-
-    n_β_ns = size(exog_vars)[2] + !(switching_intercept)
-    n_β = size(exog_switching_vars)[2] + switching_intercept
+    n_β_ns = size(exog_vars)[2]             # non-switching number of β
+    n_β = size(exog_switching_vars)[2] + 1  # switching number of β
 
     if !isempty(exog_vars)
         @assert size(y)[1] == size(exog_vars)[1] "Number of observations is not the same between y and exog_vars"
@@ -87,7 +111,7 @@ function MSModel(y::Vector{Float64},
     
     # also: LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX
     opt               = Opt(algorithm, k + n_β_ns + k*n_β + (k-1)*k)
-    opt.lower_bounds  = [repeat([10e-10], k); repeat([-Inf], k*(size(x)[2]-1) + n_β_ns); repeat([10e-10], (k-1)*k)]
+    opt.lower_bounds  = [repeat([10e-10], k); repeat([-Inf], k*n_β + n_β_ns); repeat([10e-10], (k-1)*k)]
     opt.xtol_rel      = 0
     opt.min_objective = (θ, fΔ) -> obj_func(θ, fΔ, x, k, n_β, n_β_ns)
     
@@ -95,12 +119,14 @@ function MSModel(y::Vector{Float64},
         
         kmeans_res = kmeans(reshape(x[:,1], 1, T), k)
 
+        μx0 = zeros(k*n_β)
+
         if intercept == "switching"
             μ_em = kmeans_res.centers'
-        elseif intercept == "non-switching"
+            μx0[1:n_β:n_β*k] .= μ_em[:] 
+        else 
             μ_em = [mean(x[:,1]) for _ in 1:k]
-        else
-            μ_em = [0 for _ in 1:k]
+            μx0[1:n_β:n_β*k] .= μ_em[:]
         end
 
         σ_em = [std(x[kmeans_res.assignments .== i, 1]) for i in 1:k]
@@ -115,10 +141,6 @@ function MSModel(y::Vector{Float64},
         pmat_em       = pmat_em[1:k-1, :] .* sum(pmat_em[1:k-1, :] .+ 1, dims=1) 
         p_em          = vec(pmat_em)
 
-        μx0 = zeros(k*(size(x)[2]-1))
-        μx0[1:n_β:n_β*k] .= μ_em[:] # kmeans centers are intercepts of the state equation  
-        # μ_em = [μ_em[:][i] for i in 1:k for _ in 1:n_β] # alternatively: kmeans center is repeated n_β times
-
         x0 = [σ_em.^2; μx0; zeros(n_β_ns); p_em]
         #x0 = [repeat([std(x[:,1])], k).^2; repeat([mean(x[:,1])], k*(size(x)[2]-1)); repeat([0.5],(k-1)*k)]
     end
@@ -129,7 +151,7 @@ function MSModel(y::Vector{Float64},
     σ, β, P = trans_θ(θ_hat, k, n_β, n_β_ns)
     rawP = θ_hat[(k + k*n_β + n_β_ns + 1):end]
 
-    return MSM(β, σ, P, rawP, k, 0, x, T, -minf)
+    return MSM(β, σ, P, rawP, k, n_β, n_β_ns, x, T, -minf)
 end
 
 function filtered_probs(msm_model::MSM, x::Matrix{Float64}=Matrix{Float64}(undef, 0, 0))
