@@ -116,7 +116,7 @@ function MSModel(y::Vector{Float64},
         pmat_em       = pmat_em[1:k-1, :] .* sum(pmat_em[1:k-1, :] .+ 1, dims=1) 
         p_em          = vec(pmat_em)
 
-        x0 = [σ_em.^2; μ_em; zeros(n_β); zeros(n_β_ns); p_em]
+        x0 = [σ_em.^2; μ_em; zeros(n_β*k); zeros(n_β_ns); p_em]
         #x0 = [repeat([std(x[:,1])], k).^2; repeat([mean(x[:,1])], k*(size(x)[2]-1)); repeat([0.5],(k-1)*k)]
     end
     
