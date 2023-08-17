@@ -12,25 +12,13 @@ struct MSM
     Likelihood::Float64
 end
 
-mutable struct MSMparams
-    β::Vector{Vector{Float64}} # β[state][i] vector of β for each state
-    σ::Vector{Float64}         
-    P::Matrix{Float64}         # transition matrix
-    rawP::Vector{Float64}      # raw probabilites vector before [P 1] / sum(P) transformation
-    k::Int64                   
-    n_β::Int64                 # number of β parameters
-    n_β_ns::Int64              # number of non-switching β parameters
-    intercept::String
-
-end
-
 
 function loglik(θ::Vector{Float64}, 
                 X::Matrix{Float64}, 
                 k::Int64,
                 n_β::Int64,
                 n_β_ns::Int64,
-                intercept::String = "switching", # or "non-switching"
+                intercept::String,
                 logsum::Bool=true)
 
     T      = size(X)[1]
@@ -38,7 +26,7 @@ function loglik(θ::Vector{Float64},
     L      = zeros(T)     # likelihood 
     ξ_next = zeros(k)     # unconditional transition probabilities at t+1
 
-    σ, β, P = trans_θ(θ, k, n_β, n_β_ns)
+    σ, β, P = trans_θ(θ, k, n_β, n_β_ns, intercept)
 
     #initial guess for the unconditional probabilities
     A = [I - P; ones(k)']
@@ -47,7 +35,7 @@ function loglik(θ::Vector{Float64},
     ξ_0 = !isapprox(det(A'A), 0) ? (inv(A'A)*A')[:,end] : ones(k) ./ k
 
     # f(y | S_t, x, θ, Ψ_t-1) density function 
-    η = reduce(hcat, [pdf.(Normal.(view(X, :,2:n_β+1)*β[i], σ[i]), view(X, :,1)) for i in 1:k])
+    η = reduce(hcat, [pdf.(Normal.(view(X, :,2:n_β+n_β_ns+2)*β[i], σ[i]), view(X, :,1)) for i in 1:k])
 
     @inbounds for t in 1:T
         ξ[t,:] = t == 1 ? ξ_0 : view(ξ, t-1, :)
@@ -60,13 +48,13 @@ function loglik(θ::Vector{Float64},
     return (logsum ? sum(log.(L)) : L ), ξ #sum(log.(L)), ξ
 end
 
-function obj_func(θ, fΔ, x, k, n_β, n_β_ns, intercept)
+function obj_func(θ, fΔ, x, k, n_β, n_β_ns, intercept)  
     
     if length(fΔ) > 0
-        fΔ[1:length(θ)] .= FiniteDiff.finite_difference_gradient(θ -> -loglik(θ, x, k, n_β, n_β_ns)[1], θ)
+        fΔ[1:length(θ)] .= FiniteDiff.finite_difference_gradient(θ -> -loglik(θ, x, k, n_β, n_β_ns, intercept)[1], θ)
     end
 
-    return -loglik(θ, x, k, n_β, n_β_ns)[1]
+    return -loglik(θ, x, k, n_β, n_β_ns, intercept)[1]
 end
 
 function MSModel(y::Vector{Float64},
@@ -83,8 +71,9 @@ function MSModel(y::Vector{Float64},
     x   = intercept == "no" ? reshape(y, T, 1) : [y ones(T)]
 
     # number of β parameters without intercept
-    n_β_ns = size(exog_vars)[2]                 # non-switching number of β
-    n_β = size(exog_switching_vars)[2]          # switching number of β
+    n_β_ns      = size(exog_vars)[2]                 # non-switching number of β
+    n_β         = size(exog_switching_vars)[2]          # switching number of β
+    n_intercept = intercept == "switching" ? k : 1
 
     if !isempty(exog_vars)
         @assert size(y)[1] == size(exog_vars)[1] "Number of observations is not the same between y and exog_vars"
@@ -97,7 +86,7 @@ function MSModel(y::Vector{Float64},
     end
     
     # also: LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX
-    n_intercept       = intercept == "switching" ? k : 1
+    
     opt               = Opt(algorithm, k + n_β_ns + k*n_β + n_intercept + (k-1)*k) 
     opt.lower_bounds  = [repeat([10e-10], k); repeat([-Inf], k*n_β + n_β_ns + n_intercept); repeat([10e-10], (k-1)*k)]
     opt.xtol_rel      = 0
@@ -107,14 +96,12 @@ function MSModel(y::Vector{Float64},
         
         kmeans_res = kmeans(reshape(x[:,1], 1, T), k)
 
-        μx0 = zeros(k*n_β)
-
         if intercept == "switching"
-            μ_em = kmeans_res.centers'
-            μx0[1:n_β:n_β*k] .= μ_em[:] 
+            μ_em = kmeans_res.centers'[:]
+            #μx0[1:n_β:n_β*k] .= μ_em[:] 
         else 
-            μ_em = [mean(x[:,1]) for _ in 1:k]
-            μx0[1:n_β:n_β*k] .= μ_em[:]
+            μ_em = mean(x[:,1])
+            #μx0[1:n_β:n_β*k] .= μ_em[:]
         end
 
         σ_em = [std(x[kmeans_res.assignments .== i, 1]) for i in 1:k]
@@ -129,16 +116,16 @@ function MSModel(y::Vector{Float64},
         pmat_em       = pmat_em[1:k-1, :] .* sum(pmat_em[1:k-1, :] .+ 1, dims=1) 
         p_em          = vec(pmat_em)
 
-        x0 = [σ_em.^2; μx0; zeros(n_β_ns); p_em]
+        x0 = [σ_em.^2; μ_em; zeros(n_β); zeros(n_β_ns); p_em]
         #x0 = [repeat([std(x[:,1])], k).^2; repeat([mean(x[:,1])], k*(size(x)[2]-1)); repeat([0.5],(k-1)*k)]
     end
     
     (minf,θ_hat,ret) = NLopt.optimize(opt, x0)
     
     println(ret)
-    σ, β, P = trans_θ(θ_hat, k, n_β, n_β_ns)
-    rawP = θ_hat[(k + k*n_β + n_β_ns + 1):end]
-
+    σ, β, P = trans_θ(θ_hat, k, n_β, n_β_ns, intercept)
+    rawP = θ_hat[(k + n_intercept + k*n_β + n_β_ns + 1):end]
+    
     return MSM(β, σ, P, rawP, k, n_β, n_β_ns, x, T, -minf)
 end
 

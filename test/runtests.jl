@@ -58,6 +58,38 @@ end
 
 end
 
+@testset "parameter transformation" begin
+    
+    k = collect(2:5)
+    n_β = collect(0:5)
+    n_β_ns = collect(0:5)
+    intercept = ["switching", "non-switching"]
+
+    using Distributions
+
+
+    for k_i in k
+        for n_β_i in n_β 
+            for n_β_ns_i in n_β_ns
+                for int in intercept 
+                    
+                    n_int = int == "switching" ? k_i : 1
+                    θ = [rand(k_i); rand(Uniform(-5, 5), n_int); rand(Uniform(-5, 5), n_β_i*k_i); rand(Uniform(-5, 5), n_β_ns_i); rand(k_i*(k_i-1))] 
+                    σ, β, P = trans_θ(θ, k_i, n_β_i, n_β_ns_i, int)
+                    println("k: $k_i, n_β: $n_β_i, n_β_ns: $n_β_ns_i, intercept: $int")
+
+                    @test size(σ)[1] == k_i
+                    @test size(σ)[1] == k_i
+                    @test size(β)[1] == k_i
+                    @test size(β[1])[1] == n_β_i+ 1 + n_β_ns_i
+                    @test size(P)[1] == k_i
+
+                end
+            end
+        end
+    end
+end
+
 @testset "Less crucial functions" begin
     @test add_lags([1.0,2.0,3.0,4.0], 1) == [2.0 1.0; 3.0 2.0; 4.0 3.0]
 end
