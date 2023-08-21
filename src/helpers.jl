@@ -62,7 +62,7 @@ function add_lags(y::Vector{Float64}, p::Int64)
 
     return x
 end
-
+##
 
 # the parameters structure is as follows:
 
