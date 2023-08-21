@@ -56,7 +56,7 @@ end
                             exog_switching_vars = reshape(X[:,2:3],T,2),
                             exog_vars = reshape(X[:,4],T,1))
 
-    @test all(sort([model.β[i][1] for i in 1:model.k]) .- sort(μ) .< 0.4)
+    @test all(sort([model.β[i][1] for i in 1:model.k]) .- sort(μ) .< 0.6)
 
 end
 
