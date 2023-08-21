@@ -3,13 +3,14 @@ struct MSM
     β::Vector{Vector{Float64}} # β[state][i] vector of β for each state
     σ::Vector{Float64}         
     P::Matrix{Float64}         # transition matrix
-    rawP::Vector{Float64}      # raw probabilites vector before [P 1] / sum(P) transformation
     k::Int64                   
     n_β::Int64                 # number of β parameters
     n_β_ns::Int64              # number of non-switching β parameters
+    intercept::String          # "switching" or "non-switching"
     x::Matrix{Float64}         # data matrix
     T::Int64    
     Likelihood::Float64
+    raw_params::Vector{Float64}
 end
 
 
@@ -75,14 +76,14 @@ function MSModel(y::Vector{Float64},
     n_β         = size(exog_switching_vars)[2]          # switching number of β
     n_intercept = intercept == "switching" ? k : 1
 
-    if !isempty(exog_vars)
-        @assert size(y)[1] == size(exog_vars)[1] "Number of observations is not the same between y and exog_vars"
-        x = [x exog_vars]
-    end
-
     if !isempty(exog_switching_vars)
         @assert size(y)[1] == size(exog_switching_vars)[1] "Number of observations is not the same between y and exog_switching_vars"
         x = [x exog_switching_vars]
+    end
+
+    if !isempty(exog_vars)
+        @assert size(y)[1] == size(exog_vars)[1] "Number of observations is not the same between y and exog_vars"
+        x = [x exog_vars]
     end
     
     # also: LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX
@@ -124,33 +125,45 @@ function MSModel(y::Vector{Float64},
     
     println(ret)
     σ, β, P = trans_θ(θ_hat, k, n_β, n_β_ns, intercept)
-    rawP = θ_hat[(k + n_intercept + k*n_β + n_β_ns + 1):end]
     
-    return MSM(β, σ, P, rawP, k, n_β, n_β_ns, x, T, -minf)
+    return MSM(β, σ, P, k, n_β, n_β_ns,intercept, x, T, -minf, θ_hat)
 end
 
-function filtered_probs(msm_model::MSM, x::Matrix{Float64}=Matrix{Float64}(undef, 0, 0))
+function filtered_probs(msm_model::MSM, 
+                        y::Vector{Float64} = Vector{Float64}(undef, 0),
+                        exog_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
+                        exog_switching_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
+                        )
     
-    if isempty(x)
+    if isempty(exog_vars) & isempty(exog_switching_vars) & isempty(y)
         x = msm_model.x
     end
 
-    θ_hat = [msm_model.σ; vcat(msm_model.β...); vec(msm_model.rawP)]
-    ξ     = loglik(θ_hat, x, msm_model.k)[2]
+    ξ = loglik(msm_model.raw_params, 
+                x, 
+                model.k, 
+                model.n_β, 
+                model.n_β_ns, 
+                model.intercept)[2]
 
     return ξ
 end
 
-function smoothed_probs(msm_model::MSM, x::Matrix{Float64}=Matrix{Float64}(undef, 0, 0))
+function smoothed_probs(msm_model::MSM, 
+                        y::Vector{Float64} = Vector{Float64}(undef, 0),
+                        exog_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
+                        exog_switching_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
+    )
     
-    if isempty(x)
-        x = msm_model.x
+    if isempty(exog_vars) & isempty(exog_switching_vars) & isempty(y)
+        ξ = filtered_probs(msm_model, x)
+    else
+        ξ = filtered_probs(msm_model, y, exog_vars, exog_switching_vars)   
     end
     
     T = msm_model.T
     P = msm_model.P
 
-    ξ        = filtered_probs(msm_model, x)
     ξ_T      = zeros(size(ξ))
     ξ_T[T,:] = ξ[T, :]
 
