@@ -126,7 +126,7 @@ function MSModel(y::Vector{Float64},
     println(ret)
     σ, β, P = trans_θ(θ_hat, k, n_β, n_β_ns, intercept)
     
-    return MSM(β, σ, P, k, n_β, n_β_ns,intercept, x, T, -minf, θ_hat)
+    return MSM(β, σ, P, k, n_β, n_β_ns, intercept, x, T, -minf, θ_hat)
 end
 
 function filtered_probs(msm_model::MSM, 
@@ -141,10 +141,10 @@ function filtered_probs(msm_model::MSM,
 
     ξ = loglik(msm_model.raw_params, 
                 x, 
-                model.k, 
-                model.n_β, 
-                model.n_β_ns, 
-                model.intercept)[2]
+                msm_model.k, 
+                msm_model.n_β, 
+                msm_model.n_β_ns, 
+                msm_model.intercept)[2]
 
     return ξ
 end
@@ -156,7 +156,7 @@ function smoothed_probs(msm_model::MSM,
     )
     
     if isempty(exog_vars) & isempty(exog_switching_vars) & isempty(y)
-        ξ = filtered_probs(msm_model, x)
+        ξ = filtered_probs(msm_model)
     else
         ξ = filtered_probs(msm_model, y, exog_vars, exog_switching_vars)   
     end

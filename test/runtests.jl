@@ -2,28 +2,31 @@ using MARS
 using Test
 
 @testset "minimal test" begin
-    # Write your tests here.
-    @test generate_mars([1.0,2.0], [0.1, 0.5], [0.8 0.1; 0.2 0.9], 20, 0)[1] isa Vector{Float64}
-    @test size(generate_mars([1.0,2.0], [0.1, 0.5], [0.8 0.1; 0.2 0.9], 20, 0)[1])[1] == 20
 
     k = 3
-    p = 0
-    μ = [1.0, -0.5, 2.0] 
-    σ = [0.8,  1.5, 0.5] 
-    P = [0.7 0.2; 0.3 0.8]
-    P = [0.7 0.15 0.2; 0.2 0.75 0.15; 0.1 0.1 0.65] #[0.8 0.1; 0.2 0.9]  #
-    T = 100
-    
-    X, s_t = generate_mars(μ, σ, P, T+p, 10)
+    μ = [1.0, -0.5, 0.12] 
+    β = Vector{Float64}([-1.5, 0.9, 0.0, 0.6, -1.8, 0.45])
+    β_ns = Vector{Float64}([0.3333])
+    σ = [0.4,  0.8, 0.2] 
+    #P = [0.7 0.2; 0.3 0.8]
+    P = [0.8 0.05 0.2; 0.1 0.85 0.05; 0.1 0.1 0.75]
+    T = 1000
 
-    model = MSModel(X,k, p) 
+    y, _, X = generate_mars(μ, β, β_ns, σ, P, T, 0)
+
+    @test X isa Matrix{Float64}
+    @test y isa Vector{Float64}
+    @test size(X)[1] == T
+
+    model = MSModel(y, k, intercept = "switching", 
+                        exog_switching_vars = reshape(X[:,2:3],T,2),
+                        exog_vars = reshape(X[:,4],T,1))
 
     @test model.x isa Matrix{Float64}
     @test model.P isa Matrix{Float64}
     @test model.β isa Vector{Vector{Float64}}
     @test !isnan(model.Likelihood) && (model.Likelihood != Inf)
     @test model.σ isa Vector{Float64}
-    @test model.rawP isa Vector{Float64}
 
     @test get_std_errors(model) isa Vector{Float64}
     @test expected_duration(model) isa Vector{Float64}
@@ -33,28 +36,35 @@ using Test
 
 end
 
-@testset "3 state model" begin
+@testset "3 state model every exogenous vars" begin
+
     k = 3
-    p = 0
-    μ = [1.0, -0.5, 2.0] 
-    σ = [0.2,  0.4, 0.2] 
-    P = [0.7 0.2; 0.3 0.8]
-    P = [0.8 0.05 0.2; 0.1 0.85 0.05; 0.1 0.1 0.75]
+    μ = [1.0, -0.5, 0.12] 
+    β = Vector{Float64}([-1.5, 0.9, 0.0, 0.6, -1.8, 0.45])
+    β_ns = Vector{Float64}([0.3333])
+    σ = [0.4,  0.5, 0.2] 
+    #P = [0.7 0.2; 0.3 0.8]
+    P = [0.9 0.05 0.1; 0.05 0.85 0.05; 0.05 0.1 0.85]
     T = 1000
-    
-    X, s_t = generate_mars(μ, σ, P, T+p, 10)
 
-    model = MSModel(X,k, p) 
+    θ = [σ; μ; β; β_ns; vec(P[1,:]) .*10]
 
-    for i in 1:k 
-        @test (sort(vcat(model.β...)) .- sort(μ))[1] < 0.4
-    end
+    y, s_t, X = generate_mars(μ, β, β_ns, σ, P, T, 0)
+
+
+    model = MSModel(y, k, intercept = "switching", 
+                            exog_switching_vars = reshape(X[:,2:3],T,2),
+                            exog_vars = reshape(X[:,4],T,1))
+
+    @test all(sort([model.β[i][1] for i in 1:model.k]) .- sort(μ) .< 0.4)
 
     @test all(isreal.(model.P))
     @test all(model.P .>= 0)
     @test all(model.P .<= 1)
-    @test all(sum(model.P, dims=1) .== 1)
+    @test isapprox(sum(model.P, dims=1), ones(1,3))
     @test all(expected_duration(model) .> 0)
+    @test size(filtered_probs(model)) == (T, k)
+    @test size(smoothed_probs(model)) == (T, k)
 
 end
 

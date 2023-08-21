@@ -1,8 +1,13 @@
 
 
 function get_std_errors(model::MSM)
-    θ = [sqrt.(model.σ); vcat(model.β...); vec(model.rawP)] # estimated params
-    H = FiniteDiff.finite_difference_hessian(θ -> loglik(θ, model.x, model.k)[1], θ) # hessian
+
+    H = FiniteDiff.finite_difference_hessian(θ -> loglik(θ,
+                                                         model.x, 
+                                                         model.k,
+                                                         model.n_β,
+                                                         model.n_β_ns,
+                                                         model.intercept)[1], model.raw_params) # hessian
 
     return sqrt.(abs.(diag(pinv(-H))))
 end
@@ -20,7 +25,7 @@ function state_coeftable(model::MSM, state::Int64; digits::Int64=3)
         std_err    = my_round.(std_err)
         z          = my_round.(coef / std_err)
         pr         = 1-cdf(Chi(1), abs(z))
-        pr         = pr < 0.1^(digits) ? "< 1e-$digits" : round.(pr)
+        pr         = pr < 0.1^(digits) ? "< 1e-$digits" : my_round.(pr)
 
         return coef, std_err, z, pr
     end
@@ -35,12 +40,16 @@ function state_coeftable(model::MSM, state::Int64; digits::Int64=3)
     @printf "Coefficient  |  Estimate  |  Std. Error  |  z value  |  Pr(>|z|) \n"
     @printf "-------------------------------------------------------------------\n"
 
-    V_σ, V_β, _ = vec2param(get_std_errors(model), model.k, size(model.x)[2]-1)
+    if model.intercept == "switching"
+        V_σ, V_β, _ = vec2param_switch(get_std_errors(model), model.k, model.n_β, model.n_β_ns)
+    else
+        V_σ, V_β, _ = vec2param_nonswitch(get_std_errors(model), model.k, model.n_β, model.n_β_ns)
+    end
 
     # β statistics
     for i in 1:length(model.β[state])
         estimate, std_err, z, pr = coef_clean(model.β[state][i], V_β[state][i])
-        @printf "%0s%11s%13s%15s%12s%12s\n" "β_$i" "|" "$estimate  |" "$std_err  |" "$z  |" "$pr  "
+        @printf "%0s%11s%13s%15s%12s%12s\n" "β_$(i-1)" "|" "$estimate  |" "$std_err  |" "$z  |" "$pr  "
     end
     
     # σ statistics
