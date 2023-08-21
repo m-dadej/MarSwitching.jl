@@ -1,4 +1,4 @@
-module MARS
+module Mars
 
 using Distributions
 using LinearAlgebra
