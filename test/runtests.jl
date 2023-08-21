@@ -1,4 +1,4 @@
-using MARS
+using Mars
 using Test
 
 @testset "minimal test" begin
