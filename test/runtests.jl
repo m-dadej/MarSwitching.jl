@@ -40,24 +40,38 @@ end
     
     k = 3
     μ = [1.0, -0.5, 0.12] 
-    β = Vector{Float64}([-1.5, 0.9, 0.0, 0.6, -1.8, 0.45])
-    β_ns = Vector{Float64}([0.3333])
+    β = Vector{Float64}([-1.5, 0.9, 0.0])
+    β_ns = Vector{Float64}([])
     σ = [0.4,  0.5, 0.2] 
-    #P = [0.7 0.2; 0.3 0.8]
     P = [0.9 0.05 0.1; 0.05 0.85 0.05; 0.05 0.1 0.85]
     T = 1000
-
-    θ = [σ; μ; β; β_ns; vec(P[1,:]) .*10]
 
     y, s_t, X = generate_mars(μ, β, β_ns, σ, P, T, 0)
 
 
     model = MSModel(y, k, intercept = "switching", 
-                            exog_switching_vars = reshape(X[:,2:3],T,2),
-                            exog_vars = reshape(X[:,4],T,1))
+                            exog_switching_vars = reshape(X[:,2],T,1))
 
-    @test all(sort([model.β[i][1] for i in 1:model.k]) .- sort(μ) .< 0.6)
+    @test all(sort([model.β[i][1] for i in 1:model.k]) .- sort(μ) .< 0.3)
+    @test all(sort([model.β[i][2] for i in 1:model.k]) .- sort(β) .< 0.3)
 
+end
+
+@testset "stochastic component - only non-s exogenous" begin
+    k = 3
+    μ = [1.0, -0.5, 0.12] 
+    β = Vector{Float64}([])
+    β_ns = Vector{Float64}([0.633])
+    σ = [1.7,  0.8, 0.9] 
+    P = [0.9 0.05 0.1; 0.05 0.85 0.05; 0.05 0.1 0.85]
+    T = 1000
+
+    y, s_t, X = generate_mars(μ, β, β_ns, σ, P, T, 0)
+
+    model = MSModel(y, k, intercept = "switching", 
+                            exog_vars = reshape(X[:,2],T,1))
+
+    @test (model.β[1][2] .- β_ns[1]) < 0.3
 end
 
 @testset "3 state model every exogenous vars" begin

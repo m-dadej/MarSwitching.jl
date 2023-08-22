@@ -64,7 +64,8 @@ function MSModel(y::Vector{Float64},
                  exog_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
                  exog_switching_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
                  x0::Vector{Float64} = Vector{Float64}(undef, 0),
-                 algorithm::Symbol = :LN_SBPLX)
+                 algorithm::Symbol = :LN_SBPLX,
+                 maxtime::Int64 = -1)
 
     @assert k >= 0 "Amount of states shoould not be negative"
 
@@ -91,6 +92,7 @@ function MSModel(y::Vector{Float64},
     opt               = Opt(algorithm, k + n_β_ns + k*n_β + n_intercept + (k-1)*k) 
     opt.lower_bounds  = [repeat([10e-10], k); repeat([-Inf], k*n_β + n_β_ns + n_intercept); repeat([10e-10], (k-1)*k)]
     opt.xtol_rel      = 0
+    opt.maxtime       = maxtime < 0 ? T/2 : maxtime
     opt.min_objective = (θ, fΔ) -> obj_func(θ, fΔ, x, k, n_β, n_β_ns, intercept)
     
     if isempty(x0)
