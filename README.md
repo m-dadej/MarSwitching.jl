@@ -24,14 +24,19 @@ Pkg.add("https://github.com/m-dadej/Mars.jl")
 Following example will estimate a simple Markov switching model with the form:
 
 ```math
-\begin{align}
-y_t = \mu_s + \beta_s x_t + \epsilon_t, & \epsilon \sim f(0, \mathcal{\Sigma}) 
-\end{align}
+\begin{align*}
+    y_t &= \mu_s + \beta_s x_t + \epsilon_t, & \epsilon &\sim \mathbb{N}(0,\mathcal{\Sigma}) \\
+\end{align*}
 ```
-
-$$y_t = \mu_s + \beta_s x_t + \epsilon_s,  $$
 Where,
-$$$$
+```math
+\begin{equation*}
+    P(S_t = i | S_{t-1} = j) = \begin{bmatrix}
+        p_1 & 1 - p_2\\
+        1 - p_1 & p_2
+        \end{bmatrix}
+\end{equation*}
+```
 
 ```julia
 using Mars
@@ -101,11 +106,11 @@ plot(smoothed_probs(model),
      title = "Transition Probabilities")
 
 ```     
-![Plot](img/transitino_probs.png)
+![Plot](img/transitino_probs.scg)
 
 ```julia
 plot([smoothed_probs(model)[:,2] s_t.-1],
      label=["Regime 1" "Regime 2"],
      title = "Transition Probabilities")
 ```
- ![Plot](img/actual_probs.png)
+ ![Plot](img/actual_probs.svg)
