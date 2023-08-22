@@ -241,7 +241,7 @@ generate_mars(μ::Vector{Float64},    # vector of intercepts for each state
               β_ns::Vector{Float64}) # vector of non-switching coefficients
 ```
 
-The function returns a tuple of 3 elements:
+The function returns a tuple of 3 elements, respectively:
 - `y`: vector of dependent variables
 - `s_t`: vector of states
 - `X`: matrix of exogenous variables (generated from standard normal distribution)
