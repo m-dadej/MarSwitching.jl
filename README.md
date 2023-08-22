@@ -43,7 +43,7 @@ Pkg.add("https://github.com/m-dadej/Mars.jl")
     - time-varying transition probabilites (Filardo 1994)
     - Markov Switching GARCH model
     - Markov Switching VAR model
-    - Markov Switching model with lagged states. E.g. $y_t = \mu_{S_t} + \phi(y_{t-1} - \mu_{S_{t-1}})$)
+    - Markov Switching model with lagged states. E.g. $y_t = \mu_{S_t} + \phi(y_{t-1} - \mu_{S_{t-1}})$
     
 
 
