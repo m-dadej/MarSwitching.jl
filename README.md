@@ -42,7 +42,9 @@ Satisfying standard markovian properties. The general model is defined as follow
 \end{align*}
 ```
 
-Where $\mathbf{y}_t$ is vector of dependent variables, $\mathbf{\mu}_s$ and $\mathbf{\beta}_s$ are model parameters dependent on the state $S_t$, $\mathbf{\delta}$ is a vector of parameters for exogenous variables. The error is distributed according to distribution $f$ with state dependent covariance matrix $\mathcal{\Sigma}_s$.
+Where $\mathbf{y}_t$ is vector of dependent variables, $\mathbf{\mu}_s$ and $\mathbf{\beta}_s$ are model parameters dependent on the state $S_t$, $\mathbf{\delta}$ is a vector of parameters for exogenous variables. The error is distributed according to some distribution $f$ with state dependent covariance matrix $\mathcal{\Sigma}_s$. 
+
+Because of the unobserved nature of the state, the model is estimated by maximum likelihood. The likelihood function is calculated using the method described in Hamilton, 1989.
 
 ## Functionality 
 
@@ -160,17 +162,73 @@ plot(smoothed_probs(model),
      label=["Regime 1" "Regime 2"],
      title = "Smoothed transition robabilities", 
      linewidth=2)
-
 ```     
 ![Plot](img/transition_probs.svg)
 
 ```julia
 plot([smoothed_probs(model)[:,2] s_t.-1],
-     label=["Regime 1" "Regime 2"],
+     label=["Regime 1" "Actual Regime"],
      title = "Smoothed transition robabilities",
-     linewidth=2) 
+     linewidth=2)  
 ```
  ![Plot](img/actual_probs.svg)
+
+## Functions
+
+The function for estimating the markov switching model is: 
+
+```julia
+MSModel(y::Vector{Float64},                     # vector of dependent variable
+        k::Int64,                               # number of regimes
+        ;intercept::String,                     # "switching" (default) or "non-switching" intercept
+        exog_vars::Matrix{Float64}              # optional matrix of exogenous variables
+        exog_switching_vars::Matrix{Float64},   # optional matrix of exogenous variables with regime switching
+        x0::Vector{Float64},                    # optional initial values of parameters for optimization
+        algorithm::Symbol,                      # optional algorithm for NLopt.jl
+        maxtime::Int64)                         # optional maximum time for optimization
+        
+
+```
+The function returns `MSM` type object:
+
+```julia
+struct MSM 
+    β::Vector{Vector{Float64}}  # β[state][i] vector of β for each state
+    σ::Vector{Float64}          # error variance
+    P::Matrix{Float64}          # transition matrix
+    k::Int64                    # number of regimes
+    n_β::Int64                  # number of β parameters
+    n_β_ns::Int64               # number of non-switching β parameters
+    intercept::String           # "switching" or "non-switching"
+    x::Matrix{Float64}          # data matrix
+    T::Int64                    # number of observations
+    Likelihood::Float64         # log-likelihood
+    raw_params::Vector{Float64} # vector of parameters for optimization
+end
+```  
+Filtered transition probabilites can be calculated from estimated model:
+
+```julia
+filtered_probs(msm_model::MSM,                       # estimated model
+               y::Vector{Float64},                   # optional vector of dependent variables
+               exog_vars::Matrix{Float64}            # optional matrix of exogenous variables
+               exog_switching_vars::Matrix{Float64}) # optional matrix of exogenous variables with regime switching
+                
+```
+
+Similarily, smoothed transition probabilites can be also calculated from estimated model:
+
+```julia
+smoothed_probs(msm_model::MSM,                       # estimated model
+               y::Vector{Float64},                   # optional vector of dependent variables
+               exog_vars::Matrix{Float64}            # optional matrix of exogenous variables
+               exog_switching_vars::Matrix{Float64}) # optional matrix of exogenous variables with regime switching
+```
+
+The `summary_mars(model::MSM; digits::Int64=3)` function outputs a summary table that is built from 2 functions: 
+- `transition_mat(model::MSM; digits::Int64=2)` - prints transition matrix
+- `state_coeftable(model::MSM, state::Int64; digits::Int64=3)` - prints coefficient table for given state
+
 
 ## References
 
