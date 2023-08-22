@@ -38,12 +38,11 @@ Satisfying standard markovian properties. The general model is defined as follow
 
 ```math
 \begin{align*}
-\mathbf{y}_t &= \mathbf{\mu}_S + \mathbf{\beta}_{S}' \mathbf{X}_t + \mathbf{\delta}'\mathbf{Z}_t + \mathbf{\epsilon}_t
- + \mathbf{\epsilon} & \sim f(0,\mathcal{\Sigma}_s)\\
+\mathbf{y}_t &= \mathbf{\mu}_S + \mathbf{\beta}_{S}' \mathbf{X}_t + \mathbf{\delta}'\mathbf{Z}_t + \mathbf{\epsilon}_t, & \mathbf{\epsilon} \sim f(0,\mathcal{\Sigma}_s)\\
 \end{align*}
 ```
 
-Where $\mathbf{y}_t$ is vector of dependent variables, $\mathbf{\mu}_S$ and $\mathbf{\beta}_{S}$ are model parameters dependent on the state $S_t$, $\mathbf{\delta}$ is a vector of parameters for exogenous variables. The error is distributed according to distribution $f$ with state dependent covariance matrix $\mathcal{\Sigma}_s$.
+Where $\mathbf{y}_t$ is vector of dependent variables, $\mathbf{\mu}_s$ and $\mathbf{\beta}_s$ are model parameters dependent on the state $S_t$, $\mathbf{\delta}$ is a vector of parameters for exogenous variables. The error is distributed according to distribution $f$ with state dependent covariance matrix $\mathcal{\Sigma}_s$.
 
 ## Functionality 
 
