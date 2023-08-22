@@ -38,14 +38,12 @@ Satisfying standard markovian properties. The general model is defined as follow
 
 ```math
 \begin{align*}
-\mathbf{y} &= \mathbf{\mu}_S + \mathbf{\beta}_{S}' \mathbf{X}_t + \mathbf{\delta}'\mathbf{Z}_t + \mathbf{\epsilon}_t
- + \mathbf{\epsilon} & \sim \mathbb{f}(0,\mathcal{\Sigma}_s)\\
+\mathbf{y}_t &= \mathbf{\mu}_S + \mathbf{\beta}_{S}' \mathbf{X}_t + \mathbf{\delta}'\mathbf{Z}_t + \mathbf{\epsilon}_t
+ + \mathbf{\epsilon} & \sim f(0,\mathcal{\Sigma}_s)\\
 \end{align*}
 ```
-    
-where $\mathbf{y}$ is a $T \times 1$ vector of observations, $\mathbf{X}_t$ is a $T \times k$ matrix of exogenous variables, $\mathbf{Z}_t$ is a $T \times m$ matrix of lagged variables, $\mathbf{\mu}_S$ is a $T \times 1$ vector of intercepts, $\mathbf{\beta}_S$ is a $T \times k$ matrix of coefficients for exogenous variables, $\mathbf{\delta}$ is a $T \times m$ matrix of coefficients for lagged variables and $\mathbf{\epsilon}_t$ is a $T \times 1$ vector of errors. The errors are assumed to be independent and identically distributed with a distribution $\mathbb{f}$ with mean zero and covariance matrix $\mathcal{\Sigma}_s$ that depends on the state $S_t$.
 
-```math
+Where $\mathbf{y}_t$ is vector of dependent variables, $\mathbf{\mu}_S$ and $\mathbf{\beta}_{S}$ are model parameters dependent on the state $S_t$, $\mathbf{\delta}$ is a vector of parameters for exogenous variables. The error is distributed according to distribution $f$ with state dependent covariance matrix $\mathcal{\Sigma}_s$.
 
 ## Functionality 
 
