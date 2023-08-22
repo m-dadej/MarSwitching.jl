@@ -65,6 +65,7 @@ Because of the unobserved nature of the state, the model is estimated by maximum
 - Planned functionality:
     - in-sample and out-of-sample predict() function
     - non-switching variance
+    - simulating data from estimated model
     - other error distributions (t, skew-t, etc.)
     - variable and number of states selection
     - time-varying transition probabilites (Filardo 1994)
@@ -228,6 +229,24 @@ smoothed_probs(msm_model::MSM,                       # estimated model
 The `summary_mars(model::MSM; digits::Int64=3)` function outputs a summary table that is built from 2 functions: 
 - `transition_mat(model::MSM; digits::Int64=2)` - prints transition matrix
 - `state_coeftable(model::MSM, state::Int64; digits::Int64=3)` - prints coefficient table for given state
+
+It is also possible to simulate data from a given parameters
+
+```julia
+generate_mars(μ::Vector{Float64},    # vector of intercepts for each state
+              σ::Vector{Float64},    # vector of error variances for each state
+              P::Matrix{Float64},    # transition matrix
+              T::Int64;              # number of observations
+              β::Vector{Float64},    # vector of coefficients for each state
+              β_ns::Vector{Float64}) # vector of non-switching coefficients
+```
+
+The function returns a tuple of 3 elements:
+- `y`: vector of dependent variables
+- `s_t`: vector of states
+- `X`: matrix of exogenous variables (generated from standard normal distribution)
+
+Function `add_lags(y::Vector{Float64}, p::Int64)` adds `p` lags to the matrix of dependent variables. The function returns a matrix of dependent variables with `p` lags.
 
 
 ## References
