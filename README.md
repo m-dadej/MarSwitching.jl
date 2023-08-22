@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 
-Mars.jl is a package for estimating Markov switching dynamic models in Julia. The package is currently being developed, altough the basic functionality is already available. 
+Mars.jl is a package for estimating Markov switching dynamic models (also called regime switching) in Julia. The package is currently being developed, altough the basic functionality is already available. 
 
 Contact: Mateusz Dadej, m.dadej at unibs.it
 
@@ -18,6 +18,35 @@ Pkg.add("https://github.com/m-dadej/Mars.jl")
 # or
 ] add https://github.com/m-dadej/Mars.jl
 ```
+## Markov regime switching model in a nutshell
+
+The markov switching models are a class of models that allow for the parameters to change over time, depending on the unobservable state  like economic recession, high volatility on financial markets or epidemiologic outbreak. The state follows markov process with a given probability transition matrix for each of $k$ states:
+
+```math
+\begin{equation*}
+P(S_t = i | S_{t-1} = j) = 
+\begin{pmatrix}
+p_{1,1} & p_{1,2} & \cdots & p_{1,k} \\
+p_{2,1} & p_{2,2} & \cdots & p_{2,k} \\
+\vdots  & \vdots  & \ddots & \vdots  \\
+p_{k,1} & p_{k,2} & \cdots & p_{k,k} 
+\end{pmatrix}
+\end{equation*}
+```
+
+Satisfying standard markovian properties: $\sum_{i=1}^k p_{i,j} = 1$, $p_{i,j} \geq 0$ for $i,j = 1,2,\dots,k$ and $P(S_{t+1} | \{\tau\}^{t-1}_{\tau=1}) = P(S_{t+1} | \{S_{t-j}\}^{M-1}_{j=0})$.  The transition matrix is usually assumed (just like in this package) to be left-stochastic, i.e. $\sum_{j=1}^k p_{i,j} = 1$ for $i = 1,2,\dots,k$.
+
+The states determine the parameters of the model. With a following general form:
+
+```math
+\begin{align*}
+\mathbf{y} &= \mathbf{\mu}_S + \mathbf{\beta}_{S}' \mathbf{X}_t + \mathbf{\delta}'\mathbf{Z}_t + \mathbf{\epsilon}_t
+\begin{align} & \mathbf{\epsilon} &\sim \mathbb{f}(0,\mathcal{\Sigma}_s) \\
+```
+    
+where $\mathbf{y}$ is a $T \times 1$ vector of observations, $\mathbf{X}_t$ is a $T \times k$ matrix of exogenous variables, $\mathbf{Z}_t$ is a $T \times m$ matrix of lagged variables, $\mathbf{\mu}_S$ is a $T \times 1$ vector of intercepts, $\mathbf{\beta}_S$ is a $T \times k$ matrix of coefficients for exogenous variables, $\mathbf{\delta}$ is a $T \times m$ matrix of coefficients for lagged variables and $\mathbf{\epsilon}_t$ is a $T \times 1$ vector of errors. The errors are assumed to be independent and identically distributed with a distribution $\mathbb{f}$ with mean zero and covariance matrix $\mathcal{\Sigma}_s$ that depends on the state $S_t$.
+
+```math
 
 ## Functionality 
 
@@ -45,7 +74,7 @@ Pkg.add("https://github.com/m-dadej/Mars.jl")
     - Markov Switching VAR model
     - Markov Switching model with lagged states. E.g. $y_t = \mu_{S_t} + \phi(y_{t-1} - \mu_{S_{t-1}})$
     
-
+## 
 
 ## Example
 
