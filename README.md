@@ -19,9 +19,37 @@ Pkg.add("https://github.com/m-dadej/Mars.jl")
 ] add https://github.com/m-dadej/Mars.jl
 ```
 
+## Functionality 
+
+- Currently available:
+    - Markov switching model with $k$ regimes and:
+        - switching/non-switching intercept
+        - switching variance
+        - switching/non-sitching exogenous variables
+    - Filtered probabilites
+    - Smoothed probabilites (Kim, 1994)
+    - Summary statistics of coefficients
+    - expected regime duration
+    - Simulation of data from Markov switching model with:
+        - switching/non-switching intercept
+        - switching variance
+        - switching/non-switching exogenous variables
+    - Adding lagged variables to the matrix
+- Planned functionality:
+    - in-sample and out-of-sample predict() function
+    - non-switching variance
+    - other error distributions (t, skew-t, etc.)
+    - variable and number of states selection
+    - time-varying transition probabilites (Filardo 1994)
+    - Markov Switching GARCH model
+    - Markov Switching VAR model
+    - Markov Switching model with lagged states. E.g. $y_t = \mu_{S_t} + \phi(y_{t-1} - \mu_{S_{t-1}})$)
+    
+
+
 ## Example
 
-Following example will estimate a simple Markov switching model with regime dependent intercept,exogenous variable and variance. The model is defined as follows:
+Following example will estimate a simple Markov switching model with regime dependent intercept, exogenous variable and variance. The model is defined as follows:
 
 ```math
 \begin{align*}
@@ -98,19 +126,34 @@ left-stochastic transition matrix:
  regime 2 |    8.819%  |   96.501%  |
  ```
 
+The package also provides a function for filtered transition probabilites $P(S_t = i | \Psi_t)$, as well as smoothed ones (Kim, 1994) $P(S_t = i | \Psi_T)$. Essentially, the difference is that, in order to calculate the smoothed probabilites the whole sample is used.
+
 ```julia
 using Plots
 
-plot(smoothed_probs(model), 
+plot(smoothed_probs(model),
      label=["Regime 1" "Regime 2"],
-     title = "Transition Probabilities")
+     title = "Smoothed transition robabilities", 
+     linewidth=2)
 
 ```     
 ![Plot](img/transition_probs.svg)
 
 ```julia
 plot([smoothed_probs(model)[:,2] s_t.-1],
-     label=["Regime 2" "actual regime 2"],
-     title = "Regime 2 probabiluty vs. actual regime 2")
+     label=["Regime 1" "Regime 2"],
+     title = "Smoothed transition robabilities",
+     linewidth=2) 
 ```
  ![Plot](img/actual_probs.svg)
+
+## References
+
+- Hamilton, J. D. (1989). A new approach to the economic analysis of nonstationary time series and the business cycle. Econometrica: Journal of the Econometric Society, 357-384.
+
+- Kim, Chang Jin (1994). Dynamic Linear Models with Markov-Switching. Journal of
+Econometrics 60, 1-22.
+
+- Filardo, Andrew J. (1994). Business cycle phases and their transitional dynamics. Journal of Business & Economic Statistics, 12(3), 299-308.
+
+- Guidolin, Massimo & Pedio, Manuela (2018). Essentials of Time Series for Financial Applications. Academic Press.
