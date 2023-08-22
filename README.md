@@ -27,7 +27,8 @@ Following example will estimate a simple Markov switching model with regime depe
 \begin{align*}
     y_t &= \mu_s + \beta_s x_t + \epsilon_t, & \epsilon &\sim \mathbb{N}(0,\mathcal{\Sigma}_s) \\
 \end{align*}
-
+```
+```math
 \begin{equation*}
     P(S_t = i | S_{t-1} = j) = \begin{bmatrix}
         p_1 & 1 - p_2\\
