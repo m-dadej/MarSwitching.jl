@@ -1,4 +1,4 @@
-## MARS.jl: MARkov Switching models in Julia
+## Mars.jl: MARkov Switching models in Julia
 
 [![Build Status](https://github.com/m-dadej/MARS.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/m-dadej/MARS.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![Build Status](https://app.travis-ci.com/m-dadej/MARS.jl.svg?branch=main)](https://app.travis-ci.com/m-dadej/MARS.jl)
@@ -20,19 +20,31 @@ Pkg.add("https://github.com/m-dadej/Mars.jl")
 ```
 
 ## Example
+
+Following example will estimate a simple Markov switching model with the form:
+
+```math
+\begin{align}
+y_t = \mu_s + \beta_s x_t + \epsilon_t, & \epsilon \sim f(0, \mathcal{\Sigma}) 
+\end{align}
+```
+
+$$y_t = \mu_s + \beta_s x_t + \epsilon_s,  $$
+Where,
+$$$$
+
 ```julia
 using Mars
 
-k = 3                   # number of regimes
-T = 1000                # number of generated observations
-μ = [1.0, -0.5, 0.12]   # regime-switching intercepts
-β = [-1.5, 0.9, 0.0]    # regime-switching coefficient for β
-σ = [0.4,  0.5, 0.2]    # regime-switching standard deviation
-P = [0.9 0.05 0.1       # transition matrix (left-stochastic)
-     0.05 0.85 0.05
-     0.05 0.1 0.85]
+k = 2            # number of regimes
+T = 400          # number of generated observations
+μ = [1.0, -0.5]  # regime-switching intercepts
+β = [-1.5, 0.0]  # regime-switching coefficient for β
+σ = [1.1,  0.8]  # regime-switching standard deviation
+P = [0.9 0.05    # transition matrix (left-stochastic)
+     0.1 0.95]
 
-Random.seed!(1)
+Random.seed!(123)
 # generate artificial data with given parameters
 y, s_t, X = generate_mars(μ, σ, P, T, β = β) 
 
@@ -43,53 +55,57 @@ model = MSModel(y, k, intercept = "switching", exog_switching_vars = reshape(X[:
 summary_mars(model)
 ````
 
-The 'summary_mars(model)' will output following summary table:
+The `summary_mars(model)`  will output following summary table:
 
 ```jldoctest
-Markov Switching Model with 3 regimes
+Markov Switching Model with 2 regimes
 =====================================================
-# of observations:         1000 Loglikelihood:            -717.263 
-# of estimated parameters:   15  AIC                      1464.526 
-Error distribution:    Gaussian  BIC                      1538.142 
+# of observations:          400 Loglikelihood:            -576.692 
+# of estimated parameters:    8  AIC                      1169.384 
+Error distribution:    Gaussian  BIC                      1201.316 
 ------------------------------------------------------
 ------------------------------
-Summary of regime 1: 
+Summary of regime 1:
 ------------------------------
 Coefficient  |  Estimate  |  Std. Error  |  z value  |  Pr(>|z|)   
 -------------------------------------------------------------------
-β_0          |     0.107  |       0.013  |    8.231  |    < 1e-3  
-β_1          |    -0.014  |       0.013  |   -1.077  |     0.281   
-σ            |     0.197  |       0.011  |   17.909  |    < 1e-3   
+β_0          |     0.824  |       0.132  |    6.242  |    < 1e-3  
+β_1          |    -1.483  |        0.12  |  -12.358  |    < 1e-3   
+σ            |     1.124  |       0.046  |   24.435  |    < 1e-3   
 -------------------------------------------------------------------
-Expected regime duration: 7.18 periods
--------------------------------------------------------------------
-------------------------------
-Summary of regime 2: 
-------------------------------
-Coefficient  |  Estimate  |  Std. Error  |  z value  |  Pr(>|z|)   
--------------------------------------------------------------------
-β_0          |    -0.486  |       0.033  |  -14.727  |    < 1e-3  
-β_1          |     0.935  |       0.032  |   29.219  |    < 1e-3  
-σ            |     0.498  |       0.017  |   29.294  |    < 1e-3
--------------------------------------------------------------------
-Expected regime duration: 6.69 periods
+Expected regime duration: 11.34 periods
 -------------------------------------------------------------------
 ------------------------------
-Summary of regime 3:
+Summary of regime 2:
 ------------------------------
 Coefficient  |  Estimate  |  Std. Error  |  z value  |  Pr(>|z|)
 -------------------------------------------------------------------
-β_0          |       1.0  |        0.02  |     50.0  |    < 1e-3  
-β_1          |    -1.497  |       0.022  |  -68.045  |    < 1e-3  
-σ            |      0.41  |       0.011  |   37.273  |    < 1e-3
+β_0          |    -0.516  |       0.052  |   -9.923  |    < 1e-3  
+β_1          |    -0.003  |       0.051  |   -0.059  |     0.953  
+σ            |     0.843  |       0.022  |   38.318  |    < 1e-3
 -------------------------------------------------------------------
-Expected regime duration: 12.58 periods
+Expected regime duration: 28.58 periods
 -------------------------------------------------------------------
 left-stochastic transition matrix:
-          | regime 1   | regime 2   | regime 3
-----------------------------------------------------
- regime 1 |   86.064%  |    9.945%  |    2.519%  |
- regime 2 |    5.111%  |   85.046%  |     5.43%  |
- regime 3 |    8.825%  |    5.009%  |   92.051%  |
-
+          | regime 1   | regime 2
+---------------------------------------
+ regime 1 |   91.181%  |    3.499%  |
+ regime 2 |    8.819%  |   96.501%  |
  ```
+
+```julia
+using Plots
+
+plot(smoothed_probs(model), 
+     label=["Regime 1" "Regime 2"],
+     title = "Transition Probabilities")
+
+```     
+![Plot](img/transitino_probs.png)
+
+```julia
+plot([smoothed_probs(model)[:,2] s_t.-1],
+     label=["Regime 1" "Regime 2"],
+     title = "Transition Probabilities")
+```
+ ![Plot](img/actual_probs.png)
