@@ -12,7 +12,7 @@ using Test
     P = [0.8 0.05 0.2; 0.1 0.85 0.05; 0.1 0.1 0.75]
     T = 1000
 
-    y, _, X = generate_mars(μ, β, β_ns, σ, P, T, 0)
+    y, _, X = generate_mars(μ, σ, P, T, β = β, β_ns = β_ns)
 
     @test X isa Matrix{Float64}
     @test y isa Vector{Float64}
@@ -41,12 +41,11 @@ end
     k = 3
     μ = [1.0, -0.5, 0.12] 
     β = Vector{Float64}([-1.5, 0.9, 0.0])
-    β_ns = Vector{Float64}([])
     σ = [0.4,  0.5, 0.2] 
     P = [0.9 0.05 0.1; 0.05 0.85 0.05; 0.05 0.1 0.85]
     T = 1000
 
-    y, s_t, X = generate_mars(μ, β, β_ns, σ, P, T, 0)
+    y, s_t, X = generate_mars(μ, σ, P, T, β = β)
 
 
     model = MSModel(y, k, intercept = "switching", 
@@ -60,13 +59,12 @@ end
 @testset "stochastic component - only non-s exogenous" begin
     k = 3
     μ = [1.0, -0.5, 0.12] 
-    β = Vector{Float64}([])
     β_ns = Vector{Float64}([0.633])
     σ = [1.7,  0.8, 0.9] 
     P = [0.9 0.05 0.1; 0.05 0.85 0.05; 0.05 0.1 0.85]
     T = 1000
 
-    y, s_t, X = generate_mars(μ, β, β_ns, σ, P, T, 0)
+    y, s_t, X = generate_mars(μ, σ, P, T, β_ns = β_ns)
 
     model = MSModel(y, k, intercept = "switching", 
                             exog_vars = reshape(X[:,2],T,1))
@@ -85,9 +83,7 @@ end
     P = [0.9 0.05 0.1; 0.05 0.85 0.05; 0.05 0.1 0.85]
     T = 1000
 
-    θ = [σ; μ; β; β_ns; vec(P[1,:]) .*10]
-
-    y, s_t, X = generate_mars(μ, β, β_ns, σ, P, T, 0)
+    y, s_t, X = generate_mars(μ, σ, P, T, β = β, β_ns = β_ns)
 
 
     model = MSModel(y, k, intercept = "switching", 

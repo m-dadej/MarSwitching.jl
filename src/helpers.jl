@@ -1,17 +1,13 @@
 
 function generate_mars(μ::Vector{Float64},
-                       β::Vector{Float64},
-                       β_ns::Vector{Float64},
                        σ::Vector{Float64},
-                       P::Matrix{Float64}, 
-                       T::Int64,
-                       seed::Int64)
+                       P::Matrix{Float64},
+                       T::Int64;
+                       β::Vector{Float64} = Vector{Float64}([]),
+                       β_ns::Vector{Float64} = Vector{Float64}([])
+                       )
 
     @assert size(P)[2] == length(μ) == length(σ) "Number of states not equal among provided parameters."
-
-    if seed != 0 
-        Random.seed!(seed)   
-    end
 
     if size(P)[2] != size(P)[1]
         P = vcat(P, ones(1, size(P)[2]))
