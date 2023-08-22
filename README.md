@@ -1,4 +1,4 @@
-## Mars.jl: MARkov Switching models in Julia
+## Mars.jl: MARkov Switching dynamic models in Julia
 
 [![Build Status](https://github.com/m-dadej/MARS.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/m-dadej/MARS.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![Build Status](https://app.travis-ci.com/m-dadej/MARS.jl.svg?branch=main)](https://app.travis-ci.com/m-dadej/MARS.jl)
@@ -7,7 +7,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 
-Mars is a package for estimation of Markov switching dynamic models in Julia. The package is currently being developed, altough the basic functionality is already available. 
+Mars.jl is a package for estimating Markov switching dynamic models in Julia. The package is currently being developed, altough the basic functionality is already available. 
 
 Contact: Mateusz Dadej, m.dadej at unibs.it
 
@@ -21,15 +21,13 @@ Pkg.add("https://github.com/m-dadej/Mars.jl")
 
 ## Example
 
-Following example will estimate a simple Markov switching model with the form:
+Following example will estimate a simple Markov switching model with regime dependent intercept,exogenous variable and variance. The model is defined as follows:
 
 ```math
 \begin{align*}
-    y_t &= \mu_s + \beta_s x_t + \epsilon_t, & \epsilon &\sim \mathbb{N}(0,\mathcal{\Sigma}) \\
+    y_t &= \mu_s + \beta_s x_t + \epsilon_t, & \epsilon &\sim \mathbb{N}(0,\mathcal{\Sigma}_s) \\
 \end{align*}
-```
-Where,
-```math
+
 \begin{equation*}
     P(S_t = i | S_{t-1} = j) = \begin{bmatrix}
         p_1 & 1 - p_2\\
@@ -50,6 +48,7 @@ P = [0.9 0.05    # transition matrix (left-stochastic)
      0.1 0.95]
 
 Random.seed!(123)
+
 # generate artificial data with given parameters
 y, s_t, X = generate_mars(μ, σ, P, T, β = β) 
 
@@ -106,11 +105,11 @@ plot(smoothed_probs(model),
      title = "Transition Probabilities")
 
 ```     
-![Plot](img/transitino_probs.scg)
+![Plot](img/transition_probs.svg)
 
 ```julia
 plot([smoothed_probs(model)[:,2] s_t.-1],
-     label=["Regime 1" "Regime 2"],
-     title = "Transition Probabilities")
+     label=["Regime 2" "actual regime 2"],
+     title = "Regime 2 probabiluty vs. actual regime 2")
 ```
  ![Plot](img/actual_probs.svg)
