@@ -52,11 +52,11 @@ Because of the unobserved nature of the state, the model is estimated by maximum
     - Markov switching model with $k$ regimes and:
         - switching/non-switching intercept
         - switching variance
-        - switching/non-sitching exogenous variables
+        - switching/non-switching exogenous variables
     - Filtered probabilites
     - Smoothed probabilites (Kim, 1994)
     - Summary statistics of coefficients
-    - expected regime duration
+    - Expected regime duration
     - Simulation of data from Markov switching model with:
         - switching/non-switching intercept
         - switching variance
