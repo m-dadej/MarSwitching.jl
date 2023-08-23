@@ -20,6 +20,6 @@ export generate_mars,  MSModel, filtered_probs, smoothed_probs
 export get_std_errors, expected_duration, state_coeftable, transition_mat, summary_mars
 
 # delete after development
-export loglik, MSM, add_lags, vec2param, trans_θ, obj_func, vec2param_nonswitch, vec2param_switch
+export loglik, MSM, add_lags, vec2param, trans_θ, obj_func, vec2param_nointercept, vec2param_nonswitch, vec2param_switch
 
 end

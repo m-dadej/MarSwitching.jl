@@ -42,8 +42,11 @@ function state_coeftable(model::MSM, state::Int64; digits::Int64=3)
 
     if model.intercept == "switching"
         V_σ, V_β, _ = vec2param_switch(get_std_errors(model), model.k, model.n_β, model.n_β_ns)
-    else
+    elseif model.intercept == "non-switching"
         V_σ, V_β, _ = vec2param_nonswitch(get_std_errors(model), model.k, model.n_β, model.n_β_ns)
+    elseif model.intercept == "no"
+        vec2param_nointercept
+        V_σ, V_β, _ = vec2param_nointercept(get_std_errors(model), model.k, model.n_β, model.n_β_ns)
     end
 
     # β statistics
@@ -94,7 +97,7 @@ end
 function summary_mars(model::MSM; digits::Int64=3)
 
     loglik   = round.(model.Likelihood, digits = digits)
-    n_params = model.k + model.k*(size(model.x)[2]-1) + (model.k-1)*model.k
+    n_params = length(model.raw_params)
     aic      = round.(2*n_params - 2*model.Likelihood, digits = digits)
     bic      = round.(log(model.T)*n_params - 2*model.Likelihood, digits = digits)
 

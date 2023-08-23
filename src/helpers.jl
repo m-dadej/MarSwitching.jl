@@ -107,13 +107,34 @@ function vec2param_nonswitch(θ::Vector{Float64}, k::Int64, n_β::Int64, n_β_ns
     return σ, β, P
 end
 
+# the same function as above, but without [β[i][1] = θ[k+1:(k+1+k*n_β)][1] for i in 1:k] and indexes moved
+function vec2param_nointercept(θ::Vector{Float64}, k::Int64, n_β::Int64, n_β_ns::Int64)
+    
+    σ = θ[1:k]
+    # make Vector{Vector{Float64}} of β each containing n_β + n_β_ns elements
+    β = [zeros(n_β + n_β_ns + 1) for _ in 1:k]
+    
+    [β[i+1][2:n_β+1] .= θ[k+1:(k+k*n_β)][1+(n_β)*i:(n_β)*(i+1)] for i in 0:k-1]
+    
+    # fill the rest of the vectors with non-switching parameters (same for each state)
+    if n_β_ns > 0
+        [β[i][end-n_β_ns+1:end] .= θ[(k+n_β*k+1):(k+n_β*k+n_β_ns)] for i in 1:k]
+    end
+
+    @views P = reshape(θ[end-(k*(k-1) - 1):end], k-1, k)
+
+    return σ, β, P
+end
+
 function trans_θ(θ::Vector{Float64}, k::Int64, n_β::Int64, n_β_ns::Int64, intercept::String)
     
     # I know, it should be done in a single function. But it's faster apparently.
     if intercept == "switching"
         σ, β, P = vec2param_switch(θ, k, n_β, n_β_ns)
-    else
+    elseif intercept == "non-switching"
         σ, β, P = vec2param_nonswitch(θ, k, n_β, n_β_ns)
+    elseif intercept == "no"
+        σ, β, P = vec2param_nointercept(θ, k, n_β, n_β_ns)
     end
     
     

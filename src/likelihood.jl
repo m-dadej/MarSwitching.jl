@@ -37,6 +37,7 @@ function loglik(θ::Vector{Float64},
 
     # f(y | S_t, x, θ, Ψ_t-1) density function 
     η = reduce(hcat, [pdf.(Normal.(view(X, :,2:n_β+n_β_ns+2)*β[i], σ[i]), view(X, :,1)) for i in 1:k])
+    η .+= 1e-12
 
     @inbounds for t in 1:T
         ξ[t,:] = t == 1 ? ξ_0 : view(ξ, t-1, :)
@@ -70,12 +71,19 @@ function MSModel(y::Vector{Float64},
     @assert k >= 0 "Amount of states shoould not be negative"
 
     T   = size(y)[1]
-    x   = intercept == "no" ? reshape(y, T, 1) : [y ones(T)]
+    x   = intercept == "no" ? [y zeros(T)] : [y ones(T)]
 
     # number of β parameters without intercept
     n_β_ns      = size(exog_vars)[2]                 # non-switching number of β
     n_β         = size(exog_switching_vars)[2]          # switching number of β
-    n_intercept = intercept == "switching" ? k : 1
+    
+    if intercept == "switching"
+        n_intercept = k
+    elseif intercept == "non-switching"
+        n_intercept = 1
+    elseif intercept == "no"
+        n_intercept = 0
+    end
 
     if !isempty(exog_switching_vars)
         @assert size(y)[1] == size(exog_switching_vars)[1] "Number of observations is not the same between y and exog_switching_vars"
@@ -102,9 +110,11 @@ function MSModel(y::Vector{Float64},
         if intercept == "switching"
             μ_em = kmeans_res.centers'[:]
             #μx0[1:n_β:n_β*k] .= μ_em[:] 
-        else 
+        elseif intercept == "non-switching"
             μ_em = mean(x[:,1])
             #μx0[1:n_β:n_β*k] .= μ_em[:]
+        elseif intercept == "no"
+            μ_em = Vector{Float64}([])
         end
 
         σ_em = [std(x[kmeans_res.assignments .== i, 1]) for i in 1:k]
@@ -119,7 +129,7 @@ function MSModel(y::Vector{Float64},
         pmat_em       = pmat_em[1:k-1, :] .* sum(pmat_em[1:k-1, :] .+ 1, dims=1) 
         p_em          = vec(pmat_em)
 
-        x0 = [σ_em.^2; μ_em; zeros(n_β*k); zeros(n_β_ns); p_em]
+        x0 = [σ_em; μ_em; zeros(n_β*k); zeros(n_β_ns); p_em]
         #x0 = [repeat([std(x[:,1])], k).^2; repeat([mean(x[:,1])], k*(size(x)[2]-1)); repeat([0.5],(k-1)*k)]
     end
     

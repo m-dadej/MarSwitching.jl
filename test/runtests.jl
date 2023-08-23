@@ -36,7 +36,7 @@ using Test
 
 end
 
-@testset "tests with stochastic component" begin
+@testset "stochastic component μ, β" begin
     
     k = 3
     μ = [1.0, -0.5, 0.12] 
@@ -51,8 +51,8 @@ end
     model = MSModel(y, k, intercept = "switching", 
                             exog_switching_vars = reshape(X[:,2],T,1))
 
-    @test all(sort([model.β[i][1] for i in 1:model.k]) .- sort(μ) .< 0.3)
-    @test all(sort([model.β[i][2] for i in 1:model.k]) .- sort(β) .< 0.3)
+    @test all(abs.(sort([model.β[i][1] for i in 1:model.k]) .- sort(μ)) .< 0.3)
+    @test all(abs.(sort([model.β[i][2] for i in 1:model.k]) .- sort(β)) .< 0.3)
 
 end
 
@@ -69,7 +69,27 @@ end
     model = MSModel(y, k, intercept = "switching", 
                             exog_vars = reshape(X[:,2],T,1))
 
-    @test (model.β[1][2] .- β_ns[1]) < 0.3
+    @test abs.(model.β[1][2] .- β_ns[1]) < 0.3
+end
+
+@testset "no intercept model" begin
+    k = 3
+    μ = [0.0, 0.0, 0.0] 
+    β = Vector{Float64}([-1.5, 0.9, 0.0])
+    β_ns = Vector{Float64}([-0.33])
+    σ = [0.4,  0.3, 0.1] 
+    P = [0.9 0.05 0.1; 0.05 0.85 0.05; 0.05 0.1 0.85]
+    T = 2000
+
+    y, s_t, X = generate_mars(μ, σ, P, T, β = β, β_ns = β_ns)
+
+    model = MSModel(y, k, intercept = "no", exog_switching_vars = reshape(X[:,2], T, 1),
+    exog_vars = reshape(X[:,3], T, 1))
+
+    model.β
+    model.Likelihood
+
+    @test all([model.β[i][1] == 0 for i in 1:model.k])
 end
 
 @testset "3 state model every exogenous vars" begin
@@ -130,6 +150,20 @@ end
             end
         end
     end
+
+    k = 3
+    β = Vector{Float64}([-1.5, 0.9, 0.0])
+    β_ns = Vector{Float64}([-0.33])
+    σ = [0.7,  0.3, 0.1] 
+    P = [0.9 0.05 0.1; 0.05 0.85 0.05; 0.05 0.1 0.85]
+
+    θ = [σ; β; β_ns; vec(P[2:end, :])]
+
+    σ_, β_, P_ = vec2param_nointercept(θ, k, 1, 1)
+
+    @test all([β_[i][1] == 0 for i in 1:k])
+    @test σ_ == σ
+
 end
 
 @testset "Less crucial functions" begin
