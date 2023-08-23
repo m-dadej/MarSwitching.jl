@@ -7,6 +7,7 @@ struct MSM
     n_β::Int64                 # number of β parameters
     n_β_ns::Int64              # number of non-switching β parameters
     intercept::String          # "switching" or "non-switching"
+    switch_var::Bool           # is variance state dependent?
     x::Matrix{Float64}         # data matrix
     T::Int64    
     Likelihood::Float64
@@ -20,6 +21,7 @@ function loglik(θ::Vector{Float64},
                 n_β::Int64,
                 n_β_ns::Int64,
                 intercept::String,
+                switching_var::Bool,
                 logsum::Bool=true)
 
     T      = size(X)[1]
@@ -27,7 +29,7 @@ function loglik(θ::Vector{Float64},
     L      = zeros(T)     # likelihood 
     ξ_next = zeros(k)     # unconditional transition probabilities at t+1
 
-    σ, β, P = trans_θ(θ, k, n_β, n_β_ns, intercept)
+    σ, β, P = trans_θ(θ, k, n_β, n_β_ns, intercept, switching_var)
 
     #initial guess for the unconditional probabilities
     A = [I - P; ones(k)']
@@ -50,13 +52,13 @@ function loglik(θ::Vector{Float64},
     return (logsum ? sum(log.(L)) : L ), ξ #sum(log.(L)), ξ
 end
 
-function obj_func(θ, fΔ, x, k, n_β, n_β_ns, intercept)  
+function obj_func(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var)  
     
     if length(fΔ) > 0
-        fΔ[1:length(θ)] .= FiniteDiff.finite_difference_gradient(θ -> -loglik(θ, x, k, n_β, n_β_ns, intercept)[1], θ)
+        fΔ[1:length(θ)] .= FiniteDiff.finite_difference_gradient(θ -> -loglik(θ, x, k, n_β, n_β_ns, intercept, switching_var)[1], θ)
     end
 
-    return -loglik(θ, x, k, n_β, n_β_ns, intercept)[1]
+    return -loglik(θ, x, k, n_β, n_β_ns, intercept, switching_var)[1]
 end
 
 function MSModel(y::Vector{Float64},
@@ -64,6 +66,7 @@ function MSModel(y::Vector{Float64},
                  ;intercept::String = "switching", # or "non-switching"
                  exog_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
                  exog_switching_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
+                 switching_var::Bool = true,
                  x0::Vector{Float64} = Vector{Float64}(undef, 0),
                  algorithm::Symbol = :LN_SBPLX,
                  maxtime::Int64 = -1)
@@ -76,7 +79,8 @@ function MSModel(y::Vector{Float64},
     # number of β parameters without intercept
     n_β_ns      = size(exog_vars)[2]                 # non-switching number of β
     n_β         = size(exog_switching_vars)[2]          # switching number of β
-    
+    n_var       = switching_var ? k : 1
+
     if intercept == "switching"
         n_intercept = k
     elseif intercept == "non-switching"
@@ -97,11 +101,11 @@ function MSModel(y::Vector{Float64},
     
     # also: LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX
     
-    opt               = Opt(algorithm, k + n_β_ns + k*n_β + n_intercept + (k-1)*k) 
-    opt.lower_bounds  = [repeat([10e-10], k); repeat([-Inf], k*n_β + n_β_ns + n_intercept); repeat([10e-10], (k-1)*k)]
+    opt               = Opt(algorithm, n_var + n_β_ns + k*n_β + n_intercept + (k-1)*k) 
+    opt.lower_bounds  = [repeat([10e-10], n_var); repeat([-Inf], k*n_β + n_β_ns + n_intercept); repeat([10e-10], (k-1)*k)]
     opt.xtol_rel      = 0
     opt.maxtime       = maxtime < 0 ? T/2 : maxtime
-    opt.min_objective = (θ, fΔ) -> obj_func(θ, fΔ, x, k, n_β, n_β_ns, intercept)
+    opt.min_objective = (θ, fΔ) -> obj_func(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var)
     
     if isempty(x0)
         
@@ -117,7 +121,7 @@ function MSModel(y::Vector{Float64},
             μ_em = Vector{Float64}([])
         end
 
-        σ_em = [std(x[kmeans_res.assignments .== i, 1]) for i in 1:k]
+        σ_em = switching_var ? [std(x[kmeans_res.assignments .== i, 1]) for i in 1:k] : std(x[:,1])
         p_em = [sum(kmeans_res.assignments .== i ) / T for i in 1:k]
 
         # this is really bad code 
@@ -136,9 +140,9 @@ function MSModel(y::Vector{Float64},
     (minf,θ_hat,ret) = NLopt.optimize(opt, x0)
     
     println(ret)
-    σ, β, P = trans_θ(θ_hat, k, n_β, n_β_ns, intercept)
+    σ, β, P = trans_θ(θ_hat, k, n_β, n_β_ns, intercept, switching_var)
     
-    return MSM(β, σ, P, k, n_β, n_β_ns, intercept, x, T, -minf, θ_hat)
+    return MSM(β, σ, P, k, n_β, n_β_ns, intercept, switching_var, x, T, -minf, θ_hat)
 end
 
 function filtered_probs(msm_model::MSM, 
@@ -156,7 +160,8 @@ function filtered_probs(msm_model::MSM,
                 msm_model.k, 
                 msm_model.n_β, 
                 msm_model.n_β_ns, 
-                msm_model.intercept)[2]
+                msm_model.intercept,
+                msm_model.switch_var)[2]
 
     return ξ
 end
