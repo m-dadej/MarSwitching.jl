@@ -180,14 +180,13 @@ The function for estimating the markov switching model is:
 ```julia
 MSModel(y::Vector{Float64},                     # vector of dependent variable
         k::Int64,                               # number of regimes
-        ;intercept::String,                     # "switching" (default) or "non-switching" intercept
+        ;intercept::String,                     # "switching" (default), "non-switching" or "no" intercept
         exog_vars::Matrix{Float64}              # optional matrix of exogenous variables
         exog_switching_vars::Matrix{Float64},   # optional matrix of exogenous variables with regime switching
+        switching_var::Bool = true,             # is variance state-dependent?
         x0::Vector{Float64},                    # optional initial values of parameters for optimization
         algorithm::Symbol,                      # optional algorithm for NLopt.jl
         maxtime::Int64)                         # optional maximum time for optimization
-        
-
 ```
 The function returns `MSM` type object:
 
@@ -200,6 +199,7 @@ struct MSM
     n_β::Int64                  # number of β parameters
     n_β_ns::Int64               # number of non-switching β parameters
     intercept::String           # "switching" or "non-switching"
+    switching_var::Bool         # is variance state-dependent?
     x::Matrix{Float64}          # data matrix
     T::Int64                    # number of observations
     Likelihood::Float64         # log-likelihood
