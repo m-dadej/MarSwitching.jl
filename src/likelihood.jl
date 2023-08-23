@@ -7,7 +7,7 @@ struct MSM
     n_β::Int64                 # number of β parameters
     n_β_ns::Int64              # number of non-switching β parameters
     intercept::String          # "switching" or "non-switching"
-    switch_var::Bool           # is variance state dependent?
+    switching_var::Bool           # is variance state dependent?
     x::Matrix{Float64}         # data matrix
     T::Int64    
     Likelihood::Float64
@@ -161,7 +161,7 @@ function filtered_probs(msm_model::MSM,
                 msm_model.n_β, 
                 msm_model.n_β_ns, 
                 msm_model.intercept,
-                msm_model.switch_var)[2]
+                msm_model.switching_var)[2]
 
     return ξ
 end

@@ -7,7 +7,8 @@ function get_std_errors(model::MSM)
                                                          model.k,
                                                          model.n_β,
                                                          model.n_β_ns,
-                                                         model.intercept)[1], model.raw_params) # hessian
+                                                         model.intercept,
+                                                         model.switching_var)[1], model.raw_params) # hessian
 
     return sqrt.(abs.(diag(pinv(-H))))
 end
@@ -41,12 +42,11 @@ function state_coeftable(model::MSM, state::Int64; digits::Int64=3)
     @printf "-------------------------------------------------------------------\n"
 
     if model.intercept == "switching"
-        V_σ, V_β, _ = vec2param_switch(get_std_errors(model), model.k, model.n_β, model.n_β_ns)
+        V_σ, V_β, _ = vec2param_switch(get_std_errors(model), model.k, model.n_β, model.n_β_ns, model.switching_var)
     elseif model.intercept == "non-switching"
-        V_σ, V_β, _ = vec2param_nonswitch(get_std_errors(model), model.k, model.n_β, model.n_β_ns)
+        V_σ, V_β, _ = vec2param_nonswitch(get_std_errors(model), model.k, model.n_β, model.n_β_ns, model.switching_var)
     elseif model.intercept == "no"
-        vec2param_nointercept
-        V_σ, V_β, _ = vec2param_nointercept(get_std_errors(model), model.k, model.n_β, model.n_β_ns)
+        V_σ, V_β, _ = vec2param_nointercept(get_std_errors(model), model.k, model.n_β, model.n_β_ns, model.switching_var)
     end
 
     # β statistics
