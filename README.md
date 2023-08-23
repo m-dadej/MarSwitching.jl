@@ -52,11 +52,11 @@ Because of the unobserved nature of the state, the model is estimated by maximum
     - Markov switching model with $k$ regimes and:
         - switching/non-switching intercept
         - switching variance
-        - switching/non-sitching exogenous variables
+        - switching/non-switching exogenous variables
     - Filtered probabilites
     - Smoothed probabilites (Kim, 1994)
     - Summary statistics of coefficients
-    - expected regime duration
+    - Expected regime duration
     - Simulation of data from Markov switching model with:
         - switching/non-switching intercept
         - switching variance
@@ -241,7 +241,7 @@ generate_mars(μ::Vector{Float64},    # vector of intercepts for each state
               β_ns::Vector{Float64}) # vector of non-switching coefficients
 ```
 
-The function returns a tuple of 3 elements:
+The function returns a tuple of 3 elements, respectively:
 - `y`: vector of dependent variables
 - `s_t`: vector of states
 - `X`: matrix of exogenous variables (generated from standard normal distribution)
