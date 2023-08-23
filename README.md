@@ -49,9 +49,9 @@ Because of the unobserved nature of the state, the model is estimated by maximum
 ## Functionality 
 
 - Currently available:
-    - Markov switching model with $k$ regimes and:
+    - Markov switching model with $k$ regimes and combinations of:
         - switching/non-switching or without intercept
-        - switching variance
+        - switching/non-switching variance
         - switching/non-switching exogenous variables
     - Filtered probabilites
     - Smoothed probabilites (Kim, 1994)
@@ -64,7 +64,6 @@ Because of the unobserved nature of the state, the model is estimated by maximum
     - Adding lagged variables to the matrix
 - Planned functionality:
     - in-sample and out-of-sample predict() function
-    - non-switching variance
     - simulating data from estimated model
     - other error distributions (t, skew-t, etc.)
     - variable and number of states selection

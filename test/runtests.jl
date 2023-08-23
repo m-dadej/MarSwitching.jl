@@ -72,7 +72,7 @@ end
     @test abs.(model.β[1][2] .- β_ns[1]) < 0.3
 end
 
-@testset "no intercept model" begin
+@testset "stochastic component - no intercept model" begin
     k = 3
     μ = [0.0, 0.0, 0.0] 
     β = Vector{Float64}([-1.5, 0.9, 0.0])
@@ -92,7 +92,7 @@ end
     @test all([model.β[i][1] == 0 for i in 1:model.k])
 end
 
-@testset "3 state model every exogenous vars" begin
+@testset "stochastic component - 3 state model every exogenous vars" begin
 
     k = 3
     μ = [1.0, -0.5, 0.12] 
@@ -120,6 +120,23 @@ end
 
 end
 
+@testset "stochastic component - non-switching variance" begin
+    k = 3
+    μ = [1.0, -0.5, 0.12] 
+    β_ns = Vector{Float64}([0.633])
+    σ = [0.2, 0.2, 0.2] 
+    P = [0.9 0.05 0.1; 0.05 0.85 0.05; 0.05 0.1 0.85]
+    T = 500
+
+    y, s_t, X = generate_mars(μ, σ, P, T, β_ns = β_ns)
+
+    model = MSModel(y, k,   exog_vars = reshape(X[:,2],T,1),
+                            switching_var = false)
+
+    @test all(model.σ .== model.σ[1])
+    @test abs(model.σ[1] .- σ[1]) < 0.2
+end
+
 @testset "parameter transformation" begin
     
     k = collect(2:5)
@@ -137,7 +154,7 @@ end
                     
                     n_int = int == "switching" ? k_i : 1
                     θ = [rand(k_i); rand(Uniform(-5, 5), n_int); rand(Uniform(-5, 5), n_β_i*k_i); rand(Uniform(-5, 5), n_β_ns_i); rand(k_i*(k_i-1))] 
-                    σ, β, P = trans_θ(θ, k_i, n_β_i, n_β_ns_i, int)
+                    σ, β, P = trans_θ(θ, k_i, n_β_i, n_β_ns_i, int, true)
                     println("k: $k_i, n_β: $n_β_i, n_β_ns: $n_β_ns_i, intercept: $int")
 
                     @test size(σ)[1] == k_i
@@ -159,7 +176,7 @@ end
 
     θ = [σ; β; β_ns; vec(P[2:end, :])]
 
-    σ_, β_, P_ = vec2param_nointercept(θ, k, 1, 1)
+    σ_, β_, P_ = vec2param_nointercept(θ, k, 1, 1, true)
 
     @test all([β_[i][1] == 0 for i in 1:k])
     @test σ_ == σ
