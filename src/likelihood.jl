@@ -145,23 +145,31 @@ function MSModel(y::Vector{Float64},
     return MSM(β, σ, P, k, n_β, n_β_ns, intercept, switching_var, x, T, -minf, θ_hat)
 end
 
-function filtered_probs(msm_model::MSM, 
+function filtered_probs(model::MSM;
                         y::Vector{Float64} = Vector{Float64}(undef, 0),
                         exog_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
-                        exog_switching_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
-                        )
-    
+                        exog_switching_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0)
+                        )                       
+    # TO DO:
+    # - check if provided y and exogenous are used in the model
+    # - check if y, exogenous have the same number of observations
+
     if isempty(exog_vars) & isempty(exog_switching_vars) & isempty(y)
-        x = msm_model.x
+        x = model.x
+    else
+        T = length(y)
+        x = model.intercept == "no" ? [y zeros(T)] : [y ones(T)]        
+        x = !isempty(exog_switching_vars) ? [x exog_switching_vars] : x
+        x = !isempty(exog_vars) ? [x exog_vars] : x
     end
 
-    ξ = loglik(msm_model.raw_params, 
+    ξ = loglik(model.raw_params, 
                 x, 
-                msm_model.k, 
-                msm_model.n_β, 
-                msm_model.n_β_ns, 
-                msm_model.intercept,
-                msm_model.switching_var)[2]
+                model.k, 
+                model.n_β, 
+                model.n_β_ns, 
+                model.intercept,
+                model.switching_var)[2]
 
     return ξ
 end
@@ -190,6 +198,42 @@ function smoothed_probs(msm_model::MSM,
     end
 
     return ξ_T
+end
+
+function predict(model::MSM, 
+                 insample::Bool = false;
+                 y::Vector{Float64} = Vector{Float64}(undef, 0),
+                 exog_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
+                 exog_switching_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0))
+    
+    # TO DO:
+    # - check if provided y and exogenous are used in the model
+    # - check if y, exogenous have the same number of observations
+
+    if isempty(exog_vars) & isempty(exog_switching_vars) & isempty(y)
+        x = model.x[:,2:end]
+        ξ_t = filtered_probs(model) 
+    else
+        T = length(y)
+        x = model.intercept == "no" ? zeros(T) : ones(T)       
+        x = !isempty(exog_switching_vars) ? [x exog_switching_vars] : x
+        x = !isempty(exog_vars) ? [x exog_vars] : x
+
+        ξ_t = filtered_probs(model, y = y, 
+                                exog_vars = exog_vars, 
+                                exog_switching_vars = exog_switching_vars) 
+    end
+
+    if insample
+        ŷ_s = (x*hcat(model.β...))
+    else
+        ξ_t = (model.P * ξ_t')'[1:end-1,:]
+        ŷ_s  = (x*hcat(model.β...))[2:end,:]
+    end
+
+    ŷ = sum(ŷ_s .* ξ_t, dims = 2)
+
+    return ŷ, ξ_t
 end
 
 
