@@ -56,6 +56,7 @@ Because of the unobserved nature of the state, the model is estimated by maximum
     - Filtered probabilites
     - Smoothed probabilites (Kim, 1994)
     - Summary statistics of coefficients
+    - in-sample and out-of-sample `predict()`
     - Expected regime duration
     - Simulation of data from Markov switching model with:
         - switching/non-switching or without intercept
@@ -224,6 +225,30 @@ smoothed_probs(msm_model::MSM,                       # estimated model
                exog_vars::Matrix{Float64}            # optional matrix of exogenous variables
                exog_switching_vars::Matrix{Float64}) # optional matrix of exogenous variables with regime switching
 ```
+
+The `predict()` function can be used to calculate instanteous or one step ahead predictions from estimated model:
+
+```julia
+predict(model::MSM,                             # estimated model
+        instanteous::Bool = false;                 # instanteous or one-step ahead prediction
+        y::Vector{Float64},                     # optional vector of dependent variables
+        exog_vars::Matrix{Float64},             # optional matrix of exogenous variables
+        exog_switching_vars::Matrix{Float64})      # optional matrix of exogenous variables with regime switching
+    
+```
+Which is the probability weighted average of predictions of each state equation:
+    
+```math
+\hat{y}_t = \sum_{i=1}^{k} \hat{\xi}_{i,t}X_{t}'\hat{\beta}_{i}
+```
+And for one step ahead, the state probabilities have to be predicted themselves:
+
+```math
+\hat{y}_{t+1} = \sum_{i=1}^{k} (P\hat{\xi}_{i,t})X_{t+1}'\hat{\beta}_{i}
+```
+
+The provided new data needs to match the data used for estimation (with except of observations size). If not provided the prediction is done on the data used for estimation. For one step ahed forecast, there is no look-ahead bias, the y vector needs to be provided in order to calculate the state probabilites at time $t$.
+
 
 The `summary_mars(model::MSM; digits::Int64=3)` function outputs a summary table that is built from 2 functions: 
 - `transition_mat(model::MSM; digits::Int64=2)` - prints transition matrix

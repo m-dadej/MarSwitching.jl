@@ -137,6 +137,37 @@ end
     @test abs(model.σ[1] .- σ[1]) < 0.2
 end
 
+@testset begin "predict function"
+    k = 3
+    μ = [1.0, -0.5, 0.0] 
+    β_ns = Vector{Float64}([0.7])
+    σ = [0.3,  0.6, 0.8] 
+    P = [0.9 0.05 0.1; 0.05 0.85 0.05; 0.05 0.1 0.85]
+    T = 1000
+
+    y, s_t, X = generate_mars(μ, σ, P, T, β_ns = β_ns)
+
+    model = MSModel(y, k, intercept = "switching", 
+                            exog_vars = reshape(X[:,2],T,1))
+                            
+
+    y_pred, ξ_t = predict(model, true)
+
+    @test cor(y_pred, y)[1] > 0.7
+
+    T_pred = 400
+    y_oos, _, X_oos = generate_mars(μ, σ, P, T_pred, β_ns = β_ns)
+
+    y_pred2, ξ_t2 = predict(model, true, y = y_oos, exog_vars = reshape(X_oos[:,2],T_pred,1))
+
+    @test cor(y_pred2, y_oos)[1] > 0.6
+
+    y_pred3, ξ_t3 = predict(model, false, y = y_oos, exog_vars = reshape(X_oos[:,2],T_pred,1))
+
+    @test cor(y_pred3, y_oos[2:end])[1] > 0.5
+    
+end
+
 @testset "parameter transformation" begin
     
     k = collect(2:5)

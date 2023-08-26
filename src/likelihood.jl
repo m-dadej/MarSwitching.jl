@@ -200,8 +200,10 @@ function smoothed_probs(msm_model::MSM,
     return ξ_T
 end
 
+# instanteous 
+
 function predict(model::MSM, 
-                 insample::Bool = false;
+                 instanteous::Bool = false;
                  y::Vector{Float64} = Vector{Float64}(undef, 0),
                  exog_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
                  exog_switching_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0))
@@ -224,7 +226,7 @@ function predict(model::MSM,
                                 exog_switching_vars = exog_switching_vars) 
     end
 
-    if insample
+    if instanteous
         ŷ_s = (x*hcat(model.β...))
     else
         ξ_t = (model.P * ξ_t')'[1:end-1,:]
