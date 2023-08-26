@@ -58,13 +58,9 @@ Because of the unobserved nature of the state, the model is estimated by maximum
     - Summary statistics of coefficients
     - instanteous and one step ahead `predict()`
     - Expected regime duration
-    - Simulation of data from Markov switching model with:
-        - switching/non-switching or without intercept
-        - switching variance
-        - switching/non-switching exogenous variables
+    - Simulation of data both from estimated model and from given parameters
     - Adding lagged variables to the matrix
 - Planned functionality:
-    - simulating data from estimated model
     - other error distributions (t, skew-t, etc.)
     - variable and number of states selection
     - time-varying transition probabilites (Filardo 1994)
@@ -94,6 +90,7 @@ Following example will estimate a simple Markov switching model with regime depe
 
 ```julia
 using Mars
+using Random
 
 k = 2            # number of regimes
 T = 400          # number of generated observations
@@ -111,7 +108,11 @@ y, s_t, X = generate_mars(μ, σ, P, T, β = β)
 # estimate the model
 model = MSModel(y, k, intercept = "switching", exog_switching_vars = reshape(X[:,2],T,1))
 
-# output summary table
+# we may simulated data also from estimated model
+# e.g. for calculating VaR:
+quantile(generate_mars(model, 1000)[1], 0.05)
+
+# or more interestingly, output summary table
 summary_mars(model)
 ````
 
@@ -262,6 +263,11 @@ generate_mars(μ::Vector{Float64},    # vector of intercepts for each state
               T::Int64;              # number of observations
               β::Vector{Float64},    # vector of coefficients for each state
               β_ns::Vector{Float64}) # vector of non-switching coefficients
+```
+or thanks to multiple dispatch simulate data frome stimated model (as in example):
+
+```julia
+generate_mars(model::MSM, T::Int64) 
 ```
 
 The function returns a tuple of 3 elements, respectively:

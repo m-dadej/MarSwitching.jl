@@ -36,7 +36,7 @@ using Test
 
 end
 
-@testset "stochastic component μ, β" begin
+@testset "stochastic component μ, β + generate_mars(model)" begin
     
     k = 3
     μ = [1.0, -0.5, 0.12] 
@@ -54,6 +54,14 @@ end
     @test all(abs.(sort([model.β[i][1] for i in 1:model.k]) .- sort(μ)) .< 0.3)
     @test all(abs.(sort([model.β[i][2] for i in 1:model.k]) .- sort(β)) .< 0.3)
 
+    y_, s_t_, X_ = generate_mars(model, 1000)
+
+    model_ = MSModel(y_, k, intercept = "switching", 
+                            exog_switching_vars = reshape(X_[:,2],T,1))
+
+    @test all(abs.(sort([model_.β[i][1] for i in 1:model.k]) .- sort(μ)) .< 0.3)
+    @test all(abs.(sort([model_.β[i][2] for i in 1:model.k]) .- sort(β)) .< 0.3)
+                        
 end
 
 @testset "stochastic component - only non-s exogenous" begin
