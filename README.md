@@ -56,7 +56,7 @@ Because of the unobserved nature of the state, the model is estimated by maximum
     - Filtered probabilites
     - Smoothed probabilites (Kim, 1994)
     - Summary statistics of coefficients
-    - in-sample and out-of-sample `predict()`
+    - instanteous and one step ahead `predict()`
     - Expected regime duration
     - Simulation of data from Markov switching model with:
         - switching/non-switching or without intercept
@@ -64,7 +64,6 @@ Because of the unobserved nature of the state, the model is estimated by maximum
         - switching/non-switching exogenous variables
     - Adding lagged variables to the matrix
 - Planned functionality:
-    - in-sample and out-of-sample predict() function
     - simulating data from estimated model
     - other error distributions (t, skew-t, etc.)
     - variable and number of states selection
