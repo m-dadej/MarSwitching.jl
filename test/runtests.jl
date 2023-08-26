@@ -149,22 +149,25 @@ end
 
     model = MSModel(y, k, intercept = "switching", 
                             exog_vars = reshape(X[:,2],T,1))
-                            
-    corr(x,y) = sum((x .- mean(x)) .* (y .- mean(y))) / (std(x)*std(y)*(length(x)-1))
+                
+    my_mean(x) = sum(x) / length(x)
+    my_std(x) = sqrt(sum((x .- my_mean(x)).^2) / (length(x)-1))
+    corr(x,y) = sum((x .- my_mean(x)) .* (y .- my_mean(y))) / (my_std(x)*my_std(y)*(length(x)-1))
+    
     y_pred, ξ_t = predict(model, true)
 
-    @test cor(y_pred, y)[1] > 0.7
+    @test corr(y_pred, y)[1] > 0.7
 
     T_pred = 400
     y_oos, _, X_oos = generate_mars(μ, σ, P, T_pred, β_ns = β_ns)
 
     y_pred2, ξ_t2 = predict(model, true, y = y_oos, exog_vars = reshape(X_oos[:,2],T_pred,1))
 
-    @test cor(y_pred2, y_oos)[1] > 0.6
+    @test corr(y_pred2, y_oos)[1] > 0.6
 
     y_pred3, ξ_t3 = predict(model, false, y = y_oos, exog_vars = reshape(X_oos[:,2],T_pred,1))
 
-    @test cor(y_pred3, y_oos[2:end])[1] > 0.5
+    @test corr(y_pred3, y_oos[2:end])[1] > 0.5
 
 end
 
