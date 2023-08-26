@@ -1,11 +1,21 @@
 
+function generate_mars(model::MSM, T::Int64 = model.T)
+    
+    μ    = [model.β[i][1] for i in 1:model.k]
+    β    = [model.β[i][2:(2+model.n_β-1)] for i in 1:model.k]
+    β    = vec(reduce(hcat, [β...]))
+    β_ns = model.β[1][(2+model.n_β):end]
+
+    return generate_mars(μ, model.σ, model.P, T, β = β, β_ns = β_ns)
+end
+
+
 function generate_mars(μ::Vector{Float64},
                        σ::Vector{Float64},
                        P::Matrix{Float64},
                        T::Int64;
                        β::Vector{Float64} = Vector{Float64}([]),
-                       β_ns::Vector{Float64} = Vector{Float64}([])
-                       )
+                       β_ns::Vector{Float64} = Vector{Float64}([]))
 
     @assert size(P)[2] == length(μ) == length(σ) "Number of states not equal among provided parameters."
 
