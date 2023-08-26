@@ -9,13 +9,22 @@ function generate_mars(model::MSM, T::Int64 = model.T)
     return generate_mars(μ, model.σ, model.P, T, β = β, β_ns = β_ns)
 end
 
+function P_tvtp(x_tvtp, δ, k)
+    
+    P = reshape(exp.(x_tvtp*δ), k, k)
+    P = P ./ sum(P, dims=1)
+
+    return P
+end
 
 function generate_mars(μ::Vector{Float64},
-                       σ::Vector{Float64},
-                       P::Matrix{Float64},
-                       T::Int64;
-                       β::Vector{Float64} = Vector{Float64}([]),
-                       β_ns::Vector{Float64} = Vector{Float64}([]))
+                        σ::Vector{Float64},
+                        P::Matrix{Float64},
+                        T::Int64;
+                        β::Vector{Float64} = Vector{Float64}([]),
+                        β_ns::Vector{Float64} = Vector{Float64}([]),
+                        tvtp::Bool = false,
+                        δ::Vector{Float64} = Vector{Float64}([]))
 
     @assert size(P)[2] == length(μ) == length(σ) "Number of states not equal among provided parameters."
 
@@ -23,31 +32,41 @@ function generate_mars(μ::Vector{Float64},
         P = vcat(P, ones(1, size(P)[2]))
         P = P ./ sum(P, dims=1)
     end
-    
+
     k = length(μ)
     n_β = Int(size(β)[1]/k)
     n_β_ns = size(β_ns)[1]
     s_t = [1]
-    
-    for _ in 1:(T-1)
-        push!(s_t, sample(1:k, Weights(P[:, s_t[end]])))
+
+    if tvtp
+        x_tvtp = rand(T)
+
+        for t in 1:(T-1)
+            push!(s_t, sample(1:k, Weights(P_tvtp(x_tvtp[t], δ, k)[:, s_t[end]])))
+        end
+    else
+        for _ in 1:(T-1)
+            push!(s_t, sample(1:k, Weights(P[:, s_t[end]])))
+        end
     end
     
     y_s = zeros(T, k)
     X = [ones(T) rand(Normal(0,1), T, n_β + n_β_ns)]
-    
+
     params = [zeros(1 + n_β + n_β_ns) for _ in 1:k]
     [params[i][1] = μ[i] for i in 1:k]     # populate intercepts
     [params[i][2:(n_β+1)] .= β[1+n_β*(i-1):n_β*i] for i in 1:k] # populate switching betas
     [params[i][(n_β+2):(n_β+1+n_β_ns)] .= β_ns for i in 1:k] # populate switching betas
-    
+
     for t in 1:T
         for s in 1:k
             y_s[t, s] = rand(Normal((X*params[s])[t], σ[s])) 
         end       
     end
-    
+
+    X = tvtp ? [X x_tvtp] : X
     y = zeros(T)
+    
     for s in 1:k
         y[s_t .== s] .= y_s[s_t .== s, s]
     end
