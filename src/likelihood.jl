@@ -200,8 +200,6 @@ function smoothed_probs(msm_model::MSM,
     return ξ_T
 end
 
-# instanteous 
-
 function predict(model::MSM, 
                  instanteous::Bool = false;
                  y::Vector{Float64} = Vector{Float64}(undef, 0),
