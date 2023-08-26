@@ -160,17 +160,17 @@ The package also provides a function for filtered transition probabilites $P(S_t
 using Plots
 
 plot(smoothed_probs(model),
-     label=["Regime 1" "Regime 2"],
-     title = "Smoothed transition robabilities", 
-     linewidth=2)
+     label     = ["Regime 1" "Regime 2"],
+     title     = "Smoothed transition robabilities", 
+     linewidth = 2)
 ```     
 ![Plot](img/transition_probs.svg)
 
 ```julia
 plot([smoothed_probs(model)[:,2] s_t.-1],
-     label=["Regime 1" "Actual Regime"],
-     title = "Smoothed transition robabilities",
-     linewidth=2)  
+     label    = ["Regime 1" "Actual Regime"],
+     title     = "Smoothed transition robabilities",
+     linewidth = 2)  
 ```
  ![Plot](img/actual_probs.svg)
 
@@ -266,10 +266,10 @@ generate_mars(μ::Vector{Float64},    # vector of intercepts for each state
               β::Vector{Float64},    # vector of coefficients for each state
               β_ns::Vector{Float64}) # vector of non-switching coefficients
 ```
-or thanks to multiple dispatch simulate data frome stimated model (as in example):
+or thanks to multiple dispatch, simulate data frome stimated model (as in example):
 
 ```julia
-generate_mars(model::MSM, T::Int64) 
+generate_mars(model::MSM, T::Int64=model.T) 
 ```
 
 The function returns a tuple of 3 elements, respectively:
