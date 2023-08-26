@@ -56,7 +56,7 @@ Because of the unobserved nature of the state, the model is estimated by maximum
     - Filtered probabilites
     - Smoothed probabilites (Kim, 1994)
     - Summary statistics of coefficients
-    - in-sample and out-of-sample `predict()`
+    - instanteous and one step ahead `predict()`
     - Expected regime duration
     - Simulation of data from Markov switching model with:
         - switching/non-switching or without intercept
@@ -64,7 +64,6 @@ Because of the unobserved nature of the state, the model is estimated by maximum
         - switching/non-switching exogenous variables
     - Adding lagged variables to the matrix
 - Planned functionality:
-    - in-sample and out-of-sample predict() function
     - simulating data from estimated model
     - other error distributions (t, skew-t, etc.)
     - variable and number of states selection
@@ -230,10 +229,10 @@ The `predict()` function can be used to calculate instanteous or one step ahead 
 
 ```julia
 predict(model::MSM,                             # estimated model
-        instanteous::Bool = false;                 # instanteous or one-step ahead prediction
+        instanteous::Bool = false;              # instanteous or one-step ahead prediction
         y::Vector{Float64},                     # optional vector of dependent variables
         exog_vars::Matrix{Float64},             # optional matrix of exogenous variables
-        exog_switching_vars::Matrix{Float64})      # optional matrix of exogenous variables with regime switching
+        exog_switching_vars::Matrix{Float64})   # optional matrix of exogenous variables with regime switching
     
 ```
 Which is the probability weighted average of predictions of each state equation:
