@@ -150,7 +150,7 @@ end
     model = MSModel(y, k, intercept = "switching", 
                             exog_vars = reshape(X[:,2],T,1))
                             
-
+    corr(x,y) = sum((x .- mean(x)) .* (y .- mean(y))) / (std(x)*std(y)*(length(x)-1))
     y_pred, ξ_t = predict(model, true)
 
     @test cor(y_pred, y)[1] > 0.7
@@ -165,7 +165,7 @@ end
     y_pred3, ξ_t3 = predict(model, false, y = y_oos, exog_vars = reshape(X_oos[:,2],T_pred,1))
 
     @test cor(y_pred3, y_oos[2:end])[1] > 0.5
-    
+
 end
 
 @testset "parameter transformation" begin
