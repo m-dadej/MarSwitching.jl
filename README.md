@@ -247,6 +247,8 @@ And for one step ahead, the state probabilities have to be predicted themselves:
 \hat{y}_{t+1} = \sum_{i=1}^{k} (P\hat{\xi}_{i,t})X_{t+1}'\hat{\beta}_{i}
 ```
 
+The one step ahed prediction will return a vector of size $(T-1) \times 1$, as the observation $t-1$ is used to forecast state probability ($P\hat{\xi}_{i,t}$)
+
 The provided new data needs to match the data used for estimation (with except of observations size). If not provided the prediction is done on the data used for estimation. For one step ahed forecast, there is no look-ahead bias, the y vector needs to be provided in order to calculate the state probabilites at time $t$.
 
 
