@@ -3,6 +3,7 @@ struct MSM
     β::Vector{Vector{Float64}} # β[state][i] vector of β for each state
     σ::Vector{Float64}         
     P::Matrix{Float64}         # transition matrix
+    δ::Vector{Float64}         # tvtp parameters
     k::Int64                   
     n_β::Int64                 # number of β parameters
     n_β_ns::Int64              # number of non-switching β parameters
@@ -22,14 +23,19 @@ function loglik(θ::Vector{Float64},
                 n_β_ns::Int64,
                 intercept::String,
                 switching_var::Bool,
-                logsum::Bool=true)
+                logsum::Bool=true,
+                tvtp::Bool=false)
 
     T      = size(X)[1]
     ξ      = zeros(T, k)  # unconditional transition probabilities at t
     L      = zeros(T)     # likelihood 
     ξ_next = zeros(k)     # unconditional transition probabilities at t+1
 
-    σ, β, P = trans_θ(θ, k, n_β, n_β_ns, intercept, switching_var)
+    σ, β, P = trans_θ(θ, k, n_β, n_β_ns, intercept, switching_var, false)
+    
+    # if tvtp
+    #     P = trans_tvtp(P) 
+    # end
 
     #initial guess for the unconditional probabilities
     A = [I - P; ones(k)']
@@ -44,6 +50,46 @@ function loglik(θ::Vector{Float64},
     @inbounds for t in 1:T
         ξ[t,:] = t == 1 ? ξ_0 : view(ξ, t-1, :)
         #ξ_next = P'ξ[t, :]
+        #P = P_tvtp(x_tvtp[t], δ, k)
+        mul!(ξ_next, P, view(ξ, t, :))  # same as: ξ_next  = P*view(ξ, t, :)
+        L[t] = view(η, t, :)'ξ_next
+        @views @. ξ[t,:] = (1/L[t]) * ξ_next * η[t, :]
+    end
+
+    return (logsum ? sum(log.(L)) : L ), ξ #sum(log.(L)), ξ
+end
+
+function loglik_tvtp(θ::Vector{Float64}, 
+                    X::Matrix{Float64}, 
+                    k::Int64,
+                    n_β::Int64,
+                    n_β_ns::Int64,
+                    intercept::String,
+                    switching_var::Bool,
+                    n_δ::Int64,
+                    logsum::Bool=true)
+
+    T      = size(X)[1]
+    ξ      = zeros(T, k)  # unconditional transition probabilities at t
+    L      = zeros(T)     # likelihood 
+    ξ_next = zeros(k)     # unconditional transition probabilities at t+1
+    x_tvtp = X[:, end-n_δ+1:end]
+    X      = X[:, 1:(end-n_δ)]
+    
+    δ = θ[(end-(n_δ*k^2)+1):end]
+    σ, β = trans_θ(θ, k, n_β, n_β_ns, intercept, switching_var, true)
+
+    # TO DO: use the same function as in the non-tvtp case but with tvtp
+    ξ_0 = ones(k) ./ k
+    
+    # f(y | S_t, x, θ, Ψ_t-1) density function 
+    η = reduce(hcat, [pdf.(Normal.(view(X, :,2:n_β+n_β_ns+2)*β[i], σ[i]), view(X, :,1)) for i in 1:k])
+    η .+= 1e-12
+
+    @inbounds for t in 1:T
+        ξ[t,:] = t == 1 ? ξ_0 : view(ξ, t-1, :)
+        #ξ_next = P'ξ[t, :]
+        P = P_tvtp(x_tvtp[t], δ, k)
         mul!(ξ_next, P, view(ξ, t, :))  # same as: ξ_next  = P*view(ξ, t, :)
         L[t] = view(η, t, :)'ξ_next
         @views @. ξ[t,:] = (1/L[t]) * ξ_next * η[t, :]
@@ -61,12 +107,22 @@ function obj_func(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var)
     return -loglik(θ, x, k, n_β, n_β_ns, intercept, switching_var)[1]
 end
 
+function obj_func_tvtp(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ)  
+    
+    if length(fΔ) > 0
+        fΔ[1:length(θ)] .= FiniteDiff.finite_difference_gradient(θ -> -loglik_tvtp(θ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ)[1], θ)
+    end
+
+    return -loglik_tvtp(θ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ)[1]
+end
+
 function MSModel(y::Vector{Float64},
                  k::Int64, 
                  ;intercept::String = "switching", # or "non-switching"
                  exog_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
                  exog_switching_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
                  switching_var::Bool = true,
+                 tvtp_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
                  x0::Vector{Float64} = Vector{Float64}(undef, 0),
                  algorithm::Symbol = :LN_SBPLX,
                  maxtime::Int64 = -1)
@@ -80,6 +136,8 @@ function MSModel(y::Vector{Float64},
     n_β_ns      = size(exog_vars)[2]                 # non-switching number of β
     n_β         = size(exog_switching_vars)[2]          # switching number of β
     n_var       = switching_var ? k : 1
+    n_δ         = size(tvtp_vars)[2]  
+    n_p         = n_δ > 0 ? n_δ*k^2 : k*(k-1)
 
     if intercept == "switching"
         n_intercept = k
@@ -98,14 +156,24 @@ function MSModel(y::Vector{Float64},
         @assert size(y)[1] == size(exog_vars)[1] "Number of observations is not the same between y and exog_vars"
         x = [x exog_vars]
     end
+
+    if !isempty(tvtp_vars)
+        @assert size(y)[1] == size(tvtp_vars)[1] "Number of observations is not the same between y and exog_switching_vars"
+        x = [x tvtp_vars]
+    end
     
     # also: LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX
     
-    opt               = Opt(algorithm, n_var + n_β_ns + k*n_β + n_intercept + (k-1)*k) 
-    opt.lower_bounds  = [repeat([10e-10], n_var); repeat([-Inf], k*n_β + n_β_ns + n_intercept); repeat([10e-10], (k-1)*k)]
+    opt               = Opt(algorithm, n_var + n_β_ns + k*n_β + n_intercept + n_p) 
+    opt.lower_bounds  = [repeat([10e-10], n_var); repeat([-Inf], k*n_β + n_β_ns + n_intercept); repeat([n_δ > 0 ? -Inf : 0.0], n_p)]
     opt.xtol_rel      = 0
     opt.maxtime       = maxtime < 0 ? T/2 : maxtime
-    opt.min_objective = (θ, fΔ) -> obj_func(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var)
+
+    if n_δ == 0
+        opt.min_objective = (θ, fΔ) -> obj_func(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var)
+    else
+        opt.min_objective = (θ, fΔ) -> obj_func_tvtp(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ)
+    end
     
     if isempty(x0)
         
@@ -126,13 +194,17 @@ function MSModel(y::Vector{Float64},
 
         # this is really bad code 
         # what i want to do is put the probabilites from kmeans into x0 anyhow
-        pmat_em       = zeros(k,k)
-        [pmat_em[i,i] = p_em[i] for i in 1:k]
-        [pmat_em[i,j] = minimum(p_em) /2 for i in 1:k, j in 1:k if i != j]
-        pmat_em       = pmat_em ./ sum(pmat_em, dims=1)
-        pmat_em       = pmat_em[1:k-1, :] .* sum(pmat_em[1:k-1, :] .+ 1, dims=1) 
-        p_em          = vec(pmat_em)
-
+        if n_δ > 0
+            p_em = ones(n_p)
+        else
+            pmat_em       = zeros(k,k)
+            [pmat_em[i,i] = p_em[i] for i in 1:k]
+            [pmat_em[i,j] = minimum(p_em) /2 for i in 1:k, j in 1:k if i != j]
+            pmat_em       = pmat_em ./ sum(pmat_em, dims=1)
+            pmat_em       = pmat_em[1:k-1, :] .* sum(pmat_em[1:k-1, :] .+ 1, dims=1) 
+            p_em          = vec(pmat_em)    
+        end
+        
         x0 = [σ_em; μ_em; zeros(n_β*k); zeros(n_β_ns); p_em]
         #x0 = [repeat([std(x[:,1])], k).^2; repeat([mean(x[:,1])], k*(size(x)[2]-1)); repeat([0.5],(k-1)*k)]
     end
@@ -140,9 +212,16 @@ function MSModel(y::Vector{Float64},
     (minf,θ_hat,ret) = NLopt.optimize(opt, x0)
     
     println(ret)
-    σ, β, P = trans_θ(θ_hat, k, n_β, n_β_ns, intercept, switching_var)
+    if n_δ > 0
+        σ, β = trans_θ(θ_hat, k, n_β, n_β_ns, intercept, switching_var, true)
+        δ = θ_hat[(end-(n_δ*k^2)+1):end]
+        P = Matrix{Float64}(undef, 0, 0)
+    else
+        σ, β, P = trans_θ(θ_hat, k, n_β, n_β_ns, intercept, switching_var, false)
+        δ = Vector{Float64}(undef, 0)
+    end
     
-    return MSM(β, σ, P, k, n_β, n_β_ns, intercept, switching_var, x, T, -minf, θ_hat)
+    return MSM(β, σ, P, δ, k, n_β, n_β_ns, intercept, switching_var, x, T, -minf, θ_hat)
 end
 
 function filtered_probs(model::MSM;

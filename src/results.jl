@@ -42,11 +42,11 @@ function state_coeftable(model::MSM, state::Int64; digits::Int64=3)
     @printf "-------------------------------------------------------------------\n"
 
     if model.intercept == "switching"
-        V_σ, V_β, _ = vec2param_switch(get_std_errors(model), model.k, model.n_β, model.n_β_ns, model.switching_var)
+        V_σ, V_β = vec2param_switch(get_std_errors(model), model.k, model.n_β, model.n_β_ns, model.switching_var)
     elseif model.intercept == "non-switching"
-        V_σ, V_β, _ = vec2param_nonswitch(get_std_errors(model), model.k, model.n_β, model.n_β_ns, model.switching_var)
+        V_σ, V_β = vec2param_nonswitch(get_std_errors(model), model.k, model.n_β, model.n_β_ns, model.switching_var)
     elseif model.intercept == "no"
-        V_σ, V_β, _ = vec2param_nointercept(get_std_errors(model), model.k, model.n_β, model.n_β_ns, model.switching_var)
+        V_σ, V_β = vec2param_nointercept(get_std_errors(model), model.k, model.n_β, model.n_β_ns, model.switching_var)
     end
 
     # β statistics

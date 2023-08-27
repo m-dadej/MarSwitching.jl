@@ -196,7 +196,7 @@ end
                     
                     n_int = int == "switching" ? k_i : 1
                     θ = [rand(k_i); rand(Uniform(-5, 5), n_int); rand(Uniform(-5, 5), n_β_i*k_i); rand(Uniform(-5, 5), n_β_ns_i); rand(k_i*(k_i-1))] 
-                    σ, β, P = trans_θ(θ, k_i, n_β_i, n_β_ns_i, int, true)
+                    σ, β, P = trans_θ(θ, k_i, n_β_i, n_β_ns_i, int, true, false)
                     println("k: $k_i, n_β: $n_β_i, n_β_ns: $n_β_ns_i, intercept: $int")
 
                     @test size(σ)[1] == k_i
@@ -218,7 +218,7 @@ end
 
     θ = [σ; β; β_ns; vec(P[2:end, :])]
 
-    σ_, β_, P_ = vec2param_nointercept(θ, k, 1, 1, true)
+    σ_, β_ = vec2param_nointercept(θ, k, 1, 1, true)
 
     @test all([β_[i][1] == 0 for i in 1:k])
     @test σ_ == σ
