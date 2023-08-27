@@ -11,7 +11,8 @@ end
 
 function P_tvtp(x_tvtp, δ, k)
     
-    P = reshape(exp.(x_tvtp*δ), k, k)
+    P = reshape(exp.(x_tvtp*δ), k-1, k)
+    P = [P; ones(1, k)]
     P = P ./ sum(P, dims=1)
 
     return P
@@ -23,7 +24,6 @@ function generate_mars(μ::Vector{Float64},
                         T::Int64;
                         β::Vector{Float64} = Vector{Float64}([]),
                         β_ns::Vector{Float64} = Vector{Float64}([]),
-                        tvtp::Bool = false, # delete it and use isempty(δ) instead
                         δ::Vector{Float64} = Vector{Float64}([]))
 
     @assert size(P)[2] == length(μ) == length(σ) "Number of states not equal among provided parameters."
@@ -38,7 +38,7 @@ function generate_mars(μ::Vector{Float64},
     n_β_ns = size(β_ns)[1]
     s_t = [1]
 
-    if tvtp
+    if !isempty(δ)
         x_tvtp = rand(Normal(1,0.5), T)
 
         for t in 1:(T-1)
@@ -64,7 +64,7 @@ function generate_mars(μ::Vector{Float64},
         end       
     end
 
-    X = tvtp ? [X x_tvtp] : X
+    X = !isempty(δ) ? [X x_tvtp] : X
     y = zeros(T)
     
     for s in 1:k
