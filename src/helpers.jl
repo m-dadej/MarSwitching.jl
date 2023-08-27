@@ -11,12 +11,7 @@ end
 
 function P_tvtp(x, δ, k, n_δ)
     
-<<<<<<< HEAD
     P = reshape(exp.(reshape(δ, (k^2), n_δ)*x), k,k)
-=======
-    P = reshape(exp.(x_tvtp*δ), k-1, k)
-    P = [P; ones(1, k)]
->>>>>>> cf810511e2b4ff59262465ff6d90750139c6bbab
     P = P ./ sum(P, dims=1)
 
     return P
@@ -28,12 +23,8 @@ function generate_mars(μ::Vector{Float64},
                         T::Int64;
                         β::Vector{Float64} = Vector{Float64}([]),
                         β_ns::Vector{Float64} = Vector{Float64}([]),
-<<<<<<< HEAD
                         δ::Vector{Float64} = Vector{Float64}([]),
                         tvtp_intercept::Bool = true)
-=======
-                        δ::Vector{Float64} = Vector{Float64}([]))
->>>>>>> cf810511e2b4ff59262465ff6d90750139c6bbab
 
     @assert size(P)[2] == length(μ) == length(σ) "Number of states not equal among provided parameters."
 
@@ -48,12 +39,8 @@ function generate_mars(μ::Vector{Float64},
     s_t = [1]
 
     if !isempty(δ)
-<<<<<<< HEAD
         n_δ = Int(length(δ)/(k^2))
         x_tvtp = tvtp_intercept ? [ones(T) rand(Normal(1,0.5), T, n_δ-1)] : rand(Normal(1,0.5), T, n_δ)
-=======
-        x_tvtp = rand(Normal(1,0.5), T)
->>>>>>> cf810511e2b4ff59262465ff6d90750139c6bbab
 
         for t in 1:(T-1)
             push!(s_t, sample(1:k, Weights(P_tvtp(x_tvtp[t, :], δ, k, n_δ)[:, s_t[end]])))

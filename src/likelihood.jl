@@ -75,7 +75,7 @@ function loglik_tvtp(θ::Vector{Float64},
     x_tvtp = X[:, end-n_δ+1:end]
     X      = X[:, 1:(end-n_δ)]
     
-    δ = θ[(end-(n_δ*k*(k-1))+1):end]
+    δ = θ[(end-(n_δ*k^2)+1):end]
     σ, β = trans_θ(θ, k, n_β, n_β_ns, intercept, switching_var, true)
 
     # TO DO: use the same function as in the non-tvtp case but with tvtp
@@ -136,7 +136,7 @@ function MSModel(y::Vector{Float64},
     n_β         = size(exog_switching_vars)[2]          # switching number of β
     n_var       = switching_var ? k : 1
     n_δ         = size(tvtp_vars)[2]  
-    n_p         = n_δ > 0 ? n_δ*k*(k-1) : k*(k-1)
+    n_p         = n_δ > 0 ? n_δ*k^2 : k*(k-1)
 
     if intercept == "switching"
         n_intercept = k
@@ -213,7 +213,7 @@ function MSModel(y::Vector{Float64},
     println(ret)
     if n_δ > 0
         σ, β = trans_θ(θ_hat, k, n_β, n_β_ns, intercept, switching_var, true)
-        δ = θ_hat[(end-(n_δ*k*(k-1))+1):end]
+        δ = θ_hat[(end-(n_δ*k^2)+1):end]
         P = Matrix{Float64}(undef, 0, 0)
     else
         σ, β, P = trans_θ(θ_hat, k, n_β, n_β_ns, intercept, switching_var, false)
