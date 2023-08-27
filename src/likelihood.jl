@@ -23,8 +23,7 @@ function loglik(θ::Vector{Float64},
                 n_β_ns::Int64,
                 intercept::String,
                 switching_var::Bool,
-                logsum::Bool=true,
-                tvtp::Bool=false)
+                logsum::Bool=true)
 
     T      = size(X)[1]
     ξ      = zeros(T, k)  # unconditional transition probabilities at t
@@ -89,7 +88,7 @@ function loglik_tvtp(θ::Vector{Float64},
     @inbounds for t in 1:T
         ξ[t,:] = t == 1 ? ξ_0 : view(ξ, t-1, :)
         #ξ_next = P'ξ[t, :]
-        P = P_tvtp(x_tvtp[t], δ, k)
+        P = P_tvtp(x_tvtp[t, :], δ, k, n_δ)
         mul!(ξ_next, P, view(ξ, t, :))  # same as: ξ_next  = P*view(ξ, t, :)
         L[t] = view(η, t, :)'ξ_next
         @views @. ξ[t,:] = (1/L[t]) * ξ_next * η[t, :]
