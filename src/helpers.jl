@@ -39,7 +39,7 @@ function generate_mars(μ::Vector{Float64},
     s_t = [1]
 
     if tvtp
-        x_tvtp = ones(T) #rand(Normal(1,0.5), T)
+        x_tvtp = rand(Normal(1,0.5), T)
 
         for t in 1:(T-1)
             push!(s_t, sample(1:k, Weights(P_tvtp(x_tvtp[t], δ, k)[:, s_t[end]])))
