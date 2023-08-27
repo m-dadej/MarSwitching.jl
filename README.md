@@ -168,7 +168,7 @@ plot(smoothed_probs(model),
 
 ```julia
 plot([smoothed_probs(model)[:,2] s_t.-1],
-     label    = ["Regime 1" "Actual Regime"],
+     label     = ["Regime 1" "Actual Regime"],
      title     = "Smoothed transition robabilities",
      linewidth = 2)  
 ```
