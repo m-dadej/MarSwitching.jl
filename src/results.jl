@@ -13,24 +13,42 @@ function get_std_errors(model::MSM)
     return sqrt.(abs.(diag(pinv(-H))))
 end
 
-function expected_duration(model::MSM)
-    return 1 ./ (1 .- diag(model.P))
+function expected_duration(model::MSM, exog_tvtp::Matrix{Float64} = Matrix{Float64}(undef, 0, 0))
+
+    if isempty(model.P)
+        
+        n_δ = Int(length(model.δ)/(model.k^2))
+
+        if isempty(exog_tvtp)
+            exog_tvtp = model.x[:, end-n_δ+1:end]   
+        end
+        
+        # this oneliner is faster unfortunately
+        T = size(exog_tvtp)[1]
+        return reduce(hcat, [(1 ./ (1 .- diag(P_tvtp(exog_tvtp[t, :], model.δ, model.k, n_δ)))) for t in 1:T])'
+    else
+        return 1 ./ (1 .- diag(model.P))
+    end
 end
 
-function state_coeftable(model::MSM, state::Int64; digits::Int64=3)
+# function to clean estimates and provide stats for coefficients
+function coef_clean(coef::Float64, std_err::Float64, digits::Int64=3)
     
-    # function to clean estimates and provide stats for coefficients
-    function coef_clean(coef::Float64, std_err::Float64)
-        
-        coef       = my_round.(coef)
-        std_err    = my_round.(std_err)
-        z          = my_round.(coef / std_err)
-        pr         = 1-cdf(Chi(1), abs(z))
-        pr         = pr < 0.1^(digits) ? "< 1e-$digits" : my_round.(pr)
+    my_round(x) = round(x, digits = digits)
 
-        return coef, std_err, z, pr
-    end
-    
+    coef       = my_round.(coef)
+    std_err    = my_round.(std_err)
+    z          = my_round.(coef / std_err)
+    pr         = 1-cdf(Chi(1), abs(z))
+    pr         = pr < 0.1^(digits) ? "< 1e-$digits" : my_round.(pr)
+
+    return coef, std_err, z, pr
+end
+
+
+
+function state_coeftable(model::MSM, state::Int64; digits::Int64=3)
+        
     # function to round to digits
     my_round(x) = round(x, digits = digits)
 
@@ -51,18 +69,54 @@ function state_coeftable(model::MSM, state::Int64; digits::Int64=3)
 
     # β statistics
     for i in 1:length(model.β[state])
-        estimate, std_err, z, pr = coef_clean(model.β[state][i], V_β[state][i])
+        estimate, std_err, z, pr = coef_clean(model.β[state][i], V_β[state][i], digits)
         @printf "%0s%11s%13s%15s%12s%12s\n" "β_$(i-1)" "|" "$estimate  |" "$std_err  |" "$z  |" "$pr  "
     end
     
     # σ statistics
     estimate_σ, σ_std_err, σ_z, σ_pr = coef_clean(model.σ[state], V_σ[state])
 
+    exp_duration = isempty(model.P) ? mean(expected_duration(model)[:, state]) : expected_duration(model)[state]
     @printf "%0s%13s%13s%15s%12s%12s\n" "σ" "|" "$estimate_σ  |" "$σ_std_err  |" "$σ_z  |" "$σ_pr  "
     @printf "-------------------------------------------------------------------\n"
-    @printf "Expected regime duration: %0.2f periods\n" expected_duration(model)[state]
+    @printf "Expected regime duration: %0.2f periods\n" exp_duration
     @printf "-------------------------------------------------------------------\n"
 
+end
+
+function coeftable_tvtp(model::MSM; digits::Int64=3)
+
+    # function to round to digits
+    my_round(x) = round(x, digits = digits)
+    k = model.k
+    
+    n_δ       = Int(length(model.δ)/(k^2))
+    equations = reshape(model.δ, (k^2), n_δ)
+    exog_tvtp = model.x[:, end-n_δ+1:end]  
+
+    tvtp_intercept = all(exog_tvtp[:,1] .== exog_tvtp[1,1])
+    trans_index    = hcat([[j, i] for i in 1:k for j in 1:k]...)'
+
+    errors =  get_std_errors(model)[end-(n_δ*k^2)+1:end]
+    errors =  reshape(errors, (k^2), n_δ)
+
+    @printf "Time-varying parameters: \n"
+    # header
+    println("===================================================================")
+    for term in 1:size(equations)[2]
+
+        sign = ((term == 1) & tvtp_intercept) ? "intercept" : "slope"
+        println("Summary of term $term ($sign) in TVTP equations:")
+        @printf "-------------------------------------------------------------------\n"
+        @printf "Coefficient  |  Estimate  |  Std. Error  |  z value  |  Pr(>|z|) \n"
+        @printf "-------------------------------------------------------------------\n"
+        for i in 1:size(equations)[1]
+            
+            estimate, std_err, z, pr = coef_clean(equations[i, term], errors[i, term], digits)
+            @printf "%0s%0s%0s%2s%13s%15s%12s%12s\n" "δ_$(term - tvtp_intercept)" " [$(trans_index[i,2]) -> " "$(trans_index[i,1])]" "|" "$estimate  |" "$std_err  |" "$z  |" "$pr  "
+        end
+        @printf "-------------------------------------------------------------------\n"
+    end
 end
 
 function transition_mat(model::MSM; digits::Int64=2)
@@ -113,6 +167,6 @@ function summary_mars(model::MSM; digits::Int64=3)
         state_coeftable(model, i, digits = digits)
     end
 
-    transition_mat(model, digits = digits)
+    isempty(model.δ) ? transition_mat(model, digits = digits) : coeftable_tvtp(model, digits = digits)
 end
 

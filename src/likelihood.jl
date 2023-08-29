@@ -13,6 +13,7 @@ struct MSM
     T::Int64    
     Likelihood::Float64
     raw_params::Vector{Float64}
+    nlopt_msg::Symbol
 end
 
 
@@ -41,6 +42,8 @@ function loglik(θ::Vector{Float64},
 
     # check if A'A is invertible
     ξ_0 = !isapprox(det(A'A), 0) ? (inv(A'A)*A')[:,end] : ones(k) ./ k
+    # numerical stability check
+    ξ_0 = any(ξ_0 .< 0) ? ones(k) ./ k : ξ_0
 
     # f(y | S_t, x, θ, Ψ_t-1) density function 
     η = reduce(hcat, [pdf.(Normal.(view(X, :,2:n_β+n_β_ns+2)*β[i], σ[i]), view(X, :,1)) for i in 1:k])
@@ -121,7 +124,7 @@ function MSModel(y::Vector{Float64},
                  exog_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
                  exog_switching_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
                  switching_var::Bool = true,
-                 tvtp_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
+                 exog_tvtp::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
                  x0::Vector{Float64} = Vector{Float64}(undef, 0),
                  algorithm::Symbol = :LN_SBPLX,
                  maxtime::Int64 = -1)
@@ -135,7 +138,7 @@ function MSModel(y::Vector{Float64},
     n_β_ns      = size(exog_vars)[2]                 # non-switching number of β
     n_β         = size(exog_switching_vars)[2]          # switching number of β
     n_var       = switching_var ? k : 1
-    n_δ         = size(tvtp_vars)[2]  
+    n_δ         = size(exog_tvtp)[2]  
     n_p         = n_δ > 0 ? n_δ*k^2 : k*(k-1)
 
     if intercept == "switching"
@@ -156,9 +159,9 @@ function MSModel(y::Vector{Float64},
         x = [x exog_vars]
     end
 
-    if !isempty(tvtp_vars)
-        @assert size(y)[1] == size(tvtp_vars)[1] "Number of observations is not the same between y and exog_switching_vars"
-        x = [x tvtp_vars]
+    if !isempty(exog_tvtp)
+        @assert size(y)[1] == size(exog_tvtp)[1] "Number of observations is not the same between y and exog_switching_vars"
+        x = [x exog_tvtp]
     end
     
     # also: LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX
@@ -210,7 +213,6 @@ function MSModel(y::Vector{Float64},
     
     (minf,θ_hat,ret) = NLopt.optimize(opt, x0)
     
-    println(ret)
     if n_δ > 0
         σ, β = trans_θ(θ_hat, k, n_β, n_β_ns, intercept, switching_var, true)
         δ = θ_hat[(end-(n_δ*k^2)+1):end]
@@ -220,57 +222,75 @@ function MSModel(y::Vector{Float64},
         δ = Vector{Float64}(undef, 0)
     end
     
-    return MSM(β, σ, P, δ, k, n_β, n_β_ns, intercept, switching_var, x, T, -minf, θ_hat)
+    return MSM(β, σ, P, δ, k, n_β, n_β_ns, intercept, switching_var, x, T, -minf, θ_hat, ret)
 end
 
 function filtered_probs(model::MSM;
                         y::Vector{Float64} = Vector{Float64}(undef, 0),
                         exog_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
-                        exog_switching_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0)
-                        )                       
+                        exog_switching_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
+                        exog_tvtp::Matrix{Float64} = Matrix{Float64}(undef, 0, 0))                       
     # TO DO:
     # - check if provided y and exogenous are used in the model
     # - check if y, exogenous have the same number of observations
 
-    if isempty(exog_vars) & isempty(exog_switching_vars) & isempty(y)
+    if isempty(exog_vars) & isempty(exog_switching_vars) & isempty(y) & isempty(exog_tvtp)
         x = model.x
     else
         T = length(y)
         x = model.intercept == "no" ? [y zeros(T)] : [y ones(T)]        
         x = !isempty(exog_switching_vars) ? [x exog_switching_vars] : x
         x = !isempty(exog_vars) ? [x exog_vars] : x
+        x = !isempty(exog_tvtp) ? [x exog_tvtp] : x
     end
 
-    ξ = loglik(model.raw_params, 
-                x, 
-                model.k, 
-                model.n_β, 
-                model.n_β_ns, 
-                model.intercept,
-                model.switching_var)[2]
+    if !isempty(model.P)
+        ξ = loglik(model.raw_params, 
+                    x, 
+                    model.k, 
+                    model.n_β, 
+                    model.n_β_ns, 
+                    model.intercept,
+                    model.switching_var)[2]
+    else
+        ξ = loglik_tvtp(model.raw_params, 
+                        x, 
+                        model.k, 
+                        model.n_β,
+                        model.n_β_ns, 
+                        model.intercept, 
+                        model.switching_var, 
+                        Int(length(model.δ)/(model.k^2)))[2]
+    end
+    
 
     return ξ
 end
 
-function smoothed_probs(msm_model::MSM, 
-                        y::Vector{Float64} = Vector{Float64}(undef, 0),
-                        exog_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
-                        exog_switching_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
-    )
+
+function smoothed_probs(model::MSM; kwargs...)
     
-    if isempty(exog_vars) & isempty(exog_switching_vars) & isempty(y)
-        ξ = filtered_probs(msm_model)
+    
+    P   = model.P
+    k   = model.k
+    δ   = model.δ
+    n_δ = Int(length(δ)/(k^2))
+                        
+    if isempty(kwargs)
+        ξ = filtered_probs(model)
+        exog_tvtp = isempty(P) ? model.x[:, end-n_δ+1:end] : nothing
+        T = model.T
     else
-        ξ = filtered_probs(msm_model, y, exog_vars, exog_switching_vars)   
+        ξ = filtered_probs(model; kwargs...)   
+        exog_tvtp = isempty(P) ? kwargs[:exog_tvtp] : nothing 
+        T = size(ξ)[1]
     end
     
-    T = msm_model.T
-    P = msm_model.P
-
     ξ_T      = zeros(size(ξ))
     ξ_T[T,:] = ξ[T, :]
 
     for t in reverse(1:T-1)
+        P          = isempty(P) ? P_tvtp(exog_tvtp[t, :],δ, k, n_δ) : P
         ξ_rate     = ξ_T[t+1, :] ./ (P*ξ[t, :])
         ξ_T[t, :] .= P' * ξ_rate .* ξ[t, :]
     end
@@ -282,15 +302,19 @@ function predict(model::MSM,
                  instanteous::Bool = false;
                  y::Vector{Float64} = Vector{Float64}(undef, 0),
                  exog_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
-                 exog_switching_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0))
+                 exog_switching_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
+                 exog_tvtp::Matrix{Float64} = Matrix{Float64}(undef, 0, 0))
     
     # TO DO:
     # - check if provided y and exogenous are used in the model
     # - check if y, exogenous have the same number of observations
 
-    if isempty(exog_vars) & isempty(exog_switching_vars) & isempty(y)
-        x = model.x[:,2:end]
+    if isempty(exog_vars) & isempty(exog_switching_vars) & isempty(y) & isempty(exog_tvtp)
         ξ_t = filtered_probs(model) 
+        T = model.T
+        n_δ = Int(length(model.δ)/(model.k^2))
+        exog_tvtp = model.x[:, end-n_δ+1:end]
+        x = model.x[:,2:end-n_δ]
     else
         T = length(y)
         x = model.intercept == "no" ? zeros(T) : ones(T)       
@@ -298,14 +322,23 @@ function predict(model::MSM,
         x = !isempty(exog_vars) ? [x exog_vars] : x
 
         ξ_t = filtered_probs(model, y = y, 
-                                exog_vars = exog_vars, 
-                                exog_switching_vars = exog_switching_vars) 
+                                    exog_vars = exog_vars, 
+                                    exog_switching_vars = exog_switching_vars,
+                                    exog_tvtp = exog_tvtp) 
     end
 
     if instanteous
         ŷ_s = (x*hcat(model.β...))
     else
-        ξ_t = (model.P * ξ_t')'[1:end-1,:]
+        if isempty(model.P)
+            for t in 1:T
+                P = P_tvtp(exog_tvtp[t, :], model.δ, model.k, Int(length(model.δ)/(model.k^2)))
+                ξ_t[t, :] = P'ξ_t[t, :]
+            end
+            ξ_t = ξ_t[1:end-1,:]
+        else
+            ξ_t = (model.P * ξ_t')'[1:end-1,:]
+        end
         ŷ_s  = (x*hcat(model.β...))[2:end,:]
     end
 
