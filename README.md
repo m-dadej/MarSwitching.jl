@@ -197,7 +197,7 @@ struct MSM
     β::Vector{Vector{Float64}}  # β[state][i] vector of β for each state
     σ::Vector{Float64}          # error variance
     P::Matrix{Float64}          # transition matrix
-    δ::Vector{Float64}         # vector of coefficients for time varying transition matrix
+    δ::Vector{Float64}          # vector of coefficients for time varying transition matrix
     k::Int64                    # number of regimes
     n_β::Int64                  # number of β parameters
     n_β_ns::Int64               # number of non-switching β parameters
