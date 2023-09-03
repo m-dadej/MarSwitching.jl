@@ -5,49 +5,74 @@ function generate_mars(model::MSM, T::Int64 = model.T)
     β    = [model.β[i][2:(2+model.n_β-1)] for i in 1:model.k]
     β    = vec(reduce(hcat, [β...]))
     β_ns = model.β[1][(2+model.n_β):end]
+    
+    δ = model.δ
+    n_δ = Int(length(δ)/(model.k*(model.k-1)))
+    exog_tvtp = model.x[:, end-n_δ+1:end]  
+    tvtp_intercept = isempty(δ) ? false : all(exog_tvtp[:,1] .== exog_tvtp[1,1])
 
-    return generate_mars(μ, model.σ, model.P, T, β = β, β_ns = β_ns)
+    return generate_mars(μ, model.σ, model.P, T, β = β, β_ns = β_ns, δ = δ, tvtp_intercept = tvtp_intercept)
 end
 
+function P_tvtp(x, δ, k, n_δ)
+
+    P = reshape(exp.(reshape(δ, (k*(k-1)), n_δ)*x), k-1,k)
+    P = [P; ones(1,k)]
+    P = P ./ sum(P, dims=1)
+
+    return P
+end
 
 function generate_mars(μ::Vector{Float64},
-                       σ::Vector{Float64},
-                       P::Matrix{Float64},
-                       T::Int64;
-                       β::Vector{Float64} = Vector{Float64}([]),
-                       β_ns::Vector{Float64} = Vector{Float64}([]))
-
-    @assert size(P)[2] == length(μ) == length(σ) "Number of states not equal among provided parameters."
+                        σ::Vector{Float64},
+                        P::Matrix{Float64},
+                        T::Int64;
+                        β::Vector{Float64} = Vector{Float64}([]),
+                        β_ns::Vector{Float64} = Vector{Float64}([]),
+                        δ::Vector{Float64} = Vector{Float64}([]),
+                        tvtp_intercept::Bool = true)
 
     if size(P)[2] != size(P)[1]
         P = vcat(P, ones(1, size(P)[2]))
         P = P ./ sum(P, dims=1)
     end
-    
+
     k = length(μ)
     n_β = Int(size(β)[1]/k)
     n_β_ns = size(β_ns)[1]
     s_t = [1]
-    
-    for _ in 1:(T-1)
-        push!(s_t, sample(1:k, Weights(P[:, s_t[end]])))
+
+    if !isempty(δ)
+        n_δ = Int(length(δ)/(k*(k-1)))
+        x_tvtp = tvtp_intercept ? [ones(T) rand(Normal(1,0.5), T, n_δ-1)] : rand(Normal(1,0.5), T, n_δ)
+
+        for t in 1:(T-1)
+            P = P_tvtp(x_tvtp[t, :], δ, k, n_δ)
+            push!(s_t, sample(1:k, Weights(P[:, s_t[end]])))
+        end
+    else
+        for _ in 1:(T-1)
+            push!(s_t, sample(1:k, Weights(P[:, s_t[end]])))
+        end
     end
     
     y_s = zeros(T, k)
     X = [ones(T) rand(Normal(0,1), T, n_β + n_β_ns)]
-    
+
     params = [zeros(1 + n_β + n_β_ns) for _ in 1:k]
     [params[i][1] = μ[i] for i in 1:k]     # populate intercepts
     [params[i][2:(n_β+1)] .= β[1+n_β*(i-1):n_β*i] for i in 1:k] # populate switching betas
     [params[i][(n_β+2):(n_β+1+n_β_ns)] .= β_ns for i in 1:k] # populate switching betas
-    
+
     for t in 1:T
         for s in 1:k
             y_s[t, s] = rand(Normal((X*params[s])[t], σ[s])) 
         end       
     end
-    
+
+    X = !isempty(δ) ? [X x_tvtp] : X
     y = zeros(T)
+    
     for s in 1:k
         y[s_t .== s] .= y_s[s_t .== s, s]
     end
@@ -99,9 +124,7 @@ function vec2param_switch(θ::Vector{Float64},
         [β[i][end-n_β_ns+1:end] .= θ[(n_var + k + n_β*k)+1:(n_var + k + n_β*k) + n_β_ns] for i in 1:k]
     end
 
-    @views P = reshape(θ[end-(k*(k-1) - 1):end], k-1, k)
-
-    return σ, β, P
+    return σ, β
 end
 
 function vec2param_nonswitch(θ::Vector{Float64}, 
@@ -124,9 +147,7 @@ function vec2param_nonswitch(θ::Vector{Float64},
         [β[i][end-n_β_ns+1:end] .= θ[(n_var+1+n_β*k+1):(n_var+1+n_β*k+n_β_ns)] for i in 1:k]
     end
 
-    @views P = reshape(θ[end-(k*(k-1) - 1):end], k-1, k)
-
-    return σ, β, P
+    return σ, β
 end
 
 # the same function as above, but without [β[i][1] = θ[k+1:(k+1+k*n_β)][1] for i in 1:k] and indexes moved
@@ -149,9 +170,7 @@ function vec2param_nointercept(θ::Vector{Float64},
         [β[i][end-n_β_ns+1:end] .= θ[(n_var+n_β*k+1):(n_var+n_β*k+n_β_ns)] for i in 1:k]
     end
 
-    @views P = reshape(θ[end-(k*(k-1) - 1):end], k-1, k)
-
-    return σ, β, P
+    return σ, β
 end
 
 function trans_θ(θ::Vector{Float64},
@@ -159,25 +178,28 @@ function trans_θ(θ::Vector{Float64},
                  n_β::Int64, 
                  n_β_ns::Int64, 
                  intercept::String,
-                 switching_var::Bool)
+                 switching_var::Bool,
+                 tvtp::Bool)
     
     # I know, it should be done in a single function. But it's faster apparently.
     if intercept == "switching"
-        σ, β, P = vec2param_switch(θ, k, n_β, n_β_ns, switching_var)
+        σ, β = vec2param_switch(θ, k, n_β, n_β_ns, switching_var)
     elseif intercept == "non-switching"
-        σ, β, P = vec2param_nonswitch(θ, k, n_β, n_β_ns, switching_var)
+        σ, β = vec2param_nonswitch(θ, k, n_β, n_β_ns, switching_var)
     elseif intercept == "no"
-        σ, β, P = vec2param_nointercept(θ, k, n_β, n_β_ns, switching_var)
+        σ, β = vec2param_nointercept(θ, k, n_β, n_β_ns, switching_var)
+    end
+
+    σ = σ.^2
+
+    if !tvtp
+        @views P = reshape(θ[end-(k*(k-1) - 1):end], k-1, k)
+        P = [P; ones(1, k)]
+        P = P ./ sum(P, dims=1)
     end
     
-    
-    σ = σ.^2
-    P = [P; ones(1, k)]
-    P = P ./ sum(P, dims=1)
-
-    return σ, β, P
+    return tvtp ? (σ, β) : (σ, β, P)
 end
-
 
 # function below combines vec2param_nonswitch and vec2param_switch
 # apparently, it's slower than the two separate functions. Even though it's more concise.

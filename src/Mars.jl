@@ -22,6 +22,7 @@ export get_std_errors, expected_duration, state_coeftable, transition_mat, summa
 # delete after development
 export loglik, MSM, add_lags, vec2param, trans_θ, obj_func
 export vec2param_nointercept, vec2param_nonswitch, vec2param_switch
-export predict
+export predict, P_tvtp, obj_func_tvtp, loglik_tvtp, coeftable_tvtp
+export finite_difference_gradient, finite_difference_hessian
 
 end

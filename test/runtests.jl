@@ -1,5 +1,6 @@
 using Mars
 using Test
+using StatsBase
 
 @testset "minimal test" begin
 
@@ -22,6 +23,7 @@ using Test
                         exog_switching_vars = reshape(X[:,2:3],T,2),
                         exog_vars = reshape(X[:,4],T,1))
 
+    @test model.nlopt_msg == :XTOL_REACHED
     @test model.x isa Matrix{Float64}
     @test model.P isa Matrix{Float64}
     @test model.β isa Vector{Vector{Float64}}
@@ -51,8 +53,11 @@ end
     model = MSModel(y, k, intercept = "switching", 
                             exog_switching_vars = reshape(X[:,2],T,1))
 
+    @test model.nlopt_msg == :XTOL_REACHED                    
     @test all(abs.(sort([model.β[i][1] for i in 1:model.k]) .- sort(μ)) .< 0.3)
     @test all(abs.(sort([model.β[i][2] for i in 1:model.k]) .- sort(β)) .< 0.3)
+    @test maximum(cor([filtered_probs(model) (s_t .== 3)])[1:3,end]) > 0.6 
+    @test maximum(cor([smoothed_probs(model) (s_t .== 3)])[1:3,end]) > 0.7 
 
     y_, s_t_, X_ = generate_mars(model, 1000)
 
@@ -77,7 +82,9 @@ end
     model = MSModel(y, k, intercept = "switching", 
                             exog_vars = reshape(X[:,2],T,1))
 
+                          
     @test abs.(model.β[1][2] .- β_ns[1]) < 0.3
+    @test model.nlopt_msg == :XTOL_REACHED
 end
 
 @testset "stochastic component - no intercept model" begin
@@ -94,10 +101,11 @@ end
     model = MSModel(y, k, intercept = "no", exog_switching_vars = reshape(X[:,2], T, 1),
     exog_vars = reshape(X[:,3], T, 1))
 
-    model.β
-    model.Likelihood
+    @test maximum(cor([filtered_probs(model) (s_t .== 3)])[1:3,end]) > 0.6 
+    @test maximum(cor([smoothed_probs(model) (s_t .== 3)])[1:3,end]) > 0.7 
 
     @test all([model.β[i][1] == 0 for i in 1:model.k])
+    @test model.nlopt_msg == :XTOL_REACHED
 end
 
 @testset "stochastic component - 3 state model every exogenous vars" begin
@@ -118,6 +126,10 @@ end
                             exog_switching_vars = reshape(X[:,2:3],T,2),
                             exog_vars = reshape(X[:,4],T,1))
 
+    # to add tests below we need better x0 for P or random search 
+    # because around eery 2 estimations the P is very biased                            
+    # @test maximum(cor([filtered_probs(model) (s_t .== 3)])[1:3,end]) > 0.6 
+    # @test maximum(cor([smoothed_probs(model) (s_t .== 3)])[1:3,end]) > 0.7 
     @test all(isreal.(model.P))
     @test all(model.P .>= 0)
     @test all(model.P .<= 1)
@@ -125,27 +137,61 @@ end
     @test all(expected_duration(model) .> 0)
     @test size(filtered_probs(model)) == (T, k)
     @test size(smoothed_probs(model)) == (T, k)
+    @test model.nlopt_msg == :XTOL_REACHED
 
 end
 
 @testset "stochastic component - non-switching variance" begin
     k = 3
     μ = [1.0, -0.5, 0.12] 
-    β_ns = Vector{Float64}([0.633])
     σ = [0.2, 0.2, 0.2] 
     P = [0.9 0.05 0.1; 0.05 0.85 0.05; 0.05 0.1 0.85]
     T = 500
 
-    y, s_t, X = generate_mars(μ, σ, P, T, β_ns = β_ns)
+    y, s_t, X = generate_mars(μ, σ, P, T)
 
-    model = MSModel(y, k,   exog_vars = reshape(X[:,2],T,1),
-                            switching_var = false)
-
+    model = MSModel(y, k, switching_var = false)
+                
     @test all(model.σ .== model.σ[1])
     @test abs(model.σ[1] .- σ[1]) < 0.2
+    @test model.nlopt_msg == :XTOL_REACHED
 end
 
-@testset begin "predict function"
+@testset "stochastic component - tvtp" begin
+    
+    k = 2
+    μ = [1.2, -0.1] 
+    σ = [0.3,  0.2] 
+    P = [0.5 0.05
+        0.5 0.95]
+    #P = [0.9 0.05 0.1; 0.05 0.85 0.05; 0.05 0.1 0.85]
+    #δ = [4.0, 0.1, 0.2, 0.1, 6, 0.25, -0.4, 0.1]
+    δ = [2.2, 0.9]
+    T = 500
+
+    y, s_t, X = generate_mars(μ, σ, P, T, δ = δ, tvtp_intercept = false)
+    x_tvtp = reshape(X[:,2], T, 1)
+
+    model = MSModel(y, k, intercept = "switching", exog_tvtp = x_tvtp, maxtime = 100)
+
+    @test model.nlopt_msg == :XTOL_REACHED
+    @test abs(cor([[P_tvtp(x_tvtp[i], δ, k, 1)[2] for i in 1:T] [P_tvtp(x_tvtp[i], model.δ, k, 1)[2] for i in 1:T]])[2]) > 0.8
+
+    ξ_t = filtered_probs(model)
+
+    @test all(abs.(sort([model.β[i][1] for i in 1:model.k]) .- sort(μ)) .< 0.3)
+    @test maximum(cor([ξ_t s_t])[1:2, end]) > 0.6
+
+    ŷ, P̂ = Mars.predict(model, true)
+
+    @test (cor([ŷ y])[2]) > 0.6
+
+    ŷ, P̂ = Mars.predict(model, false)
+
+    @test (cor([ŷ y[1:end-1]])[2]) > 0.6
+end
+
+@testset "predict function" begin 
     k = 3
     μ = [1.0, -0.5, 0.0] 
     β_ns = Vector{Float64}([0.7])
@@ -162,20 +208,21 @@ end
     my_std(x) = sqrt(sum((x .- my_mean(x)).^2) / (length(x)-1))
     corr(x,y) = sum((x .- my_mean(x)) .* (y .- my_mean(y))) / (my_std(x)*my_std(y)*(length(x)-1))
     
-    y_pred, ξ_t = predict(model, true)
+    y_pred, ξ_t = Mars.predict(model, true)
 
     @test corr(y_pred, y)[1] > 0.7
 
     T_pred = 400
     y_oos, _, X_oos = generate_mars(μ, σ, P, T_pred, β_ns = β_ns)
 
-    y_pred2, ξ_t2 = predict(model, true, y = y_oos, exog_vars = reshape(X_oos[:,2],T_pred,1))
+    y_pred2, ξ_t2 = Mars.predict(model, true, y = y_oos, exog_vars = reshape(X_oos[:,2],T_pred,1))
 
     @test corr(y_pred2, y_oos)[1] > 0.6
 
-    y_pred3, ξ_t3 = predict(model, false, y = y_oos, exog_vars = reshape(X_oos[:,2],T_pred,1))
+    y_pred3, ξ_t3 = Mars.predict(model, false, y = y_oos, exog_vars = reshape(X_oos[:,2],T_pred,1))
 
     @test corr(y_pred3, y_oos[2:end])[1] > 0.5
+    @test model.nlopt_msg == :XTOL_REACHED
 
 end
 
@@ -196,7 +243,7 @@ end
                     
                     n_int = int == "switching" ? k_i : 1
                     θ = [rand(k_i); rand(Uniform(-5, 5), n_int); rand(Uniform(-5, 5), n_β_i*k_i); rand(Uniform(-5, 5), n_β_ns_i); rand(k_i*(k_i-1))] 
-                    σ, β, P = trans_θ(θ, k_i, n_β_i, n_β_ns_i, int, true)
+                    σ, β, P = trans_θ(θ, k_i, n_β_i, n_β_ns_i, int, true, false)
                     println("k: $k_i, n_β: $n_β_i, n_β_ns: $n_β_ns_i, intercept: $int")
 
                     @test size(σ)[1] == k_i
@@ -218,7 +265,7 @@ end
 
     θ = [σ; β; β_ns; vec(P[2:end, :])]
 
-    σ_, β_, P_ = vec2param_nointercept(θ, k, 1, 1, true)
+    σ_, β_ = vec2param_nointercept(θ, k, 1, 1, true)
 
     @test all([β_[i][1] == 0 for i in 1:k])
     @test σ_ == σ
