@@ -161,7 +161,7 @@ using Plots
 
 plot(smoothed_probs(model),
      label     = ["Regime 1" "Regime 2"],
-     title     = "Smoothed transition robabilities", 
+     title     = "Smoothed transition probabilities", 
      linewidth = 2)
 ```     
 ![Plot](img/transition_probs.svg)
@@ -169,7 +169,7 @@ plot(smoothed_probs(model),
 ```julia
 plot([smoothed_probs(model)[:,2] s_t.-1],
      label     = ["Regime 1" "Actual Regime"],
-     title     = "Smoothed transition robabilities",
+     title     = "Smoothed transition probabilities",
      linewidth = 2)  
 ```
  ![Plot](img/actual_probs.svg)
@@ -185,7 +185,7 @@ MSModel(y::Vector{Float64},                     # vector of dependent variable
         exog_vars::Matrix{Float64}              # optional matrix of exogenous variables
         exog_switching_vars::Matrix{Float64},   # optional matrix of exogenous variables with regime switching
         switching_var::Bool = true,             # is variance state-dependent?
-        exog_tvtp::Matrix{Float64}      # optional matrix of exogenous variables for time-varying transition matrix
+        exog_tvtp::Matrix{Float64}              # optional matrix of exogenous variables for time-varying transition matrix
         x0::Vector{Float64},                    # optional initial values of parameters for optimization
         algorithm::Symbol,                      # optional algorithm for NLopt.jl
         maxtime::Int64)                         # optional maximum time for optimization
