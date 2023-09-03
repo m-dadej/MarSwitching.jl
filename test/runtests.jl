@@ -51,7 +51,8 @@ end
 
 
     model = MSModel(y, k, intercept = "switching", 
-                            exog_switching_vars = reshape(X[:,2],T,1))
+                            exog_switching_vars = reshape(X[:,2],T,1),
+                            random_search = 5)
 
     @test model.nlopt_msg == :XTOL_REACHED                    
     @test all(abs.(sort([model.β[i][1] for i in 1:model.k]) .- sort(μ)) .< 0.3)
@@ -80,7 +81,8 @@ end
     y, s_t, X = generate_mars(μ, σ, P, T, β_ns = β_ns)
 
     model = MSModel(y, k, intercept = "switching", 
-                            exog_vars = reshape(X[:,2],T,1))
+                            exog_vars = reshape(X[:,2],T,1),
+                            random_search = 5)
 
                           
     @test abs.(model.β[1][2] .- β_ns[1]) < 0.3
@@ -99,7 +101,8 @@ end
     y, s_t, X = generate_mars(μ, σ, P, T, β = β, β_ns = β_ns)
 
     model = MSModel(y, k, intercept = "no", exog_switching_vars = reshape(X[:,2], T, 1),
-    exog_vars = reshape(X[:,3], T, 1))
+                            exog_vars = reshape(X[:,3], T, 1),
+                            random_search = 5)
 
     @test maximum(cor([filtered_probs(model) (s_t .== 3)])[1:3,end]) > 0.6 
     @test maximum(cor([smoothed_probs(model) (s_t .== 3)])[1:3,end]) > 0.7 
@@ -124,7 +127,8 @@ end
 
     model = MSModel(y, k, intercept = "switching", 
                             exog_switching_vars = reshape(X[:,2:3],T,2),
-                            exog_vars = reshape(X[:,4],T,1))
+                            exog_vars = reshape(X[:,4],T,1),
+                            random_search = 5)
 
     # to add tests below we need better x0 for P or random search 
     # because around eery 2 estimations the P is very biased                            
@@ -150,7 +154,8 @@ end
 
     y, s_t, X = generate_mars(μ, σ, P, T)
 
-    model = MSModel(y, k, switching_var = false)
+    model = MSModel(y, k, switching_var = false,
+                            random_search = 5)
                 
     @test all(model.σ .== model.σ[1])
     @test abs(model.σ[1] .- σ[1]) < 0.2
@@ -172,7 +177,10 @@ end
     y, s_t, X = generate_mars(μ, σ, P, T, δ = δ, tvtp_intercept = false)
     x_tvtp = reshape(X[:,2], T, 1)
 
-    model = MSModel(y, k, intercept = "switching", exog_tvtp = x_tvtp, maxtime = 100)
+    model = MSModel(y, k, intercept = "switching", 
+                            exog_tvtp = x_tvtp, 
+                            maxtime = 100,
+                            random_search = 5)
 
     @test model.nlopt_msg == :XTOL_REACHED
     @test abs(cor([[P_tvtp(x_tvtp[i], δ, k, 1)[2] for i in 1:T] [P_tvtp(x_tvtp[i], model.δ, k, 1)[2] for i in 1:T]])[2]) > 0.8
@@ -202,7 +210,8 @@ end
     y, s_t, X = generate_mars(μ, σ, P, T, β_ns = β_ns)
 
     model = MSModel(y, k, intercept = "switching", 
-                            exog_vars = reshape(X[:,2],T,1))
+                            exog_vars = reshape(X[:,2],T,1),
+                            random_search = 5)
                 
     my_mean(x) = sum(x) / length(x)
     my_std(x) = sqrt(sum((x .- my_mean(x)).^2) / (length(x)-1))
