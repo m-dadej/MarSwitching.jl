@@ -5,13 +5,19 @@ function generate_mars(model::MSM, T::Int64 = model.T)
     β    = [model.β[i][2:(2+model.n_β-1)] for i in 1:model.k]
     β    = vec(reduce(hcat, [β...]))
     β_ns = model.β[1][(2+model.n_β):end]
+    
+    δ = model.δ
+    n_δ = Int(length(δ)/(model.k*(model.k-1)))
+    exog_tvtp = model.x[:, end-n_δ+1:end]  
+    tvtp_intercept = isempty(δ) ? false : all(exog_tvtp[:,1] .== exog_tvtp[1,1])
 
-    return generate_mars(μ, model.σ, model.P, T, β = β, β_ns = β_ns)
+    return generate_mars(μ, model.σ, model.P, T, β = β, β_ns = β_ns, δ = δ, tvtp_intercept = tvtp_intercept)
 end
 
 function P_tvtp(x, δ, k, n_δ)
-    
-    P = reshape(exp.(reshape(δ, (k^2), n_δ)*x), k,k)
+
+    P = reshape(exp.(reshape(δ, (k*(k-1)), n_δ)*x), k-1,k)
+    P = [P; ones(1,k)]
     P = P ./ sum(P, dims=1)
 
     return P
@@ -26,8 +32,6 @@ function generate_mars(μ::Vector{Float64},
                         δ::Vector{Float64} = Vector{Float64}([]),
                         tvtp_intercept::Bool = true)
 
-    @assert size(P)[2] == length(μ) == length(σ) "Number of states not equal among provided parameters."
-
     if size(P)[2] != size(P)[1]
         P = vcat(P, ones(1, size(P)[2]))
         P = P ./ sum(P, dims=1)
@@ -39,11 +43,12 @@ function generate_mars(μ::Vector{Float64},
     s_t = [1]
 
     if !isempty(δ)
-        n_δ = Int(length(δ)/(k^2))
+        n_δ = Int(length(δ)/(k*(k-1)))
         x_tvtp = tvtp_intercept ? [ones(T) rand(Normal(1,0.5), T, n_δ-1)] : rand(Normal(1,0.5), T, n_δ)
 
         for t in 1:(T-1)
-            push!(s_t, sample(1:k, Weights(P_tvtp(x_tvtp[t, :], δ, k, n_δ)[:, s_t[end]])))
+            P = P_tvtp(x_tvtp[t, :], δ, k, n_δ)
+            push!(s_t, sample(1:k, Weights(P[:, s_t[end]])))
         end
     else
         for _ in 1:(T-1)

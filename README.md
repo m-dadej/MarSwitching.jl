@@ -53,6 +53,7 @@ Because of the unobserved nature of the state, the model is estimated by maximum
         - switching/non-switching or without intercept
         - switching/non-switching variance
         - switching/non-switching exogenous variables
+        - time-varying transition probabilites (TVTP) (Filardo 1994)
     - Filtered probabilites
     - Smoothed probabilites (Kim, 1994)
     - Summary statistics of coefficients
@@ -63,7 +64,6 @@ Because of the unobserved nature of the state, the model is estimated by maximum
 - Planned functionality:
     - other error distributions (t, skew-t, etc.)
     - variable and number of states selection
-    - time-varying transition probabilites (Filardo 1994)
     - Markov Switching GARCH model
     - Markov Switching VAR model
     - Markov Switching model with lagged states. E.g. $y_t = \mu_{S_t} + \phi(y_{t-1} - \mu_{S_{t-1}})$
@@ -185,6 +185,7 @@ MSModel(y::Vector{Float64},                     # vector of dependent variable
         exog_vars::Matrix{Float64}              # optional matrix of exogenous variables
         exog_switching_vars::Matrix{Float64},   # optional matrix of exogenous variables with regime switching
         switching_var::Bool = true,             # is variance state-dependent?
+        exog_tvtp::Matrix{Float64}      # optional matrix of exogenous variables for time-varying transition matrix
         x0::Vector{Float64},                    # optional initial values of parameters for optimization
         algorithm::Symbol,                      # optional algorithm for NLopt.jl
         maxtime::Int64)                         # optional maximum time for optimization
@@ -196,6 +197,7 @@ struct MSM
     β::Vector{Vector{Float64}}  # β[state][i] vector of β for each state
     σ::Vector{Float64}          # error variance
     P::Matrix{Float64}          # transition matrix
+    δ::Vector{Float64}         # vector of coefficients for time varying transition matrix
     k::Int64                    # number of regimes
     n_β::Int64                  # number of β parameters
     n_β_ns::Int64               # number of non-switching β parameters
@@ -205,6 +207,7 @@ struct MSM
     T::Int64                    # number of observations
     Likelihood::Float64         # log-likelihood
     raw_params::Vector{Float64} # vector of parameters for optimization
+    nlopt_msg::Symbol           # message from NLopt.jl solver
 end
 ```  
 Filtered transition probabilites can be calculated from estimated model:
@@ -213,7 +216,8 @@ Filtered transition probabilites can be calculated from estimated model:
 filtered_probs(msm_model::MSM,                       # estimated model
                y::Vector{Float64},                   # optional vector of dependent variables
                exog_vars::Matrix{Float64}            # optional matrix of exogenous variables
-               exog_switching_vars::Matrix{Float64}) # optional matrix of exogenous variables with regime switching
+               exog_switching_vars::Matrix{Float64}, # optional matrix of exogenous variables with regime switching
+               exog_tvtp::Matrix{Float64})           # optional matrix of exogenous variables for time-varying transition matrix
                 
 ```
 
@@ -223,7 +227,8 @@ Similarily, smoothed transition probabilites can be also calculated from estimat
 smoothed_probs(msm_model::MSM,                       # estimated model
                y::Vector{Float64},                   # optional vector of dependent variables
                exog_vars::Matrix{Float64}            # optional matrix of exogenous variables
-               exog_switching_vars::Matrix{Float64}) # optional matrix of exogenous variables with regime switching
+               exog_switching_vars::Matrix{Float64}, # optional matrix of exogenous variables with regime switching
+               exog_tvtp::Matrix{Float64})           # optional matrix of exogenous variables for time-varying transition matrix
 ```
 
 The `predict()` function can be used to calculate instanteous or one step ahead predictions from estimated model:
@@ -233,7 +238,8 @@ predict(model::MSM,                             # estimated model
         instanteous::Bool = false;              # instanteous or one-step ahead prediction
         y::Vector{Float64},                     # optional vector of dependent variables
         exog_vars::Matrix{Float64},             # optional matrix of exogenous variables
-        exog_switching_vars::Matrix{Float64})   # optional matrix of exogenous variables with regime switching
+        exog_switching_vars::Matrix{Float64},   # optional matrix of exogenous variables with regime switching
+        exog_tvtp::Matrix{Float64})             # optional matrix of exogenous variables for time-varying transition matrix
     
 ```
 Which is the probability weighted average of predictions of each state equation:
@@ -254,6 +260,7 @@ The provided new data needs to match the data used for estimation (with except o
 
 The `summary_mars(model::MSM; digits::Int64=3)` function outputs a summary table that is built from 2 functions: 
 - `transition_mat(model::MSM; digits::Int64=2)` - prints transition matrix
+- `coeftable_tvtp(model::MSM; digits::Int64=3)` - prints coefficient table for time-varying transition matrix
 - `state_coeftable(model::MSM, state::Int64; digits::Int64=3)` - prints coefficient table for given state
 
 It is also possible to simulate data from a given parameters
@@ -264,7 +271,9 @@ generate_mars(μ::Vector{Float64},    # vector of intercepts for each state
               P::Matrix{Float64},    # transition matrix
               T::Int64;              # number of observations
               β::Vector{Float64},    # vector of coefficients for each state
-              β_ns::Vector{Float64}) # vector of non-switching coefficients
+              β_ns::Vector{Float64}, # vector of non-switching coefficients
+              δ::Vector{Float64},    # vector of coefficients for time-varying transition matrix
+              tvtp_intercept::Bool)  # should TVTP have an intercept?
 ```
 or thanks to multiple dispatch, simulate data frome stimated model (as in example):
 
@@ -275,7 +284,7 @@ generate_mars(model::MSM, T::Int64=model.T)
 The function returns a tuple of 3 elements, respectively:
 - `y`: vector of dependent variables
 - `s_t`: vector of states
-- `X`: matrix of exogenous variables (generated from standard normal distribution)
+- `X`: matrix of exogenous variables (generated from standard normal distribution), where last variables are for TVTP
 
 Function `add_lags(y::Vector{Float64}, p::Int64)` adds `p` lags to the matrix of dependent variables. The function returns a matrix of dependent variables with `p` lags.
 

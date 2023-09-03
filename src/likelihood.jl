@@ -16,7 +16,6 @@ struct MSM
     nlopt_msg::Symbol
 end
 
-
 function loglik(θ::Vector{Float64}, 
                 X::Matrix{Float64}, 
                 k::Int64,
@@ -78,7 +77,8 @@ function loglik_tvtp(θ::Vector{Float64},
     x_tvtp = X[:, end-n_δ+1:end]
     X      = X[:, 1:(end-n_δ)]
     
-    δ = θ[(end-(n_δ*k^2)+1):end]
+    #δ = θ[(end-(n_δ*k^2)+1):end]
+    δ = θ[(end-(n_δ*k*(k-1))+1):end]
     σ, β = trans_θ(θ, k, n_β, n_β_ns, intercept, switching_var, true)
 
     # TO DO: use the same function as in the non-tvtp case but with tvtp
@@ -114,7 +114,7 @@ function obj_func_tvtp(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, n
     if length(fΔ) > 0
         fΔ[1:length(θ)] .= FiniteDiff.finite_difference_gradient(θ -> -loglik_tvtp(θ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ)[1], θ)
     end
-
+    
     return -loglik_tvtp(θ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ)[1]
 end
 
@@ -139,7 +139,7 @@ function MSModel(y::Vector{Float64},
     n_β         = size(exog_switching_vars)[2]          # switching number of β
     n_var       = switching_var ? k : 1
     n_δ         = size(exog_tvtp)[2]  
-    n_p         = n_δ > 0 ? n_δ*k^2 : k*(k-1)
+    n_p         = n_δ > 0 ? n_δ*k*(k-1) : k*(k-1)
 
     if intercept == "switching"
         n_intercept = k
@@ -215,7 +215,7 @@ function MSModel(y::Vector{Float64},
     
     if n_δ > 0
         σ, β = trans_θ(θ_hat, k, n_β, n_β_ns, intercept, switching_var, true)
-        δ = θ_hat[(end-(n_δ*k^2)+1):end]
+        δ = θ_hat[(end-(n_δ*k*(k-1))+1):end]
         P = Matrix{Float64}(undef, 0, 0)
     else
         σ, β, P = trans_θ(θ_hat, k, n_β, n_β_ns, intercept, switching_var, false)
@@ -260,7 +260,7 @@ function filtered_probs(model::MSM;
                         model.n_β_ns, 
                         model.intercept, 
                         model.switching_var, 
-                        Int(length(model.δ)/(model.k^2)))[2]
+                        Int(length(model.δ)/(model.k*(model.k-1))))[2]
     end
     
 
@@ -274,7 +274,7 @@ function smoothed_probs(model::MSM; kwargs...)
     P   = model.P
     k   = model.k
     δ   = model.δ
-    n_δ = Int(length(δ)/(k^2))
+    n_δ = Int(length(δ)/(k*(k-1)))
                         
     if isempty(kwargs)
         ξ = filtered_probs(model)
@@ -312,7 +312,7 @@ function predict(model::MSM,
     if isempty(exog_vars) & isempty(exog_switching_vars) & isempty(y) & isempty(exog_tvtp)
         ξ_t = filtered_probs(model) 
         T = model.T
-        n_δ = Int(length(model.δ)/(model.k^2))
+        n_δ = Int(length(model.δ)/(model.k*(model.k-1)))
         exog_tvtp = model.x[:, end-n_δ+1:end]
         x = model.x[:,2:end-n_δ]
     else
@@ -332,7 +332,7 @@ function predict(model::MSM,
     else
         if isempty(model.P)
             for t in 1:T
-                P = P_tvtp(exog_tvtp[t, :], model.δ, model.k, Int(length(model.δ)/(model.k^2)))
+                P = P_tvtp(exog_tvtp[t, :], model.δ, model.k, Int(length(model.δ)/(model.k*(model.k-1))))
                 ξ_t[t, :] = P'ξ_t[t, :]
             end
             ξ_t = ξ_t[1:end-1,:]

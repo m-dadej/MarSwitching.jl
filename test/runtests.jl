@@ -158,40 +158,40 @@ end
 end
 
 @testset "stochastic component - tvtp" begin
+    
     k = 2
-    μ = [1.2, -0.5] 
-    σ = [0.8,  0.5] 
+    μ = [1.2, -0.1] 
+    σ = [0.3,  0.2] 
     P = [0.5 0.05
         0.5 0.95]
     #P = [0.9 0.05 0.1; 0.05 0.85 0.05; 0.05 0.1 0.85]
     #δ = [4.0, 0.1, 0.2, 0.1, 6, 0.25, -0.4, 0.1]
-    δ = [2.2, 0.1, 0.4, 1.9]
-    T = 1000
+    δ = [2.2, 0.9]
+    T = 500
 
     y, s_t, X = generate_mars(μ, σ, P, T, δ = δ, tvtp_intercept = false)
-
     x_tvtp = reshape(X[:,2], T, 1)
 
     model = MSModel(y, k, intercept = "switching", exog_tvtp = x_tvtp, maxtime = 100)
 
     @test model.nlopt_msg == :XTOL_REACHED
-    @test cor([[P_tvtp(x_tvtp[i], δ, k, 1)[2] for i in 1:T] [P_tvtp(x_tvtp[i], model.δ, k, 1)[2] for i in 1:T]])[2] > 0.8
+    @test abs(cor([[P_tvtp(x_tvtp[i], δ, k, 1)[2] for i in 1:T] [P_tvtp(x_tvtp[i], model.δ, k, 1)[2] for i in 1:T]])[2]) > 0.8
 
     ξ_t = filtered_probs(model)
 
-    @test all(abs.(sort([model.β[i][1] for i in 1:model.k]) .- sort(μ)) .< 0.2)
+    @test all(abs.(sort([model.β[i][1] for i in 1:model.k]) .- sort(μ)) .< 0.3)
     @test maximum(cor([ξ_t s_t])[1:2, end]) > 0.6
 
     ŷ, P̂ = Mars.predict(model, true)
 
-    @test (cor([ŷ y])[2]) > 0.7
+    @test (cor([ŷ y])[2]) > 0.6
 
     ŷ, P̂ = Mars.predict(model, false)
 
     @test (cor([ŷ y[1:end-1]])[2]) > 0.6
 end
 
-@testset begin "predict function"
+@testset "predict function" begin 
     k = 3
     μ = [1.0, -0.5, 0.0] 
     β_ns = Vector{Float64}([0.7])

@@ -2,6 +2,7 @@
 
 function get_std_errors(model::MSM)
 
+    if !isempty(model.P)
     H = FiniteDiff.finite_difference_hessian(θ -> loglik(θ,
                                                          model.x, 
                                                          model.k,
@@ -9,15 +10,26 @@ function get_std_errors(model::MSM)
                                                          model.n_β_ns,
                                                          model.intercept,
                                                          model.switching_var)[1], model.raw_params) # hessian
+    else
+        n_δ = Int(length(model.δ)/(model.k*(model.k-1)))
+        H = FiniteDiff.finite_difference_hessian(θ -> loglik_tvtp(θ,
+                                                            model.x, 
+                                                            model.k,
+                                                            model.n_β,
+                                                            model.n_β_ns,
+                                                            model.intercept,
+                                                            model.switching_var, n_δ)[1], model.raw_params) # hessian
+    end
 
     return sqrt.(abs.(diag(pinv(-H))))
 end
+
 
 function expected_duration(model::MSM, exog_tvtp::Matrix{Float64} = Matrix{Float64}(undef, 0, 0))
 
     if isempty(model.P)
         
-        n_δ = Int(length(model.δ)/(model.k^2))
+        n_δ = Int(length(model.δ)/(model.k*(model.k-1)))
 
         if isempty(exog_tvtp)
             exog_tvtp = model.x[:, end-n_δ+1:end]   
@@ -90,15 +102,15 @@ function coeftable_tvtp(model::MSM; digits::Int64=3)
     my_round(x) = round(x, digits = digits)
     k = model.k
     
-    n_δ       = Int(length(model.δ)/(k^2))
-    equations = reshape(model.δ, (k^2), n_δ)
+    n_δ       = Int(length(model.δ)/(k*(k-1)))
+    equations = reshape(model.δ, (k*(k-1)), n_δ)
     exog_tvtp = model.x[:, end-n_δ+1:end]  
 
     tvtp_intercept = all(exog_tvtp[:,1] .== exog_tvtp[1,1])
-    trans_index    = hcat([[j, i] for i in 1:k for j in 1:k]...)'
+    trans_index    = hcat([[j, i] for i in 1:k for j in 1:k-1]...)'
 
-    errors =  get_std_errors(model)[end-(n_δ*k^2)+1:end]
-    errors =  reshape(errors, (k^2), n_δ)
+    errors =  get_std_errors(model)[end-(n_δ*k*(k-1))+1:end]
+    errors =  reshape(errors, (k*(k-1)), n_δ)
 
     @printf "Time-varying parameters: \n"
     # header
