@@ -258,10 +258,11 @@ The one step ahed prediction will return a vector of size $(T-1) \times 1$, as t
 The provided new data needs to match the data used for estimation (with except of observations size). If not provided the prediction is done on the data used for estimation. For one step ahed forecast, there is no look-ahead bias, the y vector needs to be provided in order to calculate the state probabilites at time $t$.
 
 
-The `summary_mars(model::MSM; digits::Int64=3)` function outputs a summary table that is built from 2 functions: 
+The `summary_mars(model::MSM; digits::Int64=3)` function outputs a summary table that is built from 4 functions: 
 - `transition_mat(model::MSM; digits::Int64=2)` - prints transition matrix
 - `coeftable_tvtp(model::MSM; digits::Int64=3)` - prints coefficient table for time-varying transition matrix
 - `state_coeftable(model::MSM, state::Int64; digits::Int64=3)` - prints coefficient table for given state
+- `expected_duration(model::MSM; digits::Int64=2)` - prints expected duration of each state, or a time series of expected duration for TVTP model
 
 It is also possible to simulate data from a given parameters
 
