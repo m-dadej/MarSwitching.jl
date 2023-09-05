@@ -4,11 +4,13 @@ struct MSM
     σ::Vector{Float64}         
     P::Matrix{Float64}         # transition matrix
     δ::Vector{Float64}         # tvtp parameters
+    v::Vector{Float64}
     k::Int64                   
     n_β::Int64                 # number of β parameters
     n_β_ns::Int64              # number of non-switching β parameters
     intercept::String          # "switching" or "non-switching"
     switching_var::Bool           # is variance state dependent?
+    error_dist::String
     x::Matrix{Float64}         # data matrix
     T::Int64    
     Likelihood::Float64
@@ -17,19 +19,21 @@ struct MSM
 end
 
 function loglik(θ::Vector{Float64}, 
-                X::Matrix{Float64}, 
-                k::Int64,
-                n_β::Int64,
-                n_β_ns::Int64,
-                intercept::String,
-                switching_var::Bool,
-                logsum::Bool=true)
+                    X::Matrix{Float64}, 
+                    k::Int64,
+                    n_β::Int64,
+                    n_β_ns::Int64,
+                    intercept::String,
+                    switching_var::Bool,
+                    error_dist::String,
+                    logsum::Bool=true)
 
     T      = size(X)[1]
     ξ      = zeros(T, k)  # unconditional transition probabilities at t
     L      = zeros(T)     # likelihood 
     ξ_next = zeros(k)     # unconditional transition probabilities at t+1
 
+    v = error_dist == "Normal" ? Vector{Float64}([]) : θ[end-k+1:end]
     σ, β, P = trans_θ(θ, k, n_β, n_β_ns, intercept, switching_var, false)
     
     # if tvtp
@@ -45,7 +49,12 @@ function loglik(θ::Vector{Float64},
     ξ_0 = any(ξ_0 .< 0) ? ones(k) ./ k : ξ_0
 
     # f(y | S_t, x, θ, Ψ_t-1) density function 
-    η = reduce(hcat, [pdf.(Normal.(view(X, :,2:n_β+n_β_ns+2)*β[i], σ[i]), view(X, :,1)) for i in 1:k])
+
+    if error_dist == "Normal"
+        η = reduce(hcat, [pdf.(Normal.(view(X, :,2:n_β+n_β_ns+2)*β[i], σ[i]), view(X, :,1)) for i in 1:k])
+    elseif error_dist == "t"
+        η = reduce(hcat, [pdf.((TDist(v[i])) , (view(X, :,1) .- view(X, :,2:n_β+n_β_ns+2)*β[i]) ./ σ[i]) for i in 1:k])
+    end
     η .+= 1e-12
 
     @inbounds for t in 1:T
@@ -68,6 +77,7 @@ function loglik_tvtp(θ::Vector{Float64},
                     intercept::String,
                     switching_var::Bool,
                     n_δ::Int64,
+                    error_dist::String,
                     logsum::Bool=true)
 
     T      = size(X)[1]
@@ -78,14 +88,19 @@ function loglik_tvtp(θ::Vector{Float64},
     X      = X[:, 1:(end-n_δ)]
     
     #δ = θ[(end-(n_δ*k^2)+1):end]
-    δ = θ[(end-(n_δ*k*(k-1))+1):end]
+    v = error_dist == "t" ? θ[end-k+1:end] : Vector{Float64}([])
+    δ = θ[(end-(n_δ*k*(k-1))+1 - length(v)):(end - length(v))]
     σ, β = trans_θ(θ, k, n_β, n_β_ns, intercept, switching_var, true)
 
     # TO DO: use the same function as in the non-tvtp case but with tvtp
     ξ_0 = ones(k) ./ k
     
-    # f(y | S_t, x, θ, Ψ_t-1) density function 
-    η = reduce(hcat, [pdf.(Normal.(view(X, :,2:n_β+n_β_ns+2)*β[i], σ[i]), view(X, :,1)) for i in 1:k])
+    # η = f(y | S_t, x, θ, Ψ_t-1) density function 
+    if error_dist == "Normal"
+        η = reduce(hcat, [pdf.(Normal.(view(X, :,2:n_β+n_β_ns+2)*β[i], σ[i]), view(X, :,1)) for i in 1:k])
+    elseif error_dist == "t"
+        η = reduce(hcat, [pdf.((TDist(10)) , (view(X, :,1) .- view(X, :,2:n_β+n_β_ns+2)*β[i]) ./ σ[i]) for i in 1:k])
+    end
     η .+= 1e-12
 
     @inbounds for t in 1:T
@@ -100,22 +115,23 @@ function loglik_tvtp(θ::Vector{Float64},
     return (logsum ? sum(log.(L)) : L ), ξ #sum(log.(L)), ξ
 end
 
-function obj_func(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var)  
+# TO DO: add kwargs
+function obj_func(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist)  
     
     if length(fΔ) > 0
-        fΔ[1:length(θ)] .= FiniteDiff.finite_difference_gradient(θ -> -loglik(θ, x, k, n_β, n_β_ns, intercept, switching_var)[1], θ)
+        fΔ[1:length(θ)] .= FiniteDiff.finite_difference_gradient(θ -> -loglik(θ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist)[1], θ)
     end
 
-    return -loglik(θ, x, k, n_β, n_β_ns, intercept, switching_var)[1]
+    return -loglik(θ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist)[1]
 end
 
-function obj_func_tvtp(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ)  
+function obj_func_tvtp(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist)  
     
     if length(fΔ) > 0
-        fΔ[1:length(θ)] .= FiniteDiff.finite_difference_gradient(θ -> -loglik_tvtp(θ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ)[1], θ)
+        fΔ[1:length(θ)] .= FiniteDiff.finite_difference_gradient(θ -> -loglik_tvtp(θ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist)[1], θ)
     end
     
-    return -loglik_tvtp(θ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ)[1]
+    return -loglik_tvtp(θ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist)[1]
 end
 
 function MSModel(y::Vector{Float64},
@@ -123,7 +139,8 @@ function MSModel(y::Vector{Float64},
                  ;intercept::String = "switching", # or "non-switching"
                  exog_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
                  exog_switching_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
-                 switching_var::Bool = true,
+                 switching_var::Bool = true, 
+                 error_dist::String = "Normal",
                  exog_tvtp::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
                  x0::Vector{Float64} = Vector{Float64}(undef, 0),
                  algorithm::Symbol = :LN_SBPLX,
@@ -151,6 +168,8 @@ function MSModel(y::Vector{Float64},
         n_intercept = 0
     end
 
+    n_dist_p = error_dist == "Normal" ? 0 : k
+
     ### merging dataset ###
     if !isempty(exog_switching_vars)
         @assert size(y)[1] == size(exog_switching_vars)[1] "Number of observations is not the same between y and exog_switching_vars"
@@ -169,15 +188,15 @@ function MSModel(y::Vector{Float64},
     
     ### solver settings ###
     # also: LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX
-    opt               = Opt(algorithm, n_var + n_β_ns + k*n_β + n_intercept + n_p) 
-    opt.lower_bounds  = [repeat([0], n_var); repeat([-Inf], k*n_β + n_β_ns + n_intercept); repeat([n_δ > 0 ? -Inf : 0.0], n_p)]
+    opt               = Opt(algorithm, n_var + n_β_ns + k*n_β + n_intercept + n_p + n_dist_p) 
+    opt.lower_bounds  = [repeat([0], n_var); repeat([-Inf], k*n_β + n_β_ns + n_intercept); repeat([n_δ > 0 ? -Inf : 0.0], n_p); repeat([error_dist == "t" ? 0 : -Inf], n_dist_p)]
     opt.xtol_rel      = 0
     opt.maxtime       = maxtime < 0 ? T/2 : maxtime
 
     if n_δ == 0
-        opt.min_objective = (θ, fΔ) -> obj_func(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var)
+        opt.min_objective = (θ, fΔ) -> obj_func(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist)
     else
-        opt.min_objective = (θ, fΔ) -> obj_func_tvtp(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ)
+        opt.min_objective = (θ, fΔ) -> obj_func_tvtp(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist)
     end
     
     ### initial guess ###
@@ -211,7 +230,7 @@ function MSModel(y::Vector{Float64},
             p_em          = vec(pmat_em)    
         end
         
-        x0 = [σ_em; μ_em; zeros(n_β*k); zeros(n_β_ns); p_em]
+        x0 = [σ_em; μ_em; zeros(n_β*k); zeros(n_β_ns); p_em; zeros(n_dist_p)]
         #x0 = [repeat([std(x[:,1])], k).^2; repeat([mean(x[:,1])], k*(size(x)[2]-1)); repeat([0.5],(k-1)*k)]
     end
 
@@ -236,15 +255,18 @@ function MSModel(y::Vector{Float64},
 
     ### transformation of variables - tvtp or not ###
     if n_δ > 0
+        v = error_dist == "t" ? θ_hat[end-k+1:end] : Vector{Float64}([])
+        δ = θ_hat[(end-(n_δ*k*(k-1))+1 - length(v)):(end - length(v))]
+
         σ, β = trans_θ(θ_hat, k, n_β, n_β_ns, intercept, switching_var, true)
-        δ = θ_hat[(end-(n_δ*k*(k-1))+1):end]
         P = Matrix{Float64}(undef, 0, 0)
     else
+        v = error_dist == "t" ? θ_hat[end-k+1:end] : Vector{Float64}([])
         σ, β, P = trans_θ(θ_hat, k, n_β, n_β_ns, intercept, switching_var, false)
         δ = Vector{Float64}(undef, 0)
     end
     
-    return MSM(β, σ, P, δ, k, n_β, n_β_ns, intercept, switching_var, x, T, -minf, θ_hat, ret)
+    return MSM(β, σ, P, δ, v, k, n_β, n_β_ns, intercept, switching_var, error_dist, x, T, -minf, θ_hat, ret)
 end
 
 function filtered_probs(model::MSM;
