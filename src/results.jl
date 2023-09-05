@@ -3,7 +3,7 @@
 function get_std_errors(model::MSM)
 
     if !isempty(model.P)
-    H = FiniteDiff.finite_difference_hessian(θ -> loglik(θ,
+        H = FiniteDiff.finite_difference_hessian(θ -> loglik(θ,
                                                          model.x, 
                                                          model.k,
                                                          model.n_β,
@@ -162,17 +162,28 @@ end
 
 function summary_mars(model::MSM; digits::Int64=3)
 
-    loglik   = round.(model.Likelihood, digits = digits)
-    n_params = length(model.raw_params)
-    aic      = round.(2*n_params - 2*model.Likelihood, digits = digits)
-    bic      = round.(log(model.T)*n_params - 2*model.Likelihood, digits = digits)
+    r2(ŷ, y) = sum((ŷ .- mean(y)).^2) / sum((y .- mean(y)).^2)
+    
+    loglik    = round.(model.Likelihood, digits = 1)
+    n_params  = length(model.raw_params)
+    aic       = round.(2*n_params - 2*model.Likelihood, digits = digits)
+    bic       = round.(log(model.T)*n_params - 2*model.Likelihood, digits = digits)
+    y         = model.x[:,1]
+    n_δ       = Int(length(model.δ)/(model.k*(model.k-1)))
+    exog_tvtp = n_δ > 0 ? all(model.x[:, end-n_δ] .== model.x[1, end-n_δ]) : 0 
+    k         = model.n_β + model.n_β_ns + n_δ - 1 + exog_tvtp
+    step_r2   = r2(Mars.predict(model, false)[1], y[1:end-1])
+    inst_r2   = r2(Mars.predict(model, true)[1], y)
+    step_r2   = round.((step_r2 - k/(model.T - 1)) * ((model.T - 1)/(model.T - k - 1)), digits = 2)
+    inst_r2   = round.((inst_r2 - k/(model.T - 1)) * ((model.T - 1)/(model.T - k - 1)), digits = 2)
 
     println("Markov Switching Model with $(model.k) regimes")
-    @printf "=====================================================\n"
-    @printf "%0s%13s%15s%20s\n" "# of observations:" "$(model.T)" "Loglikelihood:" "$loglik"
-    @printf "%0s%5s%5s%30s\n" "# of estimated parameters:" "$n_params" "AIC" "$aic"
-    @printf "%0s%12s%5s%30s\n" "Error distribution:" "Gaussian" "BIC" "$bic"
-    @printf "------------------------------------------------------\n"
+    @printf "=================================================================\n"
+    @printf "%0s%13s%5s%30s\n" "# of observations:" "$(model.T)" "AIC:" "$aic"
+    @printf "%0s%5s%5s%30s\n" "# of estimated parameters:" "$n_params" "BIC:" "$bic"
+    @printf "%0s%12s%19s%16s\n" "Error distribution:" "Gaussian" "Instant. adj. R^2:" "$inst_r2"
+    @printf "%0s%17s%21s%14s\n" "Loglikelihood:" "$loglik" "Step-ahead adj. R^2:" "$step_r2"
+    @printf "-----------------------------------------------------------------\n"
 
 
     for i in 1:model.k
