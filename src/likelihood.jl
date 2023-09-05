@@ -130,7 +130,7 @@ function MSModel(y::Vector{Float64},
                  maxtime::Int64 = -1,
                  random_search::Int64 = 0)
 
-    @assert k >= 0 "Amount of states shoould not be negative"
+    @assert k >= 0 "Amount of states should not be negative"
 
     T   = size(y)[1]
     x   = intercept == "no" ? [y zeros(T)] : [y ones(T)]
