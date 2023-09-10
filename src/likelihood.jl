@@ -18,6 +18,24 @@ struct MSM
     nlopt_msg::Symbol
 end
 
+function custom_pdf(X::Matrix{Float64},
+                    β::Vector{Vector{Float64}}, 
+                    σ::Vector{Float64}, 
+                    v::Vector{Float64}, 
+                    error_dist_code::Int64,
+                    k::Int64,
+                    n_β::Int64,
+                    n_β_ns::Int64)
+
+    if error_dist_code == 1
+        η = reduce(hcat, [pdf.(Normal.(view(X, :,2:n_β+n_β_ns+2)*β[i], σ[i]), view(X, :,1)) for i in 1:k])
+    elseif error_dist_code == 2
+        η = reduce(hcat, [pdf.((TDist(abs(v[i]))) , (view(X, :,1) .- view(X, :,2:n_β+n_β_ns+2)*β[i]) ./ σ[i]) for i in 1:k])
+    end
+
+    return η .+= 1e-12
+end    
+
 function loglik(θ::Vector{Float64}, 
                     X::Matrix{Float64}, 
                     k::Int64,
@@ -25,7 +43,7 @@ function loglik(θ::Vector{Float64},
                     n_β_ns::Int64,
                     intercept::String,
                     switching_var::Bool,
-                    error_dist::String,
+                    error_dist_code::Int64,
                     logsum::Bool=true)
 
     T      = size(X)[1]
@@ -33,7 +51,7 @@ function loglik(θ::Vector{Float64},
     L      = zeros(T)     # likelihood 
     ξ_next = zeros(k)     # unconditional transition probabilities at t+1
 
-    v = error_dist == "Normal" ? Vector{Float64}([]) : θ[end-k+1:end]
+    v = error_dist_code == 1 ? Vector{Float64}([]) : θ[end-k+1:end]
     σ, β, P = trans_θ(θ, k, n_β, n_β_ns, intercept, switching_var, false)
     
     # if tvtp
@@ -49,17 +67,7 @@ function loglik(θ::Vector{Float64},
     ξ_0 = any(ξ_0 .< 0) ? ones(k) ./ k : ξ_0
 
     # f(y | S_t, x, θ, Ψ_t-1) density function 
-    if error_dist == "Normal"
-        η = reduce(hcat, [pdf.(Normal.(view(X, :,2:n_β+n_β_ns+2)*β[i], σ[i]), view(X, :,1)) for i in 1:k])
-    elseif error_dist == "t"
-        η = reduce(hcat, [pdf.((TDist(abs(v[i]))) , (view(X, :,1) .- view(X, :,2:n_β+n_β_ns+2)*β[i]) ./ σ[i]) for i in 1:k])
-    elseif error_dist == "GEV"
-        η = reduce(hcat, [pdf.(GeneralizedExtremeValue.(view(X, :,2:n_β+n_β_ns+2)*β[i], σ[i], v[i]), view(X, :,1)) for i in 1:k])
-    elseif errr_dist == "GED"
-        η = reduce(hcat, [pdf.(GeneralizedErrorDistribution.(view(X, :,2:n_β+n_β_ns+2)*β[i], σ[i], v[i]), view(X, :,1)) for i in 1:k])
-    end        
-
-    η .+= 1e-12
+    η = custom_pdf(X, β, σ, v, error_dist_code, k, n_β, n_β_ns)
 
     @inbounds for t in 1:T
         ξ[t,:] = t == 1 ? ξ_0 : view(ξ, t-1, :)
@@ -104,10 +112,6 @@ function loglik_tvtp(θ::Vector{Float64},
         η = reduce(hcat, [pdf.(Normal.(view(X, :,2:n_β+n_β_ns+2)*β[i], σ[i]), view(X, :,1)) for i in 1:k])
     elseif error_dist == "t"
         η = reduce(hcat, [pdf.((TDist(abs(v[i]))) , (view(X, :,1) .- view(X, :,2:n_β+n_β_ns+2)*β[i]) ./ σ[i]) for i in 1:k])
-    elseif error_dist == "GEV"
-        η = reduce(hcat, [pdf.(GeneralizedExtremeValue.(view(X, :,2:n_β+n_β_ns+2)*β[i], σ[i], v[i]), view(X, :,1)) for i in 1:k])
-    elseif errr_dist == "GED"
-        η = reduce(hcat, [pdf.(GeneralizedErrorDistribution.(view(X, :,2:n_β+n_β_ns+2)*β[i], σ[i], v[i]), view(X, :,1)) for i in 1:k])
     end
     η .+= 1e-12
 
@@ -124,16 +128,17 @@ function loglik_tvtp(θ::Vector{Float64},
 end
 
 # TO DO: add kwargs
-function obj_func(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist)  
+# TO DO: add types
+function obj_func(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist_code)  
     
     if length(fΔ) > 0
-        fΔ[1:length(θ)] .= FiniteDiff.finite_difference_gradient(θ -> -loglik(θ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist)[1], θ)
+        fΔ[1:length(θ)] .= FiniteDiff.finite_difference_gradient(θ -> -loglik(θ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist_code)[1], θ)
     end
 
-    return -loglik(θ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist)[1]
+    return -loglik(θ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist_code)[1]
 end
 
-function obj_func_tvtp(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist)  
+function obj_func_tvtp(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist_code)  
     
     if length(fΔ) > 0
         fΔ[1:length(θ)] .= FiniteDiff.finite_difference_gradient(θ -> -loglik_tvtp(θ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist)[1], θ)
@@ -201,8 +206,20 @@ function MSModel(y::Vector{Float64},
     opt.xtol_rel      = 0
     opt.maxtime       = maxtime < 0 ? T/2 : maxtime
 
+    # convert error_dist to code
+    if error_dist == "Normal"
+        error_dist_code = 1
+    elseif error_dist == "t"    
+        error_dist_code = 2    
+    elseif error_dist == "GEV"
+        error_dist_code = 3
+    elseif error_dist == "GED"
+        error_dist_code = 4
+    end            
+
+    ### objective function ###
     if n_δ == 0
-        opt.min_objective = (θ, fΔ) -> obj_func(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist)
+        opt.min_objective = (θ, fΔ) -> obj_func(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist_code)
     else
         opt.min_objective = (θ, fΔ) -> obj_func_tvtp(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist)
     end
