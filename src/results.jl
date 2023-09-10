@@ -21,7 +21,7 @@ function get_std_errors(model::MSM)
                                                             model.switching_var, n_δ)[1], model.raw_params) # hessian
     end
 
-    return sqrt.(abs.(diag(pinv(-H))))
+    return sqrt.(abs.(diag(inv(-H))))
 end
 
 
