@@ -9,7 +9,7 @@ struct MSM
     n_β::Int64                 # number of β parameters
     n_β_ns::Int64              # number of non-switching β parameters
     intercept::String          # "switching" or "non-switching"
-    switching_var::Bool           # is variance state dependent?
+    switching_var::Bool        # is variance state dependent?
     error_dist::String
     x::Matrix{Float64}         # data matrix
     T::Int64    
@@ -49,12 +49,16 @@ function loglik(θ::Vector{Float64},
     ξ_0 = any(ξ_0 .< 0) ? ones(k) ./ k : ξ_0
 
     # f(y | S_t, x, θ, Ψ_t-1) density function 
-
     if error_dist == "Normal"
         η = reduce(hcat, [pdf.(Normal.(view(X, :,2:n_β+n_β_ns+2)*β[i], σ[i]), view(X, :,1)) for i in 1:k])
     elseif error_dist == "t"
-        η = reduce(hcat, [pdf.((TDist(v[i])) , (view(X, :,1) .- view(X, :,2:n_β+n_β_ns+2)*β[i]) ./ σ[i]) for i in 1:k])
-    end
+        η = reduce(hcat, [pdf.((TDist(abs(v[i]))) , (view(X, :,1) .- view(X, :,2:n_β+n_β_ns+2)*β[i]) ./ σ[i]) for i in 1:k])
+    elseif error_dist == "GEV"
+        η = reduce(hcat, [pdf.(GeneralizedExtremeValue.(view(X, :,2:n_β+n_β_ns+2)*β[i], σ[i], v[i]), view(X, :,1)) for i in 1:k])
+    elseif errr_dist == "GED"
+        η = reduce(hcat, [pdf.(GeneralizedErrorDistribution.(view(X, :,2:n_β+n_β_ns+2)*β[i], σ[i], v[i]), view(X, :,1)) for i in 1:k])
+    end        
+
     η .+= 1e-12
 
     @inbounds for t in 1:T
@@ -88,7 +92,7 @@ function loglik_tvtp(θ::Vector{Float64},
     X      = X[:, 1:(end-n_δ)]
     
     #δ = θ[(end-(n_δ*k^2)+1):end]
-    v = error_dist == "t" ? θ[end-k+1:end] : Vector{Float64}([])
+    v = error_dist == "Normal" ? Vector{Float64}([]) : θ[end-k+1:end]
     δ = θ[(end-(n_δ*k*(k-1))+1 - length(v)):(end - length(v))]
     σ, β = trans_θ(θ, k, n_β, n_β_ns, intercept, switching_var, true)
 
@@ -99,7 +103,11 @@ function loglik_tvtp(θ::Vector{Float64},
     if error_dist == "Normal"
         η = reduce(hcat, [pdf.(Normal.(view(X, :,2:n_β+n_β_ns+2)*β[i], σ[i]), view(X, :,1)) for i in 1:k])
     elseif error_dist == "t"
-        η = reduce(hcat, [pdf.((TDist(10)) , (view(X, :,1) .- view(X, :,2:n_β+n_β_ns+2)*β[i]) ./ σ[i]) for i in 1:k])
+        η = reduce(hcat, [pdf.((TDist(abs(v[i]))) , (view(X, :,1) .- view(X, :,2:n_β+n_β_ns+2)*β[i]) ./ σ[i]) for i in 1:k])
+    elseif error_dist == "GEV"
+        η = reduce(hcat, [pdf.(GeneralizedExtremeValue.(view(X, :,2:n_β+n_β_ns+2)*β[i], σ[i], v[i]), view(X, :,1)) for i in 1:k])
+    elseif errr_dist == "GED"
+        η = reduce(hcat, [pdf.(GeneralizedErrorDistribution.(view(X, :,2:n_β+n_β_ns+2)*β[i], σ[i], v[i]), view(X, :,1)) for i in 1:k])
     end
     η .+= 1e-12
 
@@ -189,7 +197,7 @@ function MSModel(y::Vector{Float64},
     ### solver settings ###
     # also: LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX
     opt               = Opt(algorithm, n_var + n_β_ns + k*n_β + n_intercept + n_p + n_dist_p) 
-    opt.lower_bounds  = [repeat([0], n_var); repeat([-Inf], k*n_β + n_β_ns + n_intercept); repeat([n_δ > 0 ? -Inf : 0.0], n_p); repeat([error_dist == "t" ? 0 : -Inf], n_dist_p)]
+    opt.lower_bounds  = [repeat([0], n_var); repeat([-Inf], k*n_β + n_β_ns + n_intercept); repeat([n_δ > 0 ? -Inf : 0.0], n_p); repeat([error_dist == "t" ? 1e-5 : -Inf], n_dist_p)]
     opt.xtol_rel      = 0
     opt.maxtime       = maxtime < 0 ? T/2 : maxtime
 
@@ -230,7 +238,7 @@ function MSModel(y::Vector{Float64},
             p_em          = vec(pmat_em)    
         end
         
-        x0 = [σ_em; μ_em; zeros(n_β*k); zeros(n_β_ns); p_em; zeros(n_dist_p)]
+        x0 = [σ_em; μ_em; zeros(n_β*k); zeros(n_β_ns); p_em; (ones(n_dist_p) .* 1e-4) ]
         #x0 = [repeat([std(x[:,1])], k).^2; repeat([mean(x[:,1])], k*(size(x)[2]-1)); repeat([0.5],(k-1)*k)]
     end
 
