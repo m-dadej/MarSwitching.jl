@@ -30,7 +30,7 @@ function custom_pdf(X::Matrix{Float64},
     if error_dist_code == 1
         η = reduce(hcat, [pdf.(Normal.(view(X, :,2:n_β+n_β_ns+2)*β[i], σ[i]), view(X, :,1)) for i in 1:k])
     elseif error_dist_code == 2
-        η = reduce(hcat, [pdf.((TDist(abs(v[i]))) , (view(X, :,1) .- view(X, :,2:n_β+n_β_ns+2)*β[i]) ./ σ[i]) for i in 1:k])
+        η = reduce(hcat, [pdf.((TDist.(abs(v[i]))) , (view(X, :,1) .- view(X, :,2:n_β+n_β_ns+2)*β[i]) ./ sqrt(σ[i])) for i in 1:k])
     end
 
     return η .+= 1e-12
@@ -211,10 +211,6 @@ function MSModel(y::Vector{Float64},
         error_dist_code = 1
     elseif error_dist == "t"    
         error_dist_code = 2    
-    elseif error_dist == "GEV"
-        error_dist_code = 3
-    elseif error_dist == "GED"
-        error_dist_code = 4
     end            
 
     ### objective function ###
@@ -255,7 +251,7 @@ function MSModel(y::Vector{Float64},
             p_em          = vec(pmat_em)    
         end
         
-        x0 = [σ_em; μ_em; zeros(n_β*k); zeros(n_β_ns); p_em; (ones(n_dist_p) .* 1e-4) ]
+        x0 = [σ_em; μ_em; zeros(n_β*k); zeros(n_β_ns); p_em; (ones(n_dist_p) .* 100) ]
         #x0 = [repeat([std(x[:,1])], k).^2; repeat([mean(x[:,1])], k*(size(x)[2]-1)); repeat([0.5],(k-1)*k)]
     end
 

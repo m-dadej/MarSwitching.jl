@@ -30,7 +30,9 @@ function generate_mars(μ::Vector{Float64},
                         β::Vector{Float64} = Vector{Float64}([]),
                         β_ns::Vector{Float64} = Vector{Float64}([]),
                         δ::Vector{Float64} = Vector{Float64}([]),
-                        tvtp_intercept::Bool = true)
+                        tvtp_intercept::Bool = true,
+                        error_dist::String = "Normal",
+                        v::Vector{Float64} = Vector{Float64}([]))
 
     if size(P)[2] != size(P)[1]
         P = vcat(P, ones(1, size(P)[2]))
@@ -66,6 +68,11 @@ function generate_mars(μ::Vector{Float64},
 
     for t in 1:T
         for s in 1:k
+            if error_dist == "Normal"
+                y_s[t, s] = rand(Normal((X*params[s])[t], σ[s]))
+            elseif error_dist == "t"
+                y_s[t, s] = (rand(TDist(v[s])) * σ[s]) + (X*params[s])[t]
+            end                
             y_s[t, s] = rand(Normal((X*params[s])[t], σ[s])) 
         end       
     end
