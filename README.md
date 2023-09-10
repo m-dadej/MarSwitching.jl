@@ -234,12 +234,12 @@ smoothed_probs(msm_model::MSM,                       # estimated model
 The `predict()` function can be used to calculate instanteous or one step ahead predictions from estimated model:
 
 ```julia
-predict(model::MSM,                             # estimated model
-        instanteous::Bool = false;              # instanteous or one-step ahead prediction
-        y::Vector{Float64},                     # optional vector of dependent variables
-        exog_vars::Matrix{Float64},             # optional matrix of exogenous variables
-        exog_switching_vars::Matrix{Float64},   # optional matrix of exogenous variables with regime switching
-        exog_tvtp::Matrix{Float64})             # optional matrix of exogenous variables for time-varying transition matrix
+predict(model::MSM,                            # estimated model
+        instanteous::Bool = false;             # instanteous or one-step ahead prediction
+        y::Vector{Float64},                    # optional vector of dependent variables
+        exog_vars::Matrix{Float64},            # optional matrix of exogenous variables
+        exog_switching_vars::Matrix{Float64},  # optional matrix of exogenous variables with regime switching
+        exog_tvtp::Matrix{Float64})            # optional matrix of exogenous variables for time-varying transition matrix
     
 ```
 Which is the probability weighted average of predictions of each state equation:
