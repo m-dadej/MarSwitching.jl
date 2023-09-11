@@ -24,6 +24,18 @@ function check_args(model::MSM; kwargs...)
 
 end
 
+"""
+    expected_duration(model::MSM, exog_tvtp::VecOrMat{AbstractFloat})
+
+For non-TVTP model, returns Vector of expected duration of each state.
+For TVTP model, returns a matrix of expected duration of each state at timt t.    
+
+formula: `1 / (1 - P[i,i])` or for TVTP - `1 / (1 - P[i,i, t])`
+
+# Arguments
+- `model::MSM`: estimated model.
+- `exog_tvtp::VecOrMat{AbstractFloat}`: optional exogenous variables for the tvtp model. If not provided, in-sample data is used.
+"""
 function expected_duration(model::MSM, exog_tvtp::VecOrMat{V} = Matrix{Float64}(undef, 0, 0)) where V <: AbstractFloat
 
     exog_tvtp = typeof(exog_tvtp) <: Vector ? reshape(exog_tvtp, size(exog_tvtp)[1], 1) : exog_tvtp
@@ -47,18 +59,6 @@ end
 """
 See also [`smoothed_probs`](@ref) and [`expected_duration`](@ref).
 """
-
-# y::Vector{V} = Vector{Float64}(undef, 0),
-#                         exog_vars::VecOrMat{V} = Matrix{Float64}(undef, 0, 0),
-#                         exog_switching_vars::VecOrMat{V} = Matrix{Float64}(undef, 0, 0),
-#                         exog_tvtp::VecOrMat{V} = Matrix{Float64}(undef, 0, 0)
-# where V <: AbstractFloat
-
-# y::Vector{V} = Vector{Float64}(undef, 0),
-# exog_vars::VecOrMat{V} = Matrix{Float64}(undef, 0, 0),
-# exog_switching_vars::VecOrMat{V} = Matrix{Float64}(undef, 0, 0),
-# exog_tvtp::VecOrMat{V} = Matrix{Float64}(undef, 0, 0)
-# where V <: AbstractFloat
 
 function filtered_probs(model::MSM; kwargs...) 
                         

@@ -1,7 +1,8 @@
 
 """
+generate_mars(model::MSM, T::Int64)
 
-
+When applied to estimated model, generates artificial data of size T from the model.
 """
 function generate_mars(model::MSM, T::Int64)
     
@@ -19,27 +20,34 @@ function generate_mars(model::MSM, T::Int64)
 end
 
 """
-Generate an artificial data from Markov switching model from provided parameters.
-Returns a tuple of (y, s_t, X) where y is the generated data, s_t is the state sequence and X is the design matrix.
+    generate_mars(μ::Vector{Float64}, σ::Vector{Float64}, P::Matrix{Float64}, T::Int64; <keyword arguments>)
+
+Generate artificial data from Markov switching model from provided parameters.
+Returns a tuple of `(y, s_t, X)` where `y` is the generated data, `s_t` is the state sequence and `X` is the design matrix.
+
+Note, in order to have non-switching parameter provide it k-times.
 
 # Arguments
-- `μ::Vector{Float64}`: the intercepts for each state.
-- `σ::Vector{Float64}`: the standard deviations for each state.
-- `P::Matrix{Float64}`: the transition matrix.
-- `T::Int64`: the number of observations to generate.
-- `β::Vector{Float64}`: the switching coefficients.
-- `β_ns::Vector{Float64}`: the non-switching coefficients.
-- `δ::Vector{Float64}`: the tvtp coefficients.
+- `μ::Vector{AbstractFloat}`: intercepts for each state.
+- `σ::Vector{AbstractFloat}`: standard deviations for each state.
+- `P::Matrix{AbstractFloat}`: transition matrix.
+- `T::Int64`: number of observations to generate.
+- `β::Vector{AbstractFloat}`: switching coefficients.
+- `β_ns::Vector{AbstractFloat}`: non-switching coefficients.
+- `δ::Vector{AbstractFloat}`: tvtp coefficients.
 - `tvtp_intercept::Bool`: whether to include an intercept in the tvtp model.
 """
-function generate_mars(μ::Vector{Float64},
-                        σ::Vector{Float64},
-                        P::Matrix{Float64},
+function generate_mars(μ::Vector{V},
+                        σ::Vector{V},
+                        P::Matrix{V},
                         T::Int64;
-                        β::Vector{Float64} = Vector{Float64}([]),
-                        β_ns::Vector{Float64} = Vector{Float64}([]),
-                        δ::Vector{Float64} = Vector{Float64}([]),
-                        tvtp_intercept::Bool = true)
+                        β::Vector{V} = Vector{V}([]),
+                        β_ns::Vector{V} = Vector{V}([]),
+                        δ::Vector{V} = Vector{V}([]),
+                        tvtp_intercept::Bool = true) where V <: AbstractFloat
+                        
+    @assert size(μ)[1] == size(σ)[1] == size(P)[2] "size of μ, σ and P implies different number of states"
+    @assert T > 0 "T should be a positive integer"
 
     if size(P)[2] != size(P)[1]
         P = vcat(P, ones(1, size(P)[2]))
