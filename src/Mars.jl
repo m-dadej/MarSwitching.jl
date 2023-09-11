@@ -10,12 +10,11 @@ using LineSearches
 using Clustering
 using Printf
 
-
+include("msmodel.jl")
 include("likelihood.jl")
 include("generate.jl")
 include("inference.jl")
 include("utils.jl")
-include("msmodel.jl")
 include("results.jl")
 # Write your package code here.
 
