@@ -1,18 +1,18 @@
 
-struct MSM 
-    β::Vector{Vector{Float64}} # β[state][i] vector of β for each state
-    σ::Vector{Float64}         
-    P::Matrix{Float64}         # transition matrix
-    δ::Vector{Float64}         # tvtp parameters
+struct MSM{V <: AbstractFloat}
+    β::Vector{Vector{V}} # β[state][i] vector of β for each state
+    σ::Vector{V}         
+    P::Matrix{V}         # transition matrix
+    δ::Vector{V}         # tvtp parameters
     k::Int64                   
     n_β::Int64                 # number of β parameters
     n_β_ns::Int64              # number of non-switching β parameters
     intercept::String          # "switching" or "non-switching"
     switching_var::Bool           # is variance state dependent?
-    x::Matrix{Float64}         # data matrix
+    x::Matrix{V}         # data matrix
     T::Int64    
     Likelihood::Float64
-    raw_params::Vector{Float64}
+    raw_params::Vector{V}
     nlopt_msg::Symbol
 end
 
@@ -35,19 +35,30 @@ function obj_func_tvtp(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, n
     return -loglik_tvtp(θ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ)[1]
 end
 
-function MSModel(y::Vector{Float64},
+# MSModel(y::Vector{Float64},
+#         k::Int64)
+
+function MSModel(y::VecOrMat{V},
                  k::Int64, 
                  ;intercept::String = "switching", # or "non-switching"
-                 exog_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
-                 exog_switching_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
+                 exog_vars::VecOrMat{V} = Matrix{Float64}(undef, 0, 0),
+                 exog_switching_vars::VecOrMat{V}= Matrix{Float64}(undef, 0, 0),
                  switching_var::Bool = true,
-                 exog_tvtp::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
-                 x0::Vector{Float64} = Vector{Float64}(undef, 0),
+                 exog_tvtp::VecOrMat{V} = Matrix{Float64}(undef, 0, 0),
+                 x0::Vector{V} = Vector{Float64}(undef, 0),
                  algorithm::Symbol = :LN_SBPLX,
                  maxtime::Int64 = -1,
-                 random_search::Int64 = 0)
+                 random_search::Int64 = 0) where V <: AbstractFloat              
 
-    @assert k >= 0 "Amount of states shoould not be negative"
+    @assert size(y)[1] > 0 "y should be a vector or matrix with at least one observation"
+    @assert k >= 2 "k should be at least 2, otherwise use standard linear regression"
+    @assert intercept in ["switching", "non-switching", "no"] "intercept should be either 'switching', 'non-switching' or 'no'"
+    @assert algorithm in [:LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX] "algorithm should be either :LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX"
+
+    # convert to matrix if vector
+    exog_vars = typeof(exog_vars) <: Vector ? reshape(exog_vars, size(exog_vars)[1], 1) : exog_vars
+    exog_switching_vars = typeof(exog_switching_vars) <: Vector ? reshape(exog_switching_vars, size(exog_switching_vars)[1], 1) : exog_switching_vars
+    exog_tvtp = typeof(exog_tvtp) <: Vector ? reshape(exog_tvtp, size(exog_tvtp)[1], 1) : exog_tvtp
 
     T   = size(y)[1]
     x   = intercept == "no" ? [y zeros(T)] : [y ones(T)]
@@ -85,8 +96,10 @@ function MSModel(y::Vector{Float64},
     end
     
     ### solver settings ###
+    n_params          = n_var + n_β_ns + k*n_β + n_intercept + n_p
+    @assert length(x0) == n_params || length(x0) == 0 "x0 should be either empty or of length $n_params"
     # also: LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX
-    opt               = Opt(algorithm, n_var + n_β_ns + k*n_β + n_intercept + n_p) 
+    opt               = Opt(algorithm, n_params) 
     opt.lower_bounds  = [repeat([0], n_var); repeat([-Inf], k*n_β + n_β_ns + n_intercept); repeat([n_δ > 0 ? -Inf : 0.0], n_p)]
     opt.xtol_rel      = 0
     opt.maxtime       = maxtime < 0 ? T/2 : maxtime

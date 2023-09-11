@@ -1,5 +1,32 @@
 
-function expected_duration(model::MSM, exog_tvtp::Matrix{Float64} = Matrix{Float64}(undef, 0, 0))
+function convert_arg(var::Symbol; kwargs...)
+    return typeof(kwargs[var]) <: Vector ? reshape(kwargs[var], size(kwargs[var])[1], 1) : kwargs[var]
+end    
+
+function check_args(model::MSM; kwargs...)
+
+    exog_vars = haskey(kwargs, :exog_vars) ? convert_arg(:exog_vars; kwargs...) : Matrix{Float64}(undef, 0, 0)
+    exog_switching_vars = haskey(kwargs, :exog_switching_vars) ? convert_arg(:exog_switching_vars; kwargs...) : Matrix{Float64}(undef, 0, 0)
+    exog_tvtp = haskey(kwargs, :exog_tvtp) ? convert_arg(:exog_tvtp; kwargs...) : Matrix{Float64}(undef, 0, 0)
+
+    # for the case when data is provided
+    if !isempty(kwargs) #isempty(exog_vars) || isempty(exog_switching_vars) || isempty(y) || isempty(exog_tvtp))
+        
+        n_δ = Int(length(model.δ)/(model.k*(model.k-1)))
+
+        @assert haskey(kwargs, :y) "y variable cannot be empty when data is provided"
+        # argument check: Are provided variables of the same size
+        y = kwargs[:y]
+        model.n_β_ns > 0 && @assert size(exog_vars) == (size(y)[1], model.n_β_ns) "If data is provided, exog_vars should be a matrix with dimensions ($(size(y)[1]), $(model.n_β_ns))"
+        model.n_β > 0 && @assert size(exog_switching_vars) == (size(y)[1], model.n_β) "If data is provided, exog_switching_vars should be a matrix with dimensions ($(size(y)[1]), $(model.n_β))"
+        n_δ > 0 && @assert size(exog_tvtp) == (size(y)[1], n_δ) "If data is provided, exog_tvtp should be a matrix with dimensions ($(size(y)[1]), $(Int(length(model.δ)/(model.k*(model.k-1)))))"
+    end        
+
+end
+
+function expected_duration(model::MSM, exog_tvtp::VecOrMat{V} = Matrix{Float64}(undef, 0, 0)) where V <: AbstractFloat
+
+    exog_tvtp = typeof(exog_tvtp) <: Vector ? reshape(exog_tvtp, size(exog_tvtp)[1], 1) : exog_tvtp
 
     if isempty(model.P)
         
@@ -17,23 +44,34 @@ function expected_duration(model::MSM, exog_tvtp::Matrix{Float64} = Matrix{Float
     end
 end
 
-function filtered_probs(model::MSM;
-                        y::Vector{Float64} = Vector{Float64}(undef, 0),
-                        exog_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
-                        exog_switching_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
-                        exog_tvtp::Matrix{Float64} = Matrix{Float64}(undef, 0, 0))                       
-    # TO DO:
-    # - check if provided y and exogenous are used in the model
-    # - check if y, exogenous have the same number of observations
+"""
+See also [`smoothed_probs`](@ref) and [`expected_duration`](@ref).
+"""
 
-    if isempty(exog_vars) & isempty(exog_switching_vars) & isempty(y) & isempty(exog_tvtp)
+# y::Vector{V} = Vector{Float64}(undef, 0),
+#                         exog_vars::VecOrMat{V} = Matrix{Float64}(undef, 0, 0),
+#                         exog_switching_vars::VecOrMat{V} = Matrix{Float64}(undef, 0, 0),
+#                         exog_tvtp::VecOrMat{V} = Matrix{Float64}(undef, 0, 0)
+# where V <: AbstractFloat
+
+# y::Vector{V} = Vector{Float64}(undef, 0),
+# exog_vars::VecOrMat{V} = Matrix{Float64}(undef, 0, 0),
+# exog_switching_vars::VecOrMat{V} = Matrix{Float64}(undef, 0, 0),
+# exog_tvtp::VecOrMat{V} = Matrix{Float64}(undef, 0, 0)
+# where V <: AbstractFloat
+
+function filtered_probs(model::MSM; kwargs...) 
+                        
+    check_args(model; kwargs...)                        
+    
+    if isempty(kwargs) #isempty(exog_vars) & isempty(exog_switching_vars) & isempty(y) & isempty(exog_tvtp)
         x = model.x
     else
-        T = length(y)
-        x = model.intercept == "no" ? [y zeros(T)] : [y ones(T)]        
-        x = !isempty(exog_switching_vars) ? [x exog_switching_vars] : x
-        x = !isempty(exog_vars) ? [x exog_vars] : x
-        x = !isempty(exog_tvtp) ? [x exog_tvtp] : x
+        T = length(kwargs[:y])
+        x = model.intercept == "no" ? [kwargs[:y] zeros(T)] : [kwargs[:y] ones(T)]        
+        x = haskey(kwargs, :exog_switching_vars) ? [x kwargs[:exog_switching_vars]] : x
+        x = haskey(kwargs, :exog_vars) ? [x kwargs[:exog_vars]] : x
+        x = haskey(kwargs, :exog_tvtp) ? [x kwargs[:exog_tvtp]] : x
     end
 
     if !isempty(model.P)
@@ -62,6 +100,7 @@ end
 
 function smoothed_probs(model::MSM; kwargs...)
     
+    check_args(model; kwargs...)   
     
     P   = model.P
     k   = model.k
@@ -90,33 +129,23 @@ function smoothed_probs(model::MSM; kwargs...)
     return ξ_T
 end
 
-function predict(model::MSM, 
-                 instanteous::Bool = false;
-                 y::Vector{Float64} = Vector{Float64}(undef, 0),
-                 exog_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
-                 exog_switching_vars::Matrix{Float64} = Matrix{Float64}(undef, 0, 0),
-                 exog_tvtp::Matrix{Float64} = Matrix{Float64}(undef, 0, 0))
-    
-    # TO DO:
-    # - check if provided y and exogenous are used in the model
-    # - check if y, exogenous have the same number of observations
+function predict(model::MSM, instanteous::Bool = false; kwargs...)
 
-    if isempty(exog_vars) & isempty(exog_switching_vars) & isempty(y) & isempty(exog_tvtp)
+    check_args(model; kwargs...)   
+
+    if isempty(kwargs)
         ξ_t = filtered_probs(model) 
         T = model.T
         n_δ = Int(length(model.δ)/(model.k*(model.k-1)))
         exog_tvtp = model.x[:, end-n_δ+1:end]
         x = model.x[:,2:end-n_δ]
     else
-        T = length(y)
+        T = length(kwargs[:y])
         x = model.intercept == "no" ? zeros(T) : ones(T)       
-        x = !isempty(exog_switching_vars) ? [x exog_switching_vars] : x
-        x = !isempty(exog_vars) ? [x exog_vars] : x
+        x = haskey(kwargs, :exog_switching_vars) ? [x kwargs[:exog_switching_vars]] : x
+        x = haskey(kwargs, :exog_vars) ? [x kwargs[:exog_vars]] : x
 
-        ξ_t = filtered_probs(model, y = y, 
-                                    exog_vars = exog_vars, 
-                                    exog_switching_vars = exog_switching_vars,
-                                    exog_tvtp = exog_tvtp) 
+        ξ_t = filtered_probs(model; kwargs...) 
     end
 
     if instanteous

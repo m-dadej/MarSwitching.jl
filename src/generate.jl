@@ -1,5 +1,9 @@
 
-function generate_mars(model::MSM, T::Int64 = model.T)
+"""
+
+
+"""
+function generate_mars(model::MSM, T::Int64)
     
     μ    = [model.β[i][1] for i in 1:model.k]
     β    = [model.β[i][2:(2+model.n_β-1)] for i in 1:model.k]
@@ -14,7 +18,20 @@ function generate_mars(model::MSM, T::Int64 = model.T)
     return generate_mars(μ, model.σ, model.P, T, β = β, β_ns = β_ns, δ = δ, tvtp_intercept = tvtp_intercept)
 end
 
+"""
+Generate an artificial data from Markov switching model from provided parameters.
+Returns a tuple of (y, s_t, X) where y is the generated data, s_t is the state sequence and X is the design matrix.
 
+# Arguments
+- `μ::Vector{Float64}`: the intercepts for each state.
+- `σ::Vector{Float64}`: the standard deviations for each state.
+- `P::Matrix{Float64}`: the transition matrix.
+- `T::Int64`: the number of observations to generate.
+- `β::Vector{Float64}`: the switching coefficients.
+- `β_ns::Vector{Float64}`: the non-switching coefficients.
+- `δ::Vector{Float64}`: the tvtp coefficients.
+- `tvtp_intercept::Bool`: whether to include an intercept in the tvtp model.
+"""
 function generate_mars(μ::Vector{Float64},
                         σ::Vector{Float64},
                         P::Matrix{Float64},
