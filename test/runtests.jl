@@ -183,7 +183,7 @@ end
                             random_search = 5)
 
     @test model.nlopt_msg == :XTOL_REACHED
-    @test abs(cor([[P_tvtp(x_tvtp[i], δ, k, 1)[2] for i in 1:T] [P_tvtp(x_tvtp[i], model.δ, k, 1)[2] for i in 1:T]])[2]) > 0.8
+    @test abs(cor([[Mars.P_tvtp(x_tvtp[i], δ, k, 1)[2] for i in 1:T] [Mars.P_tvtp(x_tvtp[i], model.δ, k, 1)[2] for i in 1:T]])[2]) > 0.8
 
     ξ_t = filtered_probs(model)
 
@@ -252,7 +252,7 @@ end
                     
                     n_int = int == "switching" ? k_i : 1
                     θ = [rand(k_i); rand(Uniform(-5, 5), n_int); rand(Uniform(-5, 5), n_β_i*k_i); rand(Uniform(-5, 5), n_β_ns_i); rand(k_i*(k_i-1))] 
-                    σ, β, P = trans_θ(θ, k_i, n_β_i, n_β_ns_i, int, true, false)
+                    σ, β, P = Mars.trans_θ(θ, k_i, n_β_i, n_β_ns_i, int, true, false)
                     println("k: $k_i, n_β: $n_β_i, n_β_ns: $n_β_ns_i, intercept: $int")
 
                     @test size(σ)[1] == k_i
