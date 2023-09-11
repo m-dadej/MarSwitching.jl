@@ -1,13 +1,4 @@
 
-# function to calculate moores-penrose pseudoinverse
-
-function mp_inverse(A)
-    U, S, V = svd(A)
-    Σ = zeros(size(A'))
-    Σ[1:size(S)[1], 1:size(S)[1]] = Diagonal(1 ./ S)
-    return V * Σ * U'
-end   
-
 function get_std_errors(model::MSM)
 
     if !isempty(model.P)
@@ -30,25 +21,6 @@ function get_std_errors(model::MSM)
     end
 
     return sqrt.(abs.(diag(mp_inverse(-H))))
-end
-
-
-function expected_duration(model::MSM, exog_tvtp::Matrix{Float64} = Matrix{Float64}(undef, 0, 0))
-
-    if isempty(model.P)
-        
-        n_δ = Int(length(model.δ)/(model.k*(model.k-1)))
-
-        if isempty(exog_tvtp)
-            exog_tvtp = model.x[:, end-n_δ+1:end]   
-        end
-        
-        # this oneliner is faster unfortunately
-        T = size(exog_tvtp)[1]
-        return reduce(hcat, [(1 ./ (1 .- diag(P_tvtp(exog_tvtp[t, :], model.δ, model.k, n_δ)))) for t in 1:T])'
-    else
-        return 1 ./ (1 .- diag(model.P))
-    end
 end
 
 # function to clean estimates and provide stats for coefficients
