@@ -274,7 +274,7 @@ end
 
     θ = [σ; β; β_ns; vec(P[2:end, :])]
 
-    σ_, β_ = vec2param_nointercept(θ, k, 1, 1, true)
+    σ_, β_ = Mars.vec2param_nointercept(θ, k, 1, 1, true)
 
     @test all([β_[i][1] == 0 for i in 1:k])
     @test σ_ == σ
