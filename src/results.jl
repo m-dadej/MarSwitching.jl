@@ -1,4 +1,12 @@
 
+# function to calculate moores-penrose pseudoinverse
+
+function mp_inverse(A)
+    U, S, V = svd(A)
+    Σ = zeros(size(A'))
+    Σ[1:size(S)[1], 1:size(S)[1]] = Diagonal(1 ./ S)
+    return V * Σ * U'
+end   
 
 function get_std_errors(model::MSM)
 
@@ -21,7 +29,7 @@ function get_std_errors(model::MSM)
                                                             model.switching_var, n_δ)[1], model.raw_params) # hessian
     end
 
-    return sqrt.(abs.(diag(inv(-H))))
+    return sqrt.(abs.(diag(mp_inverse(-H))))
 end
 
 
