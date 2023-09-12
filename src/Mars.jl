@@ -16,7 +16,6 @@ include("generate.jl")
 include("inference.jl")
 include("utils.jl")
 include("results.jl")
-# Write your package code here.
 
 export generate_mars,  MSModel, filtered_probs, smoothed_probs
 export get_std_errors, expected_duration, state_coeftable, transition_mat, summary_mars

@@ -176,6 +176,8 @@ plot([smoothed_probs(model)[:,2] s_t.-1],
 
 ## Functions
 
+Every exported function have a docstring, which can be accessed by `?` in REPL.
+
 The function for estimating the markov switching model is: 
 
 ```julia

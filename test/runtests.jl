@@ -2,7 +2,7 @@ using Mars
 using Test
 using StatsBase
 
-n_rnd_search = 4
+n_rnd_search = 5
 
 @testset "minimal test" begin
 
