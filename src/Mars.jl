@@ -20,7 +20,7 @@ include("results.jl")
 
 export generate_mars,  MSModel, filtered_probs, smoothed_probs
 export get_std_errors, expected_duration, state_coeftable, transition_mat, summary_mars
-export loglik, MSM, add_lags
-export predict, loglik_tvtp, coeftable_tvtp
+export MSM, add_lags
+export predict, coeftable_tvtp
 
 end

@@ -35,6 +35,7 @@ formula: `1 / (1 - P[i,i])` or for TVTP - `1 / (1 - P[i,i, t])`
 # Arguments
 - `model::MSM`: estimated model.
 - `exog_tvtp::VecOrMat{AbstractFloat}`: optional exogenous variables for the tvtp model. If not provided, in-sample data is used.
+
 """
 function expected_duration(model::MSM, exog_tvtp::VecOrMat{V} = Matrix{Float64}(undef, 0, 0)) where V <: AbstractFloat
 
@@ -57,9 +58,22 @@ function expected_duration(model::MSM, exog_tvtp::VecOrMat{V} = Matrix{Float64}(
 end
 
 """
+    filtered_probs(model::MSM; kwargs...)
+
+Returns filtered probabilities of each state at each time period.
+If only model is provided, in-sample data is used.
+
+Filtered probabilites, unlike smoothed probabilites, are calculated using data available up to time T.
+
+# Arguments
+- `model::MSM`: estimated model.
+- `y`: optional data for dependent variabla.
+- `exog_vars`: optional exogenous variables for the non-switching part of the model.
+- `exog_switching_vars`: optional exogenous variables for the switching part of the model.
+- `exog_tvtp`: optional exogenous variables for the tvtp part of the model.
+
 See also [`smoothed_probs`](@ref) and [`expected_duration`](@ref).
 """
-
 function filtered_probs(model::MSM; kwargs...) 
                         
     check_args(model; kwargs...)                        
@@ -97,7 +111,27 @@ function filtered_probs(model::MSM; kwargs...)
     return ξ
 end
 
+"""
+    smoothed_probs(model::MSM; kwargs...)
 
+Returns smoothed probabilities of each state at each time period (Kim, 1994).
+If only MSM model is provided, in-sample data is used.
+
+Smoothed probabilites, unlike filtered probabilites, are calculated using all available data.
+
+# Arguments
+- `model::MSM`: estimated model.
+- `y`: optional data for dependent variabla.
+- `exog_vars`: optional exogenous variables for the non-switching part of the model.
+- `exog_switching_vars`: optional exogenous variables for the switching part of the model.
+- `exog_tvtp`: optional exogenous variables for the tvtp part of the model.
+
+See also [`filtered_probs`](@ref) and [`expected_duration`](@ref).
+
+# References
+Kim, Chang Jin (1994). Dynamic Linear Models with Markov-Switching. Journal of Econometrics 60, 1-22.
+
+"""
 function smoothed_probs(model::MSM; kwargs...)
     
     check_args(model; kwargs...)   
@@ -129,6 +163,34 @@ function smoothed_probs(model::MSM; kwargs...)
     return ξ_T
 end
 
+@doc raw"""
+    predict(model::MSM, instanteous::Bool = false; kwargs...)
+
+Provide either instanteous or one-step-ahead prediction of the dependent variable.    
+
+Which is the probability weighted average of predictions of each state equation:
+    
+```math
+\hat{y}_t = \sum_{i=1}^{k} \hat{\xi}_{i,t}X_{t}'\hat{\beta}_{i}
+```
+And for one step ahead, the state probabilities have to be predicted themselves:
+
+```math
+\hat{y}_{t+1} = \sum_{i=1}^{k} (P\hat{\xi}_{i,t})X_{t+1}'\hat{\beta}_{i}
+```
+
+If only MSM model is provided, in-sample data is used.
+
+Returns a tuple of `(ŷ, ξ_t)` where `ŷ` is the predicted value of the dependent variable and `ξ_t` is the filtered probabilities of each state at each time period.
+
+# Arguments
+- `model::MSM`: estimated model.
+- `y`: optional data for dependent variabla.
+- `exog_vars`: optional exogenous variables for the non-switching part of the model.
+- `exog_switching_vars`: optional exogenous variables for the switching part of the model.
+- `exog_tvtp`: optional exogenous variables for the tvtp part of the model.
+
+"""
 function predict(model::MSM, instanteous::Bool = false; kwargs...)
 
     check_args(model; kwargs...)   

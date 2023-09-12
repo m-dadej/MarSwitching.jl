@@ -1,4 +1,18 @@
 
+@doc raw"""
+    get_std_errors(model::MSM)
+
+Returns standard errors of the estimated parameters. 
+The errors are calculated with finite difference hessian od the log-likelihood function.
+
+The output is a vector of standard errors in order given by `raw_params` field of the model.
+
+The formula is squared diagonal values of the inverse (moore-penrose) of the hessian matrix:
+
+```math
+(-\frac{\partial^2 \mathcal{L}(\mathbf{\theta})}{\partial \mathbf{\theta} \mathbf{\theta}'})^{-1}
+```
+"""
 function get_std_errors(model::MSM)
 
     if !isempty(model.P)
@@ -37,8 +51,14 @@ function coef_clean(coef::Float64, std_err::Float64, digits::Int64=3)
     return coef, std_err, z, pr
 end
 
+"""
+    state_coeftable(model::MSM, state::Int64; digits::Int64=3)
 
+Returns formated table of coefficients and their statistics for a given state.    
+It's one of the functions called by the `summary_mars` function.
 
+See also [`summary_mars`](@ref), [`coeftable_tvtp`](@ref), [`transition_mat`](@ref).
+"""
 function state_coeftable(model::MSM, state::Int64; digits::Int64=3)
         
     # function to round to digits
@@ -76,6 +96,14 @@ function state_coeftable(model::MSM, state::Int64; digits::Int64=3)
 
 end
 
+"""
+    coeftable_tvtp(model::MSM; digits::Int64=3)
+
+Returns formated table of estimated coefficients from TVTP model and their statistics.
+It's one of the functions called by the `summary_mars` function.
+
+See also [`summary_mars`](@ref), [`state_coeftable`](@ref), [`transition_mat`](@ref).
+"""
 function coeftable_tvtp(model::MSM; digits::Int64=3)
 
     # function to round to digits
@@ -111,6 +139,14 @@ function coeftable_tvtp(model::MSM; digits::Int64=3)
     end
 end
 
+"""
+    transition_mat(model::MSM; digits::Int64=2)
+
+Returns formated table of estimated transition matrix probabilities.
+It's one of the functions called by the `summary_mars` function.
+
+See also [`summary_mars`](@ref), [`state_coeftable`](@ref), [`coeftable_tvtp`](@ref).
+"""
 function transition_mat(model::MSM; digits::Int64=2)
 
     @printf "left-stochastic transition matrix: \n"
@@ -140,6 +176,13 @@ function transition_mat(model::MSM; digits::Int64=2)
     end 
 end
 
+"""
+    summary_mars(model::MSM; digits::Int64=3)
+
+Returns formated summary table of estimated model.
+It's built from [`summary_mars`](@ref), [`state_coeftable`](@ref) and [`coeftable_tvtp`](@ref) functions.
+
+"""
 function summary_mars(model::MSM; digits::Int64=3)
 
     r2(ŷ, y) = sum((ŷ .- mean(y)).^2) / sum((y .- mean(y)).^2)

@@ -62,7 +62,7 @@ Because of the unobserved nature of the state, the model is estimated by maximum
     - Simulation of data both from estimated model and from given parameters
     - Adding lagged variables to the matrix
 - Planned functionality:
-    - other error distributions (t, skew-t, etc.)
+    - other error distributions (student-t, GED, etc.)
     - variable and number of states selection
     - Markov Switching GARCH model
     - Markov Switching VAR model

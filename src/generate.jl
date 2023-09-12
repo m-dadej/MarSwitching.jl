@@ -77,9 +77,9 @@ function generate_mars(μ::Vector{V},
     X = [ones(T) rand(Normal(0,1), T, n_β + n_β_ns)]
 
     params = [zeros(1 + n_β + n_β_ns) for _ in 1:k]
-    [params[i][1] = μ[i] for i in 1:k]     # populate intercepts
+    [params[i][1] = μ[i] for i in 1:k]                          # populate intercepts
     [params[i][2:(n_β+1)] .= β[1+n_β*(i-1):n_β*i] for i in 1:k] # populate switching betas
-    [params[i][(n_β+2):(n_β+1+n_β_ns)] .= β_ns for i in 1:k] # populate switching betas
+    [params[i][(n_β+2):(n_β+1+n_β_ns)] .= β_ns for i in 1:k]    # populate switching betas
 
     for t in 1:T
         for s in 1:k
