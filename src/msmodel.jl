@@ -28,7 +28,7 @@ function Base.show(io::IO, ::MIME"text/plain", model::MSM)
     end
     print(io, "σ = ", round.(model.σ, digits=3))
     println(io, "\n----------------------------")
-    if isempty(model.δ)
+    if !isempty(model.δ)
         print(io, "TVTP")
     else
         print(io, "P =")
