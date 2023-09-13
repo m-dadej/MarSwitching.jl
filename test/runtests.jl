@@ -39,10 +39,10 @@ n_rnd_search = 5
 
     @test size(get_std_errors(model))[1] == size(model.raw_params)[1]
     @test expected_duration(model) isa Vector{Float64}
-    @test state_coeftable(model, 1) == nothing
-    @test transition_mat(model) == nothing
-    @test summary_mars(model) == nothing
-    @test Mars.check_args(model) == nothing
+    @test isnothing(state_coeftable(model, 1))
+    @test isnothing(transition_mat(model))
+    @test isnothing(summary_mars(model))
+    @test isnothing(Mars.check_args(model))
 
     @test Mars.convert_arg(:exog_vars, exog_vars = rand(100)) isa Matrix{Float64}
 
@@ -214,7 +214,7 @@ end
 
     @test get_std_errors(model) isa Vector{Float64}                                
     @test model.nlopt_msg == :XTOL_REACHED
-    @test coeftable_tvtp(model) == nothing
+    @test isnothing(coeftable_tvtp(model))
     @test size(expected_duration(model)) == (T, k)
     @test abs(cor([[Mars.P_tvtp(x_tvtp[i], δ, k, 1)[2] for i in 1:T] [Mars.P_tvtp(x_tvtp[i], model.δ, k, 1)[2] for i in 1:T]])[2]) > 0.8
     @test Mars.loglik_tvtp(model.raw_params, model.x, k, model.n_β, model.n_β_ns, model.intercept, model.switching_var, 1)[1] == model.Likelihood

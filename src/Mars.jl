@@ -1,11 +1,12 @@
 module Mars
 
-import Distributions: Normal, pdf, Chi, cdf, Uniform
+using FiniteDiff
 using LinearAlgebra
 using NLopt
+
+import Distributions: Normal, pdf, Chi, cdf, Uniform
 import Random: rand
 import StatsBase: Weights, sample, std, mean
-using FiniteDiff
 import Clustering: kmeans
 import Printf: @printf
 
