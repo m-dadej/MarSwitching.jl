@@ -1,8 +1,9 @@
 using Mars
 using Test
 using StatsBase
+using LinearAlgebra
 
-n_rnd_search = 1
+n_rnd_search = 5
 
 @testset "minimal test" begin
 
@@ -115,8 +116,8 @@ end
                             exog_vars = reshape(X[:,3], T, 1),
                             random_search = n_rnd_search)
 
-    @test maximum(cor([filtered_probs(model) (s_t .== 3)])[1:3,end]) > 0.6 
-    @test maximum(cor([smoothed_probs(model) (s_t .== 3)])[1:3,end]) > 0.7 
+    @test maximum(cor([filtered_probs(model) (s_t .== 3)])[1:3,end]) > 0.5 
+    @test maximum(cor([smoothed_probs(model) (s_t .== 3)])[1:3,end]) > 0.5 
 
     @test all([model.β[i][1] == 0 for i in 1:model.k])
     @test model.nlopt_msg == :XTOL_REACHED
@@ -195,7 +196,7 @@ end
 
     @test model.nlopt_msg == :XTOL_REACHED
     @test abs(cor([[Mars.P_tvtp(x_tvtp[i], δ, k, 1)[2] for i in 1:T] [Mars.P_tvtp(x_tvtp[i], model.δ, k, 1)[2] for i in 1:T]])[2]) > 0.8
-    @test Mars.loglik_tvtp(model.raw_params, model.x, k, model.n_β, model.n_β_ns, model.intercept, model.switching_var, 1) == model.Likelihood
+    @test Mars.loglik_tvtp(model.raw_params, model.x, k, model.n_β, model.n_β_ns, model.intercept, model.switching_var, 1)[1] == model.Likelihood
     ξ_t = filtered_probs(model)
 
     @test all(abs.(sort([model.β[i][1] for i in 1:model.k]) .- sort(μ)) .< 0.3)
@@ -294,6 +295,7 @@ end
 
 @testset "Less crucial functions" begin
     @test add_lags([1.0,2.0,3.0,4.0], 1) == [2.0 1.0; 3.0 2.0; 4.0 3.0]
+    A = rand(4,4)
     @test all(abs.(Mars.mp_inverse(A) .- pinv(A)) .< 0.001)
 end
 

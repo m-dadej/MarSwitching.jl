@@ -16,6 +16,11 @@ StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 
 [compat]
 julia = "1.6"
+Clustering = "0.15.4"
+Distributions = "0.25.100"
+FiniteDiff = "2.21.1"
+NLopt = "1.0.0"
+StatsBase = "0.34.0"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
