@@ -20,6 +20,27 @@ struct MSM{V <: AbstractFloat}
     nlopt_msg::Symbol
 end
 
+function Base.show(io::IO, ::MIME"text/plain", model::MSM)
+    for s in 1:model.k
+        print(io, "β_i,", s, ": ")
+        [print(io, round(model.β[s][i], digits=3), " ") for i in 1:(model.n_β + model.n_β_ns) ] 
+        print(io, "\n------------------------------\n")
+    end
+    print(io, "σ = ", round.(model.σ, digits=3))
+    println(io, "\n----------------------------")
+    if isempty(model.δ)
+        print(io, "TVTP")
+    else
+        print(io, "P =")
+        for i in 1:model.k
+            for j in 1:model.k
+                @printf io "%6s" round(model.P[j,i], digits=3) 
+            end
+            @printf io "%0s" "\n   "
+        end 
+    end        
+    @printf io "%0s" "\nNLopt msg: $(model.nlopt_msg)"
+end    
 
 function obj_func(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var)  
     
