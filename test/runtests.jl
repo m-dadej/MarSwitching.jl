@@ -2,7 +2,7 @@ using Mars
 using Test
 using StatsBase
 
-n_rnd_search = 5
+n_rnd_search = 1
 
 @testset "minimal test" begin
 
@@ -21,9 +21,13 @@ n_rnd_search = 5
     @test y isa Vector{Float64}
     @test size(X)[1] == T
 
+    @test MSModel(y,k) isa MSM   
+
     model = MSModel(y, k, intercept = "switching", 
                         exog_switching_vars = reshape(X[:,2:3],T,2),
                         exog_vars = reshape(X[:,4],T,1))
+
+    @test Mars.loglik(model.raw_params, model.x, k,  model.n_β, model.n_β_ns, model.intercept, model.switching_var)[1] == model.Likelihood                        
 
     @test model.nlopt_msg == :XTOL_REACHED
     @test model.x isa Matrix{Float64}
@@ -32,11 +36,16 @@ n_rnd_search = 5
     @test !isnan(model.Likelihood) && (model.Likelihood != Inf)
     @test model.σ isa Vector{Float64}
 
-    @test get_std_errors(model) isa Vector{Float64}
+    @test size(get_std_errors(model))[1] == size(model.raw_params)[1]
     @test expected_duration(model) isa Vector{Float64}
     @test state_coeftable(model, 1) == nothing
     @test transition_mat(model) == nothing
     @test summary_mars(model) == nothing
+    @test Mars.check_args(model) == nothing
+
+    @test Mars.convert_arg(:exog_vars, exog_vars = rand(100)) isa Matrix{Float64}
+
+    @test sort(unique(generate_mars(model, 100)[2])) == collect(1:k)
 
 end
 
@@ -186,7 +195,7 @@ end
 
     @test model.nlopt_msg == :XTOL_REACHED
     @test abs(cor([[Mars.P_tvtp(x_tvtp[i], δ, k, 1)[2] for i in 1:T] [Mars.P_tvtp(x_tvtp[i], model.δ, k, 1)[2] for i in 1:T]])[2]) > 0.8
-
+    @test Mars.loglik_tvtp(model.raw_params, model.x, k, model.n_β, model.n_β_ns, model.intercept, model.switching_var, 1) == model.Likelihood
     ξ_t = filtered_probs(model)
 
     @test all(abs.(sort([model.β[i][1] for i in 1:model.k]) .- sort(μ)) .< 0.3)
@@ -285,5 +294,8 @@ end
 
 @testset "Less crucial functions" begin
     @test add_lags([1.0,2.0,3.0,4.0], 1) == [2.0 1.0; 3.0 2.0; 4.0 3.0]
+    @test all(abs.(Mars.mp_inverse(A) .- pinv(A)) .< 0.001)
 end
+
+
 

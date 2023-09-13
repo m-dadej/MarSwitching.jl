@@ -3,12 +3,11 @@ module Mars
 import Distributions: Normal, pdf, Chi, cdf, Uniform
 using LinearAlgebra
 using NLopt
-using Random
+import Random: rand
 import StatsBase: Weights, sample, std, mean
 using FiniteDiff
-using LineSearches
 import Clustering: kmeans
-using Printf
+import Printf: @printf
 
 include("msmodel.jl")
 include("likelihood.jl")
