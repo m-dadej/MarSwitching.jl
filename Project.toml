@@ -1,7 +1,7 @@
 name = "Mars"
 uuid = "b2b8a7f1-da70-4e5f-beaa-e2774ec39c2f"
-authors = ["Mateusz Dadej"]
-version = "1.0.0-DEV"
+authors = ["Mateusz Dadej <m.dadej@unibs.it>"]
+version = "1.0.0"
 
 [deps]
 Clustering = "aaaa29a8-35af-508c-8bc3-b662a17a0fe5"
@@ -16,7 +16,7 @@ Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 
 [compat]
-julia = "1"
+julia = "1.6"
 
 [extras]
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
