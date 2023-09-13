@@ -82,6 +82,24 @@ end
                         
 end
 
+@testset begin "stochastic component - non-switching intercept"
+    k = 3
+    μ = [1.5, 1.5, 1.5] 
+    β_ns = Vector{Float64}([0.7])
+    σ = [0.3,  0.6, 0.8] 
+    P = [0.9 0.05 0.1; 0.05 0.85 0.05; 0.05 0.1 0.85]
+    T = 1000
+
+    y, s_t, X = generate_mars(μ, σ, P, T, β_ns = β_ns)
+
+    model = MSModel(y, k, intercept = "non-switching", 
+                            exog_vars = reshape(X[:,2],T,1),
+                            random_search = n_rnd_search) 
+
+    @test allequal([model.β[s][1] for s in 1:model.k])   
+    @test abs(model.β[1][1] - μ[1]) < 0.1                         
+end
+
 @testset "stochastic component - only non-s exogenous" begin
     k = 3
     μ = [1.0, -0.5, 0.12] 
@@ -194,7 +212,10 @@ end
                             maxtime = 100,
                             random_search = n_rnd_search)
 
+    @test get_std_errors(model) isa Vector{Float64}                                
     @test model.nlopt_msg == :XTOL_REACHED
+    @test coeftable_tvtp(model) == nothing
+    @test size(expected_duration(model)) == (T, k)
     @test abs(cor([[Mars.P_tvtp(x_tvtp[i], δ, k, 1)[2] for i in 1:T] [Mars.P_tvtp(x_tvtp[i], model.δ, k, 1)[2] for i in 1:T]])[2]) > 0.8
     @test Mars.loglik_tvtp(model.raw_params, model.x, k, model.n_β, model.n_β_ns, model.intercept, model.switching_var, 1)[1] == model.Likelihood
     ξ_t = filtered_probs(model)
