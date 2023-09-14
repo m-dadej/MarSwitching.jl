@@ -52,7 +52,7 @@ The package also provide time-varying transition probabilities (TVTP) (Filardo, 
 \begin{equation*}
 p_{i,j,t} = \frac{exp(\delta_{i,j}'\mathbf{Z}_t)}{\sum_{j=1}^{k}exp(\delta_{i,j}'\mathbf{Z}_t)}
 \end{align*}
-```math
+```
 
 For more thorough introduction to the markov switching models, see 9th chapter of Guidolin and Pedio, 2018.
 
