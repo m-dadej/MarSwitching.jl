@@ -1,4 +1,4 @@
-using Mars
+using MarSwitching
 using Test
 using StatsBase
 using LinearAlgebra

@@ -1,4 +1,4 @@
-module Mars
+module MarSwitching
 
 using FiniteDiff
 using LinearAlgebra

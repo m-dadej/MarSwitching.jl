@@ -1,22 +1,22 @@
-## Mars.jl: MARkov Switching dynamic models in Julia
+## MarSwitching.jl: Markov Switching dynamic models in Julia
 
 [![Build Status](https://github.com/m-dadej/MARS.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/m-dadej/MARS.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![Build Status](https://app.travis-ci.com/m-dadej/MARS.jl.svg?branch=main)](https://app.travis-ci.com/m-dadej/MARS.jl)
-[![Build status](https://ci.appveyor.com/api/projects/status/2o7c7dny19u0e18u?svg=true)](https://ci.appveyor.com/project/m-dadej/mars-jl-ovb60)
-[![Coverage](https://codecov.io/gh/m-dadej/MARS.jl/branch/main/graph/badge.svg)](https://codecov.io/gh/m-dadej/MARS.jl)
+[![Build status](https://ci.appveyor.com/api/projects/status/ff0w59c7vlm0600t?svg=true)](https://ci.appveyor.com/project/m-dadej/marswitching-jl)
+[![codecov](https://codecov.io/gh/m-dadej/MarSwitching.jl/graph/badge.svg?token=AANR7304QU)](https://codecov.io/gh/m-dadej/MarSwitching.jl)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 
-Mars.jl is a package for estimating Markov switching dynamic models (also called regime switching) in Julia. The package is currently being developed, altough the basic functionality is already available. 
+MarSwitching.jl is a package for estimating Markov switching dynamic models (also called regime switching) in Julia. The package is currently being developed, altough the basic functionality is already available. 
 
 Contact: Mateusz Dadej, m.dadej at unibs.it
 
 
 ## Installation
 ```julia
-Pkg.add("https://github.com/m-dadej/Mars.jl")
+Pkg.add("https://github.com/m-dadej/MarSwitching.jl")
 # or
-] add https://github.com/m-dadej/Mars.jl
+] add https://github.com/m-dadej/MarSwitching.jl
 ```
 ## Markov regime switching model in a nutshell
 
@@ -97,7 +97,7 @@ Following example will estimate a simple Markov switching model with regime depe
 ```
 
 ```julia
-using Mars
+using MarSwitching
 using Random
 
 k = 2            # number of regimes
@@ -236,7 +236,7 @@ filtered_probs(msm_model::MSM,                       # estimated model
 Similarily, smoothed transition probabilites can be also calculated from estimated model:
 
 ```julia
-smoothed_probs(msm_model::MSM,                       # estimated model
+smoothed_probs(model::MSM,                       # estimated model
                y::Vector{Float64},                   # optional vector of dependent variables
                exog_vars::Matrix{Float64}            # optional matrix of exogenous variables
                exog_switching_vars::Matrix{Float64}, # optional matrix of exogenous variables with regime switching

@@ -1,4 +1,4 @@
-name = "Mars"
+name = "MarSwitching"
 uuid = "b2b8a7f1-da70-4e5f-beaa-e2774ec39c2f"
 authors = ["Mateusz Dadej <m.dadej@unibs.it>"]
 version = "0.1.1"
