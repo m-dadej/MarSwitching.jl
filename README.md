@@ -49,9 +49,7 @@ Because of the unobserved nature of the state, the model is estimated by maximum
 The package also provide time-varying transition probabilities (TVTP) (Filardo, 1994) which allows for the transition matrix to change over time. Each transition probability has a following form:
 
 ```math
-\begin{align*}
-p_{i,j,t} = \frac{exp(\delta_{i,j}'\mathbf{Z}_t)}{\sum_{j=1}^{k} exp(\delta_{i,j}'\mathbf{Z}_t)}
-\end{align*}
+p_{i,j,t} = \dfrac{exp(\delta_{i,j}'\mathbf{Z}_t)}{\textstyle \sum_{j=1} exp(\delta_{i,j}'\mathbf{Z}_t)}
 ```
 
 For more thorough introduction to the markov switching models, see 9th chapter of Guidolin and Pedio, 2018.
