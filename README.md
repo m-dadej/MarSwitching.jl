@@ -50,7 +50,7 @@ The package also provide time-varying transition probabilities (TVTP) (Filardo, 
 
 ```math
 \begin{align*}
-p_{i,j,t} = \frac{exp(\delta_{i,j}'\mathbf{Z}_t)}{\sum_{j=1}^{k}exp(\delta_{i,j}'\mathbf{Z}_t)}
+p_{i,j,t} = \frac{exp(\delta_{i,j}'\mathbf{Z}_t)}{\sum_{j=1}^{k} exp(\delta_{i,j}'\mathbf{Z}_t)}
 \end{align*}
 ```
 
