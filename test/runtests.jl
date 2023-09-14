@@ -78,7 +78,7 @@ end
     @test all(abs.(sort([model_.β[i][1] for i in 1:model.k]) .- sort(μ)) .< 0.3)
     @test all(abs.(sort([model_.β[i][2] for i in 1:model.k]) .- sort(β)) .< 0.3)
                         
-    @test sort(unique(generate_mars(model, 100)[2])) == collect(1:k)
+    @test sort(unique(generate_mars(model, 1000)[2])) == collect(1:k)
 end
 
 @testset begin "stochastic component - non-switching intercept"
