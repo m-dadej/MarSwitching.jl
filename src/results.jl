@@ -55,9 +55,9 @@ end
     state_coeftable(model::MSM, state::Int64; digits::Int64=3)
 
 Returns formated table of coefficients and their statistics for a given state.    
-It's one of the functions called by the `summary_mars` function.
+It's one of the functions called by the `summary_msm` function.
 
-See also [`summary_mars`](@ref), [`coeftable_tvtp`](@ref), [`transition_mat`](@ref).
+See also [`summary_msm`](@ref), [`coeftable_tvtp`](@ref), [`transition_mat`](@ref).
 """
 function state_coeftable(model::MSM, state::Int64; digits::Int64=3)
         
@@ -100,9 +100,9 @@ end
     coeftable_tvtp(model::MSM; digits::Int64=3)
 
 Returns formated table of estimated coefficients from TVTP model and their statistics.
-It's one of the functions called by the `summary_mars` function.
+It's one of the functions called by the `summary_msm` function.
 
-See also [`summary_mars`](@ref), [`state_coeftable`](@ref), [`transition_mat`](@ref).
+See also [`summary_msm`](@ref), [`state_coeftable`](@ref), [`transition_mat`](@ref).
 """
 function coeftable_tvtp(model::MSM; digits::Int64=3)
 
@@ -143,9 +143,9 @@ end
     transition_mat(model::MSM; digits::Int64=2)
 
 Returns formated table of estimated transition matrix probabilities.
-It's one of the functions called by the `summary_mars` function.
+It's one of the functions called by the `summary_msm` function.
 
-See also [`summary_mars`](@ref), [`state_coeftable`](@ref), [`coeftable_tvtp`](@ref).
+See also [`summary_msm`](@ref), [`state_coeftable`](@ref), [`coeftable_tvtp`](@ref).
 """
 function transition_mat(model::MSM; digits::Int64=2)
 
@@ -177,13 +177,13 @@ function transition_mat(model::MSM; digits::Int64=2)
 end
 
 """
-    summary_mars(model::MSM; digits::Int64=3)
+    summary_msm(model::MSM; digits::Int64=3)
 
 Returns formated summary table of estimated model.
-It's built from [`summary_mars`](@ref), [`state_coeftable`](@ref) and [`coeftable_tvtp`](@ref) functions.
+It's built from [`summary_msm`](@ref), [`state_coeftable`](@ref) and [`coeftable_tvtp`](@ref) functions.
 
 """
-function summary_mars(model::MSM; digits::Int64=3)
+function summary_msm(model::MSM; digits::Int64=3)
 
     r2(ŷ, y) = sum((ŷ .- mean(y)).^2) / sum((y .- mean(y)).^2)
     
@@ -195,8 +195,8 @@ function summary_mars(model::MSM; digits::Int64=3)
     n_δ       = Int(length(model.δ)/(model.k*(model.k-1)))
     exog_tvtp = n_δ > 0 ? all(model.x[:, end-n_δ] .== model.x[1, end-n_δ]) : 0 
     k         = model.n_β + model.n_β_ns + n_δ - 1 + exog_tvtp
-    step_r2   = r2(Mars.predict(model, false)[1], y[1:end-1])
-    inst_r2   = r2(Mars.predict(model, true)[1], y)
+    step_r2   = r2(MarSwitching.predict(model, false)[1], y[1:end-1])
+    inst_r2   = r2(MarSwitching.predict(model, true)[1], y)
     step_r2   = round.((step_r2 - k/(model.T - 1)) * ((model.T - 1)/(model.T - k - 1)), digits = 2)
     inst_r2   = round.((inst_r2 - k/(model.T - 1)) * ((model.T - 1)/(model.T - k - 1)), digits = 2)
 

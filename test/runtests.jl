@@ -16,7 +16,7 @@ n_rnd_search = 5
     P = [0.8 0.05 0.2; 0.1 0.85 0.05; 0.1 0.1 0.75]
     T = 1000
 
-    y, _, X = generate_mars(μ, σ, P, T, β = β, β_ns = β_ns)
+    y, _, X = generate_msm(μ, σ, P, T, β = β, β_ns = β_ns)
 
     @test X isa Matrix{Float64}
     @test y isa Vector{Float64}
@@ -28,7 +28,7 @@ n_rnd_search = 5
                         exog_switching_vars = reshape(X[:,2:3],T,2),
                         exog_vars = reshape(X[:,4],T,1))
 
-    @test Mars.loglik(model.raw_params, model.x, k,  model.n_β, model.n_β_ns, model.intercept, model.switching_var)[1] == model.Likelihood                        
+    @test MarSwitching.loglik(model.raw_params, model.x, k,  model.n_β, model.n_β_ns, model.intercept, model.switching_var)[1] == model.Likelihood                        
 
     @test model.nlopt_msg == :XTOL_REACHED
     @test isnothing(display(model))
@@ -42,14 +42,14 @@ n_rnd_search = 5
     @test expected_duration(model) isa Vector{Float64}
     @test isnothing(state_coeftable(model, 1))
     @test isnothing(transition_mat(model))
-    @test isnothing(summary_mars(model))
-    @test isnothing(Mars.check_args(model))
+    @test isnothing(summary_msm(model))
+    @test isnothing(MarSwitching.check_args(model))
 
-    @test Mars.convert_arg(:exog_vars, exog_vars = rand(100)) isa Matrix{Float64}
+    @test MarSwitching.convert_arg(:exog_vars, exog_vars = rand(100)) isa Matrix{Float64}
 
 end
 
-@testset "stochastic component μ, β + generate_mars(model)" begin
+@testset "stochastic component μ, β + generate_msm(model)" begin
     
     k = 3
     μ = [1.0, -0.5, 0.12] 
@@ -58,7 +58,7 @@ end
     P = [0.9 0.05 0.1; 0.05 0.85 0.05; 0.05 0.1 0.85]
     T = 1000
 
-    y, s_t, X = generate_mars(μ, σ, P, T, β = β)
+    y, s_t, X = generate_msm(μ, σ, P, T, β = β)
 
 
     model = MSModel(y, k, intercept = "switching", 
@@ -71,7 +71,7 @@ end
     @test maximum(cor([filtered_probs(model) (s_t .== 3)])[1:3,end]) > 0.6 
     @test maximum(cor([smoothed_probs(model) (s_t .== 3)])[1:3,end]) > 0.7 
 
-    y_, s_t_, X_ = generate_mars(model, 1000)
+    y_, s_t_, X_ = generate_msm(model, 1000)
 
     model_ = MSModel(y_, k, intercept = "switching", 
                             exog_switching_vars = reshape(X_[:,2],T,1))
@@ -79,7 +79,7 @@ end
     @test all(abs.(sort([model_.β[i][1] for i in 1:model.k]) .- sort(μ)) .< 0.3)
     @test all(abs.(sort([model_.β[i][2] for i in 1:model.k]) .- sort(β)) .< 0.3)
                         
-    @test sort(unique(generate_mars(model, 1000)[2])) == collect(1:k)
+    @test sort(unique(generate_msm(model, 1000)[2])) == collect(1:k)
 end
 
 @testset begin "stochastic component - non-switching intercept"
@@ -90,7 +90,7 @@ end
     P = [0.9 0.05 0.1; 0.05 0.85 0.05; 0.05 0.1 0.85]
     T = 1000
 
-    y, s_t, X = generate_mars(μ, σ, P, T, β_ns = β_ns)
+    y, s_t, X = generate_msm(μ, σ, P, T, β_ns = β_ns)
 
     model = MSModel(y, k, intercept = "non-switching", 
                             exog_vars = reshape(X[:,2],T,1),
@@ -108,7 +108,7 @@ end
     P = [0.9 0.05 0.1; 0.05 0.85 0.05; 0.05 0.1 0.85]
     T = 1000
 
-    y, s_t, X = generate_mars(μ, σ, P, T, β_ns = β_ns)
+    y, s_t, X = generate_msm(μ, σ, P, T, β_ns = β_ns)
 
     model = MSModel(y, k, intercept = "switching", 
                             exog_vars = reshape(X[:,2],T,1),
@@ -128,7 +128,7 @@ end
     P = [0.9 0.05 0.1; 0.05 0.85 0.05; 0.05 0.1 0.85]
     T = 2000
 
-    y, s_t, X = generate_mars(μ, σ, P, T, β = β, β_ns = β_ns)
+    y, s_t, X = generate_msm(μ, σ, P, T, β = β, β_ns = β_ns)
 
     model = MSModel(y, k, intercept = "no", exog_switching_vars = reshape(X[:,2], T, 1),
                             exog_vars = reshape(X[:,3], T, 1),
@@ -152,8 +152,7 @@ end
     P = [0.9 0.05 0.1; 0.05 0.85 0.05; 0.05 0.1 0.85]
     T = 1000
 
-    y, s_t, X = generate_mars(μ, σ, P, T, β = β, β_ns = β_ns)
-
+    y, s_t, X = generate_msm(μ, σ, P, T, β = β, β_ns = β_ns)
 
     model = MSModel(y, k, intercept = "switching", 
                             exog_switching_vars = reshape(X[:,2:3],T,2),
@@ -182,7 +181,7 @@ end
     P = [0.9 0.05 0.1; 0.05 0.85 0.05; 0.05 0.1 0.85]
     T = 500
 
-    y, s_t, X = generate_mars(μ, σ, P, T)
+    y, s_t, X = generate_msm(μ, σ, P, T)
 
     model = MSModel(y, k, switching_var = false,
                             random_search = n_rnd_search)
@@ -204,7 +203,7 @@ end
     δ = [2.2, 0.9]
     T = 500
 
-    y, s_t, X = generate_mars(μ, σ, P, T, δ = δ, tvtp_intercept = false)
+    y, s_t, X = generate_msm(μ, σ, P, T, δ = δ, tvtp_intercept = false)
     x_tvtp = reshape(X[:,2], T, 1)
 
     model = MSModel(y, k, intercept = "switching", 
@@ -216,18 +215,18 @@ end
     @test model.nlopt_msg == :XTOL_REACHED
     @test isnothing(coeftable_tvtp(model))
     @test size(expected_duration(model)) == (T, k)
-    @test abs(cor([[Mars.P_tvtp(x_tvtp[i], δ, k, 1)[2] for i in 1:T] [Mars.P_tvtp(x_tvtp[i], model.δ, k, 1)[2] for i in 1:T]])[2]) > 0.8
-    @test Mars.loglik_tvtp(model.raw_params, model.x, k, model.n_β, model.n_β_ns, model.intercept, model.switching_var, 1)[1] == model.Likelihood
+    @test abs(cor([[MarSwitching.P_tvtp(x_tvtp[i], δ, k, 1)[2] for i in 1:T] [MarSwitching.P_tvtp(x_tvtp[i], model.δ, k, 1)[2] for i in 1:T]])[2]) > 0.8
+    @test MarSwitching.loglik_tvtp(model.raw_params, model.x, k, model.n_β, model.n_β_ns, model.intercept, model.switching_var, 1)[1] == model.Likelihood
     ξ_t = filtered_probs(model)
 
     @test all(abs.(sort([model.β[i][1] for i in 1:model.k]) .- sort(μ)) .< 0.3)
     @test maximum(cor([ξ_t s_t])[1:2, end]) > 0.6
 
-    ŷ, P̂ = Mars.predict(model, true)
+    ŷ, P̂ = MarSwitching.predict(model, true)
 
     @test (cor([ŷ y])[2]) > 0.6
 
-    ŷ, P̂ = Mars.predict(model, false)
+    ŷ, P̂ = MarSwitching.predict(model, false)
 
     @test (cor([ŷ y[1:end-1]])[2]) > 0.6
 end
@@ -240,7 +239,7 @@ end
     P = [0.9 0.05 0.1; 0.05 0.85 0.05; 0.05 0.1 0.85]
     T = 1000
 
-    y, s_t, X = generate_mars(μ, σ, P, T, β_ns = β_ns)
+    y, s_t, X = generate_msm(μ, σ, P, T, β_ns = β_ns)
 
     model = MSModel(y, k, intercept = "switching", 
                             exog_vars = reshape(X[:,2],T,1),
@@ -250,18 +249,18 @@ end
     my_std(x) = sqrt(sum((x .- my_mean(x)).^2) / (length(x)-1))
     corr(x,y) = sum((x .- my_mean(x)) .* (y .- my_mean(y))) / (my_std(x)*my_std(y)*(length(x)-1))
     
-    y_pred, ξ_t = Mars.predict(model, true)
+    y_pred, ξ_t = MarSwitching.predict(model, true)
 
     @test corr(y_pred, y)[1] > 0.7
 
     T_pred = 400
-    y_oos, _, X_oos = generate_mars(μ, σ, P, T_pred, β_ns = β_ns)
+    y_oos, _, X_oos = generate_msm(μ, σ, P, T_pred, β_ns = β_ns)
 
-    y_pred2, ξ_t2 = Mars.predict(model, true, y = y_oos, exog_vars = reshape(X_oos[:,2],T_pred,1))
+    y_pred2, ξ_t2 = MarSwitching.predict(model, true, y = y_oos, exog_vars = reshape(X_oos[:,2],T_pred,1))
 
     @test corr(y_pred2, y_oos)[1] > 0.6
 
-    y_pred3, ξ_t3 = Mars.predict(model, false, y = y_oos, exog_vars = reshape(X_oos[:,2],T_pred,1))
+    y_pred3, ξ_t3 = MarSwitching.predict(model, false, y = y_oos, exog_vars = reshape(X_oos[:,2],T_pred,1))
 
     @test corr(y_pred3, y_oos[2:end])[1] > 0.5
     @test model.nlopt_msg == :XTOL_REACHED
@@ -285,7 +284,7 @@ end
                     
                     n_int = int == "switching" ? k_i : 1
                     θ = [rand(k_i); rand(Uniform(-5, 5), n_int); rand(Uniform(-5, 5), n_β_i*k_i); rand(Uniform(-5, 5), n_β_ns_i); rand(k_i*(k_i-1))] 
-                    σ, β, P = Mars.trans_θ(θ, k_i, n_β_i, n_β_ns_i, int, true, false)
+                    σ, β, P = MarSwitching.trans_θ(θ, k_i, n_β_i, n_β_ns_i, int, true, false)
                     println("k: $k_i, n_β: $n_β_i, n_β_ns: $n_β_ns_i, intercept: $int")
 
                     @test size(σ)[1] == k_i
@@ -307,7 +306,7 @@ end
 
     θ = [σ; β; β_ns; vec(P[2:end, :])]
 
-    σ_, β_ = Mars.vec2param_nointercept(θ, k, 1, 1, true)
+    σ_, β_ = MarSwitching.vec2param_nointercept(θ, k, 1, 1, true)
 
     @test all([β_[i][1] == 0 for i in 1:k])
     @test σ_ == σ
@@ -317,7 +316,7 @@ end
 @testset "Less crucial functions" begin
     @test add_lags([1.0,2.0,3.0,4.0], 1) == [2.0 1.0; 3.0 2.0; 4.0 3.0]
     A = rand(4,4)
-    @test all(abs.(Mars.mp_inverse(A) .- pinv(A)) .< 0.001)
+    @test all(abs.(MarSwitching.mp_inverse(A) .- pinv(A)) .< 0.001)
 end
 
 

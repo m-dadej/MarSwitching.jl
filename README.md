@@ -111,20 +111,20 @@ P = [0.9 0.05    # transition matrix (left-stochastic)
 Random.seed!(123)
 
 # generate artificial data with given parameters
-y, s_t, X = generate_mars(μ, σ, P, T, β = β) 
+y, s_t, X = generate_msm(μ, σ, P, T, β = β) 
 
 # estimate the model
 model = MSModel(y, k, intercept = "switching", exog_switching_vars = reshape(X[:,2],T,1))
 
 # we may simulated data also from estimated model
 # e.g. for calculating VaR:
-quantile(generate_mars(model, 1000)[1], 0.05)
+quantile(generate_msm(model, 1000)[1], 0.05)
 
 # or more interestingly, output summary table
-summary_mars(model)
+summary_msm(model)
 ````
 
-The `summary_mars(model)`  will output following summary table:
+The `summary_msm(model)`  will output following summary table:
 
 ```jldoctest
 Markov Switching Model with 2 regimes
@@ -225,7 +225,7 @@ end
 Filtered transition probabilites can be calculated from estimated model:
 
 ```julia
-filtered_probs(msm_model::MSM,                       # estimated model
+filtered_probs(model::MSM,                       # estimated model
                y::Vector{Float64},                   # optional vector of dependent variables
                exog_vars::Matrix{Float64}            # optional matrix of exogenous variables
                exog_switching_vars::Matrix{Float64}, # optional matrix of exogenous variables with regime switching
@@ -270,7 +270,7 @@ The one step ahead prediction will return a vector of size $(T-1) \times 1$, as 
 The provided new data needs to match the data used for estimation (with except of observations size). If not provided the prediction is done on the data used for estimation. For one step ahed forecast, there is no look-ahead bias, the y vector needs to be provided in order to calculate the state probabilites at time $t$.
 
 
-The `summary_mars(model::MSM; digits::Int64=3)` function outputs a summary table that is built from 4 functions: 
+The `summary_msm(model::MSM; digits::Int64=3)` function outputs a summary table that is built from 4 functions: 
 - `transition_mat(model::MSM; digits::Int64=2)` - prints transition matrix
 - `coeftable_tvtp(model::MSM; digits::Int64=3)` - prints coefficient table for time-varying transition matrix
 - `state_coeftable(model::MSM, state::Int64; digits::Int64=3)` - prints coefficient table for given state
@@ -279,7 +279,7 @@ The `summary_mars(model::MSM; digits::Int64=3)` function outputs a summary table
 It is also possible to simulate data from a given parameters:
 
 ```julia
-generate_mars(μ::Vector{Float64},    # vector of intercepts for each state
+generate_msm(μ::Vector{Float64},    # vector of intercepts for each state
               σ::Vector{Float64},    # vector of error variances for each state
               P::Matrix{Float64},    # transition matrix
               T::Int64;              # number of observations
@@ -291,7 +291,7 @@ generate_mars(μ::Vector{Float64},    # vector of intercepts for each state
 or thanks to multiple dispatch, simulate data from estimated model (as in example):
 
 ```julia
-generate_mars(model::MSM, T::Int64=model.T) 
+generate_msm(model::MSM, T::Int64=model.T) 
 ```
 
 The function returns a tuple of 3 elements, respectively:

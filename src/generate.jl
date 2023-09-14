@@ -1,10 +1,10 @@
 
 """
-generate_mars(model::MSM, T::Int64)
+generate_msm(model::MSM, T::Int64)
 
 When applied to estimated model, generates artificial data of size T from the model.
 """
-function generate_mars(model::MSM, T::Int64 = 0)
+function generate_msm(model::MSM, T::Int64 = 0)
     
     μ    = [model.β[i][1] for i in 1:model.k]
     β    = [model.β[i][2:(2+model.n_β-1)] for i in 1:model.k]
@@ -17,11 +17,11 @@ function generate_mars(model::MSM, T::Int64 = 0)
     exog_tvtp = model.x[:, end-n_δ+1:end]  
     tvtp_intercept = isempty(δ) ? false : all(exog_tvtp[:,1] .== exog_tvtp[1,1])
 
-    return generate_mars(μ, model.σ, model.P, T, β = β, β_ns = β_ns, δ = δ, tvtp_intercept = tvtp_intercept)
+    return generate_msm(μ, model.σ, model.P, T, β = β, β_ns = β_ns, δ = δ, tvtp_intercept = tvtp_intercept)
 end
 
 """
-    generate_mars(μ::Vector{Float64}, σ::Vector{Float64}, P::Matrix{Float64}, T::Int64; <keyword arguments>)
+generate_msm(μ::Vector{Float64}, σ::Vector{Float64}, P::Matrix{Float64}, T::Int64; <keyword arguments>)
 
 Generate artificial data from Markov switching model from provided parameters.
 Returns a tuple of `(y, s_t, X)` where `y` is the generated data, `s_t` is the state sequence and `X` is the design matrix.
@@ -38,7 +38,7 @@ Note, in order to have non-switching parameter provide it k-times.
 - `δ::Vector{AbstractFloat}`: tvtp coefficients.
 - `tvtp_intercept::Bool`: whether to include an intercept in the tvtp model.
 """
-function generate_mars(μ::Vector{V},
+function generate_msm(μ::Vector{V},
                         σ::Vector{V},
                         P::Matrix{V},
                         T::Int64;
