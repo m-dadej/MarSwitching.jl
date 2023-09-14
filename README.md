@@ -49,7 +49,7 @@ Because of the unobserved nature of the state, the model is estimated by maximum
 The package also provide time-varying transition probabilities (TVTP) (Filardo, 1994) which allows for the transition matrix to change over time. Each transition probability has a following form:
 
 ```math
-\begin{equation*}
+\begin{align*}
 p_{i,j,t} = \frac{exp(\delta_{i,j}'\mathbf{Z}_t)}{\sum_{j=1}^{k}exp(\delta_{i,j}'\mathbf{Z}_t)}
 \end{align*}
 ```
