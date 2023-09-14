@@ -4,12 +4,13 @@ generate_mars(model::MSM, T::Int64)
 
 When applied to estimated model, generates artificial data of size T from the model.
 """
-function generate_mars(model::MSM, T::Int64)
+function generate_mars(model::MSM, T::Int64 = 0)
     
     μ    = [model.β[i][1] for i in 1:model.k]
     β    = [model.β[i][2:(2+model.n_β-1)] for i in 1:model.k]
     β    = vec(reduce(hcat, [β...]))
     β_ns = model.β[1][(2+model.n_β):end]
+    T = T == 0 ? model.T : T
     
     δ = model.δ
     n_δ = Int(length(δ)/(model.k*(model.k-1)))

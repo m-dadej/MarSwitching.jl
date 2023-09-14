@@ -31,6 +31,7 @@ n_rnd_search = 5
     @test Mars.loglik(model.raw_params, model.x, k,  model.n_β, model.n_β_ns, model.intercept, model.switching_var)[1] == model.Likelihood                        
 
     @test model.nlopt_msg == :XTOL_REACHED
+    @test isnothing(display(model))
     @test model.x isa Matrix{Float64}
     @test model.P isa Matrix{Float64}
     @test model.β isa Vector{Vector{Float64}}

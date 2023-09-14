@@ -46,6 +46,16 @@ Where $\mathbf{y}_t$ is vector of dependent variables, $\mathbf{\mu}_s$ and $\ma
 
 Because of the unobserved nature of the state, the model is estimated by maximum likelihood. The likelihood function is calculated using the method described in Hamilton, 1989.
 
+The package also provide time-varying transition probabilities (TVTP) (Filardo, 1994) which allows for the transition matrix to change over time. Each transition probability has a following form:
+
+```math
+\begin{equation*}
+p_{i,j,t} = \frac{exp(\delta_{i,j}'\mathbf{Z}_t)}{\sum_{j=1}^{k}exp(\delta_{i,j}'\mathbf{Z}_t)}
+\end{align*}
+```math
+
+For more thorough introduction to the markov switching models, see 9th chapter of Guidolin and Pedio, 2018.
+
 ## Functionality 
 
 - Currently available:
@@ -180,38 +190,40 @@ Every exported function have a docstring, which can be accessed by `?` in REPL.
 
 The function for estimating the markov switching model is: 
 
-```julia
-MSModel(y::Vector{Float64},                     # vector of dependent variable
-        k::Int64,                               # number of regimes
-        ;intercept::String,                     # "switching" (default), "non-switching" or "no" intercept
-        exog_vars::Matrix{Float64}              # optional matrix of exogenous variables
-        exog_switching_vars::Matrix{Float64},   # optional matrix of exogenous variables with regime switching
-        switching_var::Bool = true,             # is variance state-dependent?
-        exog_tvtp::Matrix{Float64}              # optional matrix of exogenous variables for time-varying transition matrix
-        x0::Vector{Float64},                    # optional initial values of parameters for optimization
-        algorithm::Symbol,                      # optional algorithm for NLopt.jl
-        maxtime::Int64)                         # optional maximum time for optimization
+```Julia
+MSModel(y::VecOrMat{V},                    # vector of dependent variable
+        k::Int64,                          # number of regimes
+        ;intercept::String = "switching",  # "switching" (default), "non-switching" or "no" intercept
+        exog_vars::VecOrMat{V},            # optional matrix of exogenous variables
+        exog_switching_vars::VecOrMat{V},  # optional matrix of exogenous variables with regime switching
+        switching_var::Bool = true,        # is variance state-dependent?
+        exog_tvtp::VecOrMat{V},            # optional matrix of exogenous variables for time-varying transition matrix
+        x0::Vector{V},                     # optional initial values of parameters for optimization
+        algorithm::Symbol = :LN_SBPLX,     # optional algorithm for NLopt.jl
+        maxtime::Int64 = -1,               # optional maximum time for optimization
+        random_search::Int64 = 0           # Number of random search iterations (model estimations with random disturbance to the x0)
+        ) where V <: AbstractFloat  
 ```
 The function returns `MSM` type object:
 
-```julia
-struct MSM 
-    β::Vector{Vector{Float64}}  # β[state][i] vector of β for each state
-    σ::Vector{Float64}          # error variance
-    P::Matrix{Float64}          # transition matrix
-    δ::Vector{Float64}          # vector of coefficients for time varying transition matrix
-    k::Int64                    # number of regimes
-    n_β::Int64                  # number of β parameters
-    n_β_ns::Int64               # number of non-switching β parameters
-    intercept::String           # "switching" or "non-switching"
-    switching_var::Bool         # is variance state-dependent?
-    x::Matrix{Float64}          # data matrix
-    T::Int64                    # number of observations
-    Likelihood::Float64         # log-likelihood
-    raw_params::Vector{Float64} # vector of parameters for optimization
-    nlopt_msg::Symbol           # message from NLopt.jl solver
+```Julia
+struct MSM{V <: AbstractFloat}
+    β::Vector{Vector{V}}  # β[state][i] vector of β for each state
+    σ::Vector{V}          # error variance
+    P::Matrix{V}          # transition matrix
+    δ::Vector{V}          # tvtp parameters
+    k::Int64              # number of regimes 
+    n_β::Int64            # number of β parameters
+    n_β_ns::Int64         # number of non-switching β parameters
+    intercept::String     # "switching", "non-switching" or "no"
+    switching_var::Bool   # is variance state dependent?
+    x::Matrix{V}          # data matrix
+    T::Int64              # number of observations
+    Likelihood::Float64   # vector of parameters for optimization
+    raw_params::Vector{V} # raw parameters used directly in the Likelihood function
+    nlopt_msg::Symbol     # message from NLopt.jl solver
 end
-```  
+```
 Filtered transition probabilites can be calculated from estimated model:
 
 ```julia
@@ -255,7 +267,7 @@ And for one step ahead, the state probabilities have to be predicted themselves:
 \hat{y}_{t+1} = \sum_{i=1}^{k} (P\hat{\xi}_{i,t})X_{t+1}'\hat{\beta}_{i}
 ```
 
-The one step ahed prediction will return a vector of size $(T-1) \times 1$, as the observation $t-1$ is used to forecast state probability ($P\hat{\xi}_{i,t}$)
+The one step ahead prediction will return a vector of size $(T-1) \times 1$, as the observation $t-1$ is used to forecast state probability ($P\hat{\xi}_{i,t}$)
 
 The provided new data needs to match the data used for estimation (with except of observations size). If not provided the prediction is done on the data used for estimation. For one step ahed forecast, there is no look-ahead bias, the y vector needs to be provided in order to calculate the state probabilites at time $t$.
 
@@ -266,7 +278,7 @@ The `summary_mars(model::MSM; digits::Int64=3)` function outputs a summary table
 - `state_coeftable(model::MSM, state::Int64; digits::Int64=3)` - prints coefficient table for given state
 - `expected_duration(model::MSM; digits::Int64=2)` - prints expected duration of each state, or a time series of expected duration for TVTP model
 
-It is also possible to simulate data from a given parameters
+It is also possible to simulate data from a given parameters:
 
 ```julia
 generate_mars(μ::Vector{Float64},    # vector of intercepts for each state
@@ -278,7 +290,7 @@ generate_mars(μ::Vector{Float64},    # vector of intercepts for each state
               δ::Vector{Float64},    # vector of coefficients for time-varying transition matrix
               tvtp_intercept::Bool)  # should TVTP have an intercept?
 ```
-or thanks to multiple dispatch, simulate data frome stimated model (as in example):
+or thanks to multiple dispatch, simulate data from estimated model (as in example):
 
 ```julia
 generate_mars(model::MSM, T::Int64=model.T) 
