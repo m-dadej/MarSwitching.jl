@@ -46,8 +46,6 @@ n_rnd_search = 5
 
     @test Mars.convert_arg(:exog_vars, exog_vars = rand(100)) isa Matrix{Float64}
 
-    @test sort(unique(generate_mars(model, 100)[2])) == collect(1:k)
-
 end
 
 @testset "stochastic component μ, β + generate_mars(model)" begin
@@ -80,6 +78,7 @@ end
     @test all(abs.(sort([model_.β[i][1] for i in 1:model.k]) .- sort(μ)) .< 0.3)
     @test all(abs.(sort([model_.β[i][2] for i in 1:model.k]) .- sort(β)) .< 0.3)
                         
+    @test sort(unique(generate_mars(model, 100)[2])) == collect(1:k)
 end
 
 @testset begin "stochastic component - non-switching intercept"
@@ -96,7 +95,7 @@ end
                             exog_vars = reshape(X[:,2],T,1),
                             random_search = n_rnd_search) 
 
-    @test allequal([model.β[s][1] for s in 1:model.k])   
+    @test all([model.β[s][1] for s in 1:model.k] .== model.β[1][1])   
     @test abs(model.β[1][1] - μ[1]) < 0.1                         
 end
 
