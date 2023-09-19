@@ -13,10 +13,10 @@ Contact: Mateusz Dadej, m.dadej at unibs.it
 
 
 ## Installation
+MarSwitching is in general registry. To install simply use following command:
+
 ```julia
-Pkg.add("https://github.com/m-dadej/MarSwitching.jl")
-# or
-] add https://github.com/m-dadej/MarSwitching.jl
+] add MarSwitching
 ```
 ## Markov regime switching model in a nutshell
 
