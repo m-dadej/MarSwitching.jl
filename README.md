@@ -61,7 +61,7 @@ For more thorough introduction to the markov switching models, see 9th chapter o
         - intercept
         - variance
         - exogenous variables
-    - model with time-varying transition probabilites (TVTP) (Filardo 1994) 
+    - model with time-varying transition probabilites (TVTP) (à la Filardo 1994) 
     - Filtered probabilites
     - Smoothed probabilites (Kim, 1994)
     - Summary statistics of coefficients
