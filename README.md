@@ -236,7 +236,7 @@ filtered_probs(model::MSM,                       # estimated model
 Similarily, smoothed transition probabilites can be also calculated from estimated model:
 
 ```julia
-smoothed_probs(model::MSM,                       # estimated model
+smoothed_probs(model::MSM,                           # estimated model
                y::Vector{Float64},                   # optional vector of dependent variables
                exog_vars::Matrix{Float64}            # optional matrix of exogenous variables
                exog_switching_vars::Matrix{Float64}, # optional matrix of exogenous variables with regime switching
