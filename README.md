@@ -7,16 +7,16 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 
-MarSwitching.jl is a package for estimating Markov switching dynamic models (also called regime switching) in Julia. The package is currently being developed, altough the basic functionality is already available. 
+MarSwitching.jl is a package for estimating Markov switching dynamic models (also called regime switching) in Julia. 
 
 Contact: Mateusz Dadej, m.dadej at unibs.it
 
 
 ## Installation
+MarSwitching is in general registry. To install simply use following command:
+
 ```julia
-Pkg.add("https://github.com/m-dadej/MarSwitching.jl")
-# or
-] add https://github.com/m-dadej/MarSwitching.jl
+] add MarSwitching
 ```
 ## Markov regime switching model in a nutshell
 
