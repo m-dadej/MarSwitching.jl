@@ -57,11 +57,11 @@ For more thorough introduction to the markov switching models, see 9th chapter o
 ## Functionality 
 
 - Currently available:
-    - Markov switching model with $k$ regimes and combinations of:
-        - switching/non-switching or without intercept
-        - switching/non-switching variance
-        - switching/non-switching exogenous variables
-        - time-varying transition probabilites (TVTP) (Filardo 1994)
+    - Markov switching model with $k$ regimes and combinations of switching/non-switching:
+        - intercept
+        - variance
+        - exogenous variables
+    - model with time-varying transition probabilites (TVTP) (Filardo 1994) 
     - Filtered probabilites
     - Smoothed probabilites (Kim, 1994)
     - Summary statistics of coefficients
