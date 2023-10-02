@@ -6,12 +6,14 @@ When applied to estimated model, generates artificial data of size T from the mo
 """
 function generate_msm(model::MSM, T::Int64 = 0)
     
+    # extract parameters from model
     μ    = [model.β[i][1] for i in 1:model.k]
     β    = [model.β[i][2:(2+model.n_β-1)] for i in 1:model.k]
     β    = vec(reduce(hcat, [β...]))
     β_ns = model.β[1][(2+model.n_β):end]
-    T = T == 0 ? model.T : T
+    T    = T == 0 ? model.T : T
     
+    # extract tvtp parameters from model
     δ = model.δ
     n_δ = Int(length(δ)/(model.k*(model.k-1)))
     exog_tvtp = model.x[:, end-n_δ+1:end]  
@@ -50,18 +52,23 @@ function generate_msm(μ::Vector{V},
     @assert size(μ)[1] == size(σ)[1] == size(P)[2] "size of μ, σ and P implies different number of states"
     @assert T > 0 "T should be a positive integer"
 
+    # for transition matrix without last row, add it and normalize
     if size(P)[2] != size(P)[1]
         P = vcat(P, ones(1, size(P)[2]))
         P = P ./ sum(P, dims=1)
     end
 
-    k = length(μ)
-    n_β = Int(size(β)[1]/k)
-    n_β_ns = size(β_ns)[1]
-    s_t = [1]
 
+    k      = length(μ)
+    n_β    = Int(size(β)[1]/k)
+    n_β_ns = size(β_ns)[1]
+    s_t    = [1]
+
+    # generate random states either from tvtp or from P
     if !isempty(δ)
+
         n_δ = Int(length(δ)/(k*(k-1)))
+        # generate tvtp exogenous variables from standard normal
         x_tvtp = tvtp_intercept ? [ones(T) rand(Normal(1,0.5), T, n_δ-1)] : rand(Normal(1,0.5), T, n_δ)
 
         for t in 1:(T-1)
@@ -77,11 +84,13 @@ function generate_msm(μ::Vector{V},
     y_s = zeros(T, k)
     X = [ones(T) rand(Normal(0,1), T, n_β + n_β_ns)]
 
+    # conert parameters to matrix for easier matrix multiplication
     params = [zeros(1 + n_β + n_β_ns) for _ in 1:k]
     [params[i][1] = μ[i] for i in 1:k]                          # populate intercepts
     [params[i][2:(n_β+1)] .= β[1+n_β*(i-1):n_β*i] for i in 1:k] # populate switching betas
     [params[i][(n_β+2):(n_β+1+n_β_ns)] .= β_ns for i in 1:k]    # populate switching betas
 
+    # generate target variable for each state
     for t in 1:T
         for s in 1:k
             y_s[t, s] = rand(Normal((X*params[s])[t], σ[s])) 
@@ -91,6 +100,7 @@ function generate_msm(μ::Vector{V},
     X = !isempty(δ) ? [X x_tvtp] : X
     y = zeros(T)
     
+    # generate target variable from state specific target variables
     for s in 1:k
         y[s_t .== s] .= y_s[s_t .== s, s]
     end
