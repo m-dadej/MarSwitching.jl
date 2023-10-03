@@ -65,7 +65,7 @@ For more thorough introduction to the markov switching models, see 9th chapter o
     - Filtered probabilites
     - Smoothed probabilites (Kim, 1994)
     - Summary statistics of coefficients
-    - instanteous and one step ahead `predict()`
+    - instantaneous and one step ahead `predict()`
     - Expected regime duration
     - Simulation of data both from estimated model and from given parameters
     - Adding lagged variables to the matrix
