@@ -114,7 +114,7 @@ Random.seed!(123)
 y, s_t, X = generate_msm(μ, σ, P, T, β = β) 
 
 # estimate the model
-model = MSModel(y, k, intercept = "switching", exog_switching_vars = reshape(X[:,2],T,1))
+model = MSModel(y, k, intercept = "switching", exog_switching_vars = X[:,2])
 
 # we may simulated data also from estimated model
 # e.g. for calculating VaR:
