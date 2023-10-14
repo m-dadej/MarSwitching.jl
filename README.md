@@ -225,7 +225,7 @@ end
 Filtered transition probabilites can be calculated from estimated model:
 
 ```julia
-filtered_probs(model::MSM,                       # estimated model
+filtered_probs(model::MSM,                           # estimated model
                y::Vector{Float64},                   # optional vector of dependent variables
                exog_vars::Matrix{Float64}            # optional matrix of exogenous variables
                exog_switching_vars::Matrix{Float64}, # optional matrix of exogenous variables with regime switching
