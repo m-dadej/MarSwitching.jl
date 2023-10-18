@@ -42,6 +42,56 @@ function Base.show(io::IO, ::MIME"text/plain", model::MSM)
     @printf io "%0s" "\nNLopt msg: $(model.nlopt_msg)"
 end    
 
+# Expectation-maximization algorithm
+function em_algorithm_msm(X::VecOrMat, 
+                        k::Int64,
+                        n_β::Int64,
+                        n_β_ns::Int64,
+                        n_δ::Int64,
+                        n_intercept::Int64,
+                        switching_var::Bool;
+                        tol::Float64 = 0.01)
+
+    Q = [0.0, 1.0, 2.0, 3.0]
+    y = X[:,1]
+    x = X[:, 2:(end-n_δ)]
+    T = size(y)[1]
+    w = zeros(size(y)[1], k)
+
+    β_hat = [zeros(size(x)[2]) for _ in 1:k]
+    [β_hat[i][1] = n_intercept == 1 ? 0.0 : rand(Normal(0, 1)) for i in 1:k]
+    [β_hat[i][2:(n_β+1)] = rand(Normal(0, 1), n_β) for i in 1:k]
+    [β_hat[i][(n_β+2):(n_β + 1 + n_β_ns)] .= 0.0 for i in 1:k]
+
+    σ_hat = repeat([(std(y)) + rand()], k)
+    π_em = rand(3) 
+    π_em = π_em ./ sum(π_em)
+    
+    while (Q[end] / Q[1] - 1) > tol
+        ϕ = hcat([pdf.(Normal.(x*β_hat[j], σ_hat[j]), y) for j in 1:k]...)
+        w = (ϕ .* π_em') ./ sum(ϕ .* π_em', dims = 2)
+        circshift!(Q, -1)
+        Q[end] = sum(sum(w[i,j] .* ϕ[i,j] for j in 1:k) for i in 1:T)
+
+        π_em  = (sum(w, dims=1) / T)'
+        β_hat = [MarSwitching.mp_inverse(x'diagm(w[:,j])*x) * x'diagm(w[:,j])*y for j in 1:k]
+        σ_hat = [sqrt(sum(w[:,j] .* (y .- x*β_hat[j]).^2) / sum(w[:,j])) for j in 1:k]
+    end
+
+    β_ns_avrg = mean(reduce(hcat, β_hat)'[:, (n_β+2):(n_β + 1 + n_β_ns)], dims=1)
+    [β_hat[i][(n_β+2):(n_β + 1 + n_β_ns)] = β_ns_avrg for i in 1:k]
+
+    if n_intercept == 1
+        intercept_avrg = mean(reduce(hcat, β_hat)[:, 1])
+        [β_hat[i][1] = intercept_avrg for i in 1:k]
+    end
+
+    σ_hat = switching_var ? σ_hat : repeat([σ_hat'π_em], k)
+
+    return  π_em, β_hat, σ_hat, Q 
+end
+
+
 function obj_func(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var)  
     
     if length(fΔ) > 0
@@ -120,15 +170,15 @@ function MSModel(y::VecOrMat{V},
     exog_switching_vars = typeof(exog_switching_vars) <: Vector ? reshape(exog_switching_vars, size(exog_switching_vars)[1], 1) : exog_switching_vars
     exog_tvtp = typeof(exog_tvtp) <: Vector ? reshape(exog_tvtp, size(exog_tvtp)[1], 1) : exog_tvtp
 
-    T   = size(y)[1]
-    x   = intercept == "no" ? [y zeros(T)] : [y ones(T)]
+    T = size(y)[1]
+    x = intercept == "no" ? [y zeros(T)] : [y ones(T)]
 
     ### counting number of variables ###
-    n_β_ns      = size(exog_vars)[2]                # number of non-switching β
-    n_β         = size(exog_switching_vars)[2]      # number of switching β
-    n_var       = switching_var ? k : 1             # number of variance parameters
-    n_δ         = size(exog_tvtp)[2]                # number of tvtp terms in each state
-    n_p         = n_δ > 0 ? n_δ*k*(k-1) : k*(k-1)   # number of probability parameters (either TVTP or constant)
+    n_β_ns = size(exog_vars)[2]                # number of non-switching β
+    n_β    = size(exog_switching_vars)[2]      # number of switching β
+    n_var  = switching_var ? k : 1             # number of variance parameters
+    n_δ    = size(exog_tvtp)[2]                # number of tvtp terms in each state
+    n_p    = n_δ > 0 ? n_δ*k*(k-1) : k*(k-1)   # number of probability parameters (either TVTP or constant)
 
     # number of intercept parameters
     if intercept == "switching"
@@ -172,21 +222,7 @@ function MSModel(y::VecOrMat{V},
     
     ### initial guess ###
     if isempty(x0)
-        
-        kmeans_res = kmeans(reshape(x[:,1], 1, T), k)
-
-        if intercept == "switching"
-            μ_em = kmeans_res.centers'[:]
-            #μx0[1:n_β:n_β*k] .= μ_em[:] 
-        elseif intercept == "non-switching"
-            μ_em = mean(x[:,1])
-            #μx0[1:n_β:n_β*k] .= μ_em[:]
-        elseif intercept == "no"
-            μ_em = Vector{Float64}([])
-        end
-
-        σ_em = switching_var ? [std(x[kmeans_res.assignments .== i, 1]) for i in 1:k] : std(x[:,1])
-        p_em = [sum(kmeans_res.assignments .== i ) / T for i in 1:k]
+        p_em, β_hat, σ_em, _ = em_algorithm_msm(x, k, n_β, n_β_ns, n_δ, n_intercept, switching_var)
 
         # this is really bad code 
         # what i want to do is put the probabilites from kmeans into x0 anyhow
@@ -200,8 +236,13 @@ function MSModel(y::VecOrMat{V},
             pmat_em       = pmat_em[1:k-1, :] .* sum(pmat_em[1:k-1, :] .+ 1, dims=1) 
             p_em          = vec(pmat_em)    
         end
-        
-        x0 = [σ_em; μ_em; zeros(n_β*k); zeros(n_β_ns); p_em]
+
+        μ_em    = [β_hat[i][1] for i in 1:k]
+        β_s_em  = [β_hat[i][2:(n_β+1)] for i in 1:k]
+        β_s_em = vec(reduce(hcat, [β_s_em...]))
+        β_ns_em = β_hat[1][2+n_β:end]
+
+        x0 = [σ_em; μ_em; β_s_em; β_ns_em; p_em]
         #x0 = [repeat([std(x[:,1])], k).^2; repeat([mean(x[:,1])], k*(size(x)[2]-1)); repeat([0.5],(k-1)*k)]
     end
 
