@@ -7,7 +7,6 @@ using NLopt
 import Distributions: Normal, pdf, Chi, cdf, Uniform
 import Random: rand
 import StatsBase: Weights, sample, std, mean
-import Clustering: kmeans
 import Printf: @printf
 
 include("msmodel.jl")

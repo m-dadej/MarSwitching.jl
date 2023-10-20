@@ -8,7 +8,7 @@ function generate_msm(model::MSM, T::Int64 = 0)
     
     # extract parameters from model
     μ    = [model.β[i][1] for i in 1:model.k]
-    β    = [model.β[i][2:(2+model.n_β-1)] for i in 1:model.k]
+    β    = [model.β[i][2:(1+model.n_β)] for i in 1:model.k]
     β    = vec(reduce(hcat, [β...]))
     β_ns = model.β[1][(2+model.n_β):end]
     T    = T == 0 ? model.T : T

@@ -136,6 +136,8 @@ function trans_θ(θ::Vector{Float64},
 end
 
 # function to calculate moores-penrose pseudoinverse
+# Function pinv() can't be used because the package won't be compatible with Julia 1.6
+# anyway it's slightly but significantly faster than pinv() in benchmarks
 function mp_inverse(A)
     U, S, V = svd(A)
     Σ = zeros(size(A'))
