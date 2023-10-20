@@ -149,7 +149,7 @@ end
 
     k = 3
     μ = [1.0, -0.5, 0.12] 
-    β = Vector{Float64}([-1.5, 0.9, 0.0, 0.6, -1.8, 0.45])
+    β = Vector{Float64}([-1.5, 0.9, 0.0, 0.6, -1.8, 0.45]) # S_1 = {-1.5, 0.9}, S_2 = {0.0., 0.6}...
     β_ns = Vector{Float64}([0.3333])
     σ = [0.4,  0.5, 0.2] 
     #P = [0.7 0.2; 0.3 0.8]
@@ -164,10 +164,15 @@ end
                             random_search_em = 3,
                             random_search = 2)
 
+    @test all(abs.(sort([model.β[i][1] for i in 1:model.k]) .- sort(μ)) .< 0.2)
+    @test all(abs.(sort([model.β[i][2] for i in 1:model.k]) .- sort(β[1:2:k*2])) .< 0.2)
+    @test all(abs.(sort([model.β[i][3] for i in 1:model.k]) .- sort(β[2:2:k*2])) .< 0.2)
+
+
     # to add tests below we need better x0 for P or random search 
     # because around eery 2 estimations the P is very biased                            
-    # @test maximum(cor([filtered_probs(model) (s_t .== 3)])[1:3,end]) > 0.6 
-    # @test maximum(cor([smoothed_probs(model) (s_t .== 3)])[1:3,end]) > 0.7 
+    @test maximum(cor([filtered_probs(model) (s_t .== 3)])[1:3,end]) > 0.6 
+    @test maximum(cor([smoothed_probs(model) (s_t .== 3)])[1:3,end]) > 0.7 
     @test all(isreal.(model.P))
     @test all(model.P .>= 0)
     @test all(model.P .<= 1)
@@ -213,8 +218,8 @@ end
     model = MSModel(y, k, intercept = "switching", 
                             exog_tvtp = x_tvtp, 
                             maxtime = 100,
-                            random_search_em = 3,
-                            random_search = 3)
+                            random_search_em = 5,
+                            random_search = 5)
 
     @test get_std_errors(model) isa Vector{Float64}                                
     @test model.nlopt_msg == :XTOL_REACHED
