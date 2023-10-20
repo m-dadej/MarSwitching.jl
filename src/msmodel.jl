@@ -62,11 +62,13 @@ function em_algorithm(X::VecOrMat,
 
     β_hat = [rand(Normal(0, 1), size(x)[2]) for _ in 1:k]
 
-    [β_hat[i][1] = n_intercept == 1 ? 0.0 : rand(Normal(0, 1)) for i in 1:k]
+    if n_intercept > 0
+        [β_hat[i][1] = n_intercept == 1 ? 0.0 : rand(Normal(0, 1)) for i in 1:k]
+    end  
     [β_hat[i][(end-n_β_ns+1):end] .= 0.0 for i in 1:k]
 
     σ_hat = repeat([(std(y)) + rand()], k)
-    π_em = rand(3) 
+    π_em = rand(k) 
     π_em = π_em ./ sum(π_em)
     
     while (Q[end] / Q[1] - 1) > tol
@@ -227,7 +229,7 @@ function MSModel(y::VecOrMat{V},
         p_em, β_hat, σ_em, _ = em_algorithm(x, k, n_β, n_β_ns, n_δ, n_intercept, switching_var)
 
         # this is really bad code 
-        # what i want to do is put the probabilites from kmeans into x0 anyhow
+        # what i want to do is put the probabilites from EM algorithm into x0 anyhow
         if n_δ > 0
             p_em = ones(n_p)
         else
