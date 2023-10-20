@@ -193,7 +193,7 @@ end
 
     y, s_t, X = generate_msm(μ, σ, P, T)
 
-    model = MSModel(y, k, switching_var = false)
+    model = MSModel(y, k, switching_var = false, random_search_em=3)
                 
     @test all(model.σ .== model.σ[1])
     @test abs(model.σ[1] .- σ[1]) < 0.2
