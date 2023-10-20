@@ -65,7 +65,8 @@ end
 
 
     model = MSModel(y, k, intercept = "switching", 
-                            exog_switching_vars = X[:,2])
+                            exog_switching_vars = X[:,2],
+                            random_search_em = 3)
 
     @test model.nlopt_msg == :XTOL_REACHED                    
     @test all(abs.(sort([model.β[i][1] for i in 1:model.k]) .- sort(μ)) .< 0.3)
@@ -76,7 +77,8 @@ end
     y_, s_t_, X_ = generate_msm(model, 1000)
 
     model_ = MSModel(y_, k, intercept = "switching", 
-                            exog_switching_vars = X_[:,2])
+                            exog_switching_vars = X_[:,2],
+                            random_search_em = 4)
 
     @test all(abs.(sort([model_.β[i][1] for i in 1:model.k]) .- sort(μ)) .< 0.3)
     @test all(abs.(sort([model_.β[i][2] for i in 1:model.k]) .- sort(β)) .< 0.3)
@@ -95,7 +97,8 @@ end
     y, s_t, X = generate_msm(μ, σ, P, T, β_ns = β_ns)
 
     model = MSModel(y, k, intercept = "non-switching", 
-                            exog_vars = X[:,2]) 
+                            exog_vars = X[:,2],
+                            random_search_em = 3) 
 
     @test all([model.β[s][1] for s in 1:model.k] .== model.β[1][1])   
     @test abs(model.β[1][1] - μ[1]) < 0.1                         
@@ -112,7 +115,8 @@ end
     y, s_t, X = generate_msm(μ, σ, P, T, β_ns = β_ns)
 
     model = MSModel(y, k, intercept = "switching", 
-                            exog_vars = X[:,2])
+                            exog_vars = X[:,2],
+                            random_search_em = 3)
 
                           
     @test abs.(model.β[1][2] .- β_ns[1]) < 0.3
@@ -131,7 +135,8 @@ end
     y, s_t, X = generate_msm(μ, σ, P, T, β = β, β_ns = β_ns)
 
     model = MSModel(y, k, intercept = "no", exog_switching_vars = reshape(X[:,2], T, 1),
-                            exog_vars = X[:,3])
+                            exog_vars = X[:,3],
+                            random_search_em = 3)
 
     @test maximum(cor([filtered_probs(model) (s_t .== 3)])[1:3,end]) > 0.5 
     @test maximum(cor([smoothed_probs(model) (s_t .== 3)])[1:3,end]) > 0.5 
@@ -156,7 +161,8 @@ end
     model = MSModel(y, k, intercept = "switching", 
                             exog_switching_vars = X[:,2:3],
                             exog_vars = X[:,4],
-                            random_search = 4)
+                            random_search_em = 3,
+                            random_search = 2)
 
     # to add tests below we need better x0 for P or random search 
     # because around eery 2 estimations the P is very biased                            
@@ -207,7 +213,8 @@ end
     model = MSModel(y, k, intercept = "switching", 
                             exog_tvtp = x_tvtp, 
                             maxtime = 100,
-                            random_search = 5)
+                            random_search_em = 3,
+                            random_search = 3)
 
     @test get_std_errors(model) isa Vector{Float64}                                
     @test model.nlopt_msg == :XTOL_REACHED
@@ -241,7 +248,7 @@ end
 
     model = MSModel(y, k, intercept = "switching", 
                             exog_vars = reshape(X[:,2],T,1),
-                            random_search = n_rnd_search)
+                            random_search_em = 3)
                 
     my_mean(x) = sum(x) / length(x)
     my_std(x) = sqrt(sum((x .- my_mean(x)).^2) / (length(x)-1))

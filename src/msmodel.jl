@@ -45,13 +45,12 @@ end
 # Expectation-maximization algorithm
 
 function em_algorithm(X::VecOrMat, 
-                        k::Int64,
-                        n_β::Int64,
-                        n_β_ns::Int64,
-                        n_δ::Int64,
-                        n_intercept::Int64,
-                        switching_var::Bool;
-                        tol::Float64 = 0.01)
+                      k::Int64,
+                      n_β_ns::Int64,
+                      n_δ::Int64,
+                      n_intercept::Int64,
+                      switching_var::Bool;
+                      tol::Float64 = 0.01)
 
     Q = [0.0, 1.0, 2.0, 3.0]
     y = X[:,1]
@@ -162,6 +161,7 @@ function MSModel(y::VecOrMat{V},
                  x0::Vector{V} = Vector{Float64}(undef, 0),
                  algorithm::Symbol = :LN_SBPLX,
                  maxtime::Int64 = -1,
+                 random_search_em::Int64 = 0,
                  random_search::Int64 = 0) where V <: AbstractFloat              
 
     @assert size(y)[1] > 0 "y should be a vector or matrix with at least one observation"
@@ -226,9 +226,28 @@ function MSModel(y::VecOrMat{V},
     
     ### initial guess ###
     if isempty(x0)
-        p_em, β_hat, σ_em, _ = em_algorithm(x, k, n_β, n_β_ns, n_δ, n_intercept, switching_var)
+        p_em_init, β_hat_init, σ_em_init, Q_init = em_algorithm(x, k, n_β_ns, n_δ, n_intercept, switching_var)
 
-        # this is really bad code 
+        ### random search for EM algorithm
+        param_space = [[p_em_init, β_hat_init, σ_em_init, Q_init] for _ in 1:random_search_em+1]
+
+        for i in 2:random_search_em+1
+            param_space[i] .= em_algorithm(x, k, n_β_ns, n_δ, n_intercept, switching_var)
+            println("EM algorithm random search: $(i-1) out of $random_search_em | Q = $(round.(param_space[i][end])) vs. Q_0 = $(round.(param_space[1][end]))")
+        end
+
+        [param_space[i][end] for i in 1:random_search_em+1]
+
+        param_space = sort(param_space, by = x -> x[end], rev = false)
+        random_search_em > 0 && println("Q improvement with random search: $(round.(Q_init)) -> $(round.(param_space[end][end]))")
+
+        p_em  = param_space[end][1]
+        β_hat = param_space[end][2]
+        σ_em  = param_space[end][3]
+
+        ### transformation of ergodic probabilities to probabilites input to the optimization
+        
+        # this is bad code 
         # what i want to do is put the probabilites from EM algorithm into x0 anyhow
         if n_δ > 0
             p_em = ones(n_p)
@@ -241,6 +260,7 @@ function MSModel(y::VecOrMat{V},
             p_em          = vec(pmat_em)    
         end
 
+        ### converting initial values from EM to vector of parameters ###
         if intercept == "switching"
             μ_em = [β_hat[i][1] for i in 1:k]
         elseif intercept == "non-switching"
@@ -254,12 +274,11 @@ function MSModel(y::VecOrMat{V},
         β_s_em = vec(reduce(hcat, [β_s_em...]))
 
         x0 = [σ_em; μ_em; β_s_em; β_ns_em; p_em]
-        #x0 = [repeat([std(x[:,1])], k).^2; repeat([mean(x[:,1])], k*(size(x)[2]-1)); repeat([0.5],(k-1)*k)]
     end
 
     (minf_init, θ_hat_init, ret_init) = NLopt.optimize(opt, x0)
 
-    ### random search ###
+    ### Optimization random search ###
     param_space = [[minf_init, θ_hat_init, ret_init] for _ in 1:random_search+1]
 
     for i in 2:random_search+1
@@ -267,7 +286,7 @@ function MSModel(y::VecOrMat{V},
         rand_θ = max.(opt.lower_bounds, rand_θ)
 
         param_space[i][1], param_space[i][2], param_space[i][3] = NLopt.optimize(opt, rand_θ)        
-        println("random search: $(i-1) out of $random_search | LL = $(-round.(param_space[i][1]))")
+        println("Optimization random search: $(i-1) out of $random_search | LL = $(-round.(param_space[i][1]))")
     end
 
     param_space = sort(param_space, by = x -> x[1], rev = true)
