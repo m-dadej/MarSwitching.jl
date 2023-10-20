@@ -2,7 +2,11 @@ using MarSwitching
 using Test
 using StatsBase
 using LinearAlgebra
+using Random
 
+seed = rand(1:100)
+println("Seed: ", seed)
+Random.seed!(seed)
 
 @testset "minimal test" begin
 

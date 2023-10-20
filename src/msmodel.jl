@@ -92,7 +92,7 @@ function em_algorithm(X::VecOrMat,
 
     σ_hat = switching_var ? σ_hat : (σ_hat'π_em)[:]
 
-    return  π_em, β_hat, σ_hat, Q 
+    return  π_em, β_hat, σ_hat, Q[end] 
 end
 
 
@@ -267,7 +267,7 @@ function MSModel(y::VecOrMat{V},
         rand_θ = max.(opt.lower_bounds, rand_θ)
 
         param_space[i][1], param_space[i][2], param_space[i][3] = NLopt.optimize(opt, rand_θ)        
-        println("random search: $(i-1) out of $random_search")
+        println("random search: $(i-1) out of $random_search | LL = $(-round.(param_space[i][1]))")
     end
 
     param_space = sort(param_space, by = x -> x[1], rev = true)
