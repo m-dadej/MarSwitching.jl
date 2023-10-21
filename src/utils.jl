@@ -137,7 +137,7 @@ end
 
 # function to shift the vector - circshift() equivalent
 # circshift does not work for stable julia 1.6
-function my_circshift(x, n)
+function my_circshift(x::Vector{Float64}, n::Int64)
     if n > 0
         return [x[end-n+1:end]; x[1:end-n]]
     else
@@ -154,7 +154,6 @@ function mp_inverse(A)
     Σ[1:size(S)[1], 1:size(S)[1]] = Diagonal(1 ./ S)
     return V * Σ * U'
 end   
-
 
 # function below combines vec2param_nonswitch and vec2param_switch
 # apparently, it's slower than the two separate functions. Even though it's more concise.

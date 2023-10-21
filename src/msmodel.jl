@@ -42,8 +42,7 @@ function Base.show(io::IO, ::MIME"text/plain", model::MSM)
     @printf io "%0s" "\nNLopt msg: $(model.nlopt_msg)"
 end    
 
-# Expectation-maximization algorithm
-
+# Expectation-maximization algorithm for initial guess
 function em_algorithm(X::VecOrMat, 
                       k::Int64,
                       n_β_ns::Int64,
@@ -240,13 +239,9 @@ function MSModel(y::VecOrMat{V},
 
         param_space = sort(param_space, by = x -> x[end], rev = false)
         random_search_em > 0 && println("Q improvement with random search: $(round.(Q_init)) -> $(round.(param_space[end][end]))")
-
-        p_em  = param_space[end][1]
-        β_hat = param_space[end][2]
-        σ_em  = param_space[end][3]
+        p_em, β_hat, σ_em = param_space[end]
 
         ### transformation of ergodic probabilities to probabilites input to the optimization
-        
         # this is bad code 
         # what i want to do is put the probabilites from EM algorithm into x0 anyhow
         if n_δ > 0

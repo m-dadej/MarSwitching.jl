@@ -15,17 +15,8 @@ function loglik(θ::Vector{Float64},
 
     σ, β, P = trans_θ(θ, k, n_β, n_β_ns, intercept, switching_var, false)
     
-    # if tvtp
-    #     P = trans_tvtp(P) 
-    # end
-
-    #initial guess for the unconditional probabilities
-    A = [I - P; ones(k)']
-
-    # check if A'A is invertible
-    ξ_0 = !isapprox(det(A'A), 0) ? (inv(A'A)*A')[:,end] : ones(k) ./ k
-    # numerical stability check
-    ξ_0 = any(ξ_0 .< 0) ? ones(k) ./ k : ξ_0
+    ξ_0 = ergodic_probs(P, k)
+    ξ_0 = any(ξ_0 .< 0) ? ones(k) ./ k : ξ_0 # numerical stability check
 
     # f(y | S_t, x, θ, Ψ_t-1) density function 
     η = reduce(hcat, [pdf.(Normal.(view(X, :,2:n_β+n_β_ns+2)*β[i], σ[i]), view(X, :,1)) for i in 1:k])

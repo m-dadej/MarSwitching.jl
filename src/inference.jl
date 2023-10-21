@@ -24,6 +24,70 @@ function check_args(model::MSM; kwargs...)
 
 end
 
+@doc raw"""
+    ergodic_probs(P::Matrix{Float64})
+
+Returns a `k`-size Vector of ergodic probabilites of each state.     
+
+The ergodic probabilites (also known as long-term probabilites) of a Markov process are the probabilites that satisfy the following equation:
+
+```math
+\lim_{n\to\infty} P^n = \pi = P \pi 
+```
+The ergodic probability is proportional to the eigenvector of
+the transition matrix P associated to the unit eigenvalue.
+
+# Arguments
+- `P::Matrix{Float64}`: left stochastic transition matrix.
+
+See also [`expected_duration`](@ref).
+"""
+function ergodic_probs(P::Matrix{Float64}, k::Int64 = 0)
+
+    if k == 0
+        k = size(P)[1]
+    end        
+    A = [I - P; ones(k)']
+    # check if A'A is invertible
+    #ξ_0 = !isapprox(det(A'A), 0) ? (inv(A'A)*A')[:,end] : ones(k) ./ k
+    ξ_0 = (inv(A'A)*A')[:,end]
+
+    return ξ_0
+end
+
+@doc raw"""
+    ergodic_probs(model::MSM, exog_tvtp::VecOrMat{V})
+
+when applied to the model non-TVTP model, returns a `k`-size Vector of ergodic probabilites of each state.     
+For TVTP model, returns $T \times K$ a matrix of ergodic probabilites of each state at time t.
+
+# Arguments
+- `model::MSM`: estimated model.
+- `exog_tvtp::VecOrMat{AbstractFloat}`: optional exogenous variables for the tvtp model. If not provided, in-sample data is used.
+
+See also [`expected_duration`](@ref).
+"""
+function ergodic_probs(model::MSM, exog_tvtp::VecOrMat{V} = Matrix{Float64}(undef, 0, 0)) where V <: AbstractFloat
+
+    if isempty(model.P)
+        n_δ = Int(length(model.δ)/(model.k*(model.k-1)))
+
+        if isempty(exog_tvtp)
+            exog_tvtp = model.x[:, end-n_δ+1:end]   
+        end
+        
+        T = size(exog_tvtp)[1]
+
+        return reduce(hcat, [ergodic_probs(P_tvtp(exog_tvtp[t, :], model.δ, model.k, n_δ)) for t in 1:T])'
+    else
+        A = [I - model.P; ones(model.k)']
+        # check if A'A is invertible
+        #ξ_0 = !isapprox(det(A'A), 0) ? (inv(A'A)*A')[:,end] : ones(k) ./ k
+        return (inv(A'A)*A')[:,end]
+    end        
+
+end
+
 """
     expected_duration(model::MSM, exog_tvtp::VecOrMat{AbstractFloat})
 
@@ -36,6 +100,7 @@ formula: `1 / (1 - P[i,i])` or for TVTP - `1 / (1 - P[i,i, t])`
 - `model::MSM`: estimated model.
 - `exog_tvtp::VecOrMat{AbstractFloat}`: optional exogenous variables for the tvtp model. If not provided, in-sample data is used.
 
+See also [`ergodic_probs`](@ref).
 """
 function expected_duration(model::MSM, exog_tvtp::VecOrMat{V} = Matrix{Float64}(undef, 0, 0)) where V <: AbstractFloat
 

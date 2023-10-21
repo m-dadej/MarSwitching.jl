@@ -1,28 +1,5 @@
 
 """
-generate_msm(model::MSM, T::Int64)
-
-When applied to estimated model, generates artificial data of size T from the model.
-"""
-function generate_msm(model::MSM, T::Int64 = 0)
-    
-    # extract parameters from model
-    μ    = [model.β[i][1] for i in 1:model.k]
-    β    = [model.β[i][2:(1+model.n_β)] for i in 1:model.k]
-    β    = vec(reduce(hcat, [β...]))
-    β_ns = model.β[1][(2+model.n_β):end]
-    T    = T == 0 ? model.T : T
-    
-    # extract tvtp parameters from model
-    δ = model.δ
-    n_δ = Int(length(δ)/(model.k*(model.k-1)))
-    exog_tvtp = model.x[:, end-n_δ+1:end]  
-    tvtp_intercept = isempty(δ) ? false : all(exog_tvtp[:,1] .== exog_tvtp[1,1])
-
-    return generate_msm(μ, model.σ, model.P, T, β = β, β_ns = β_ns, δ = δ, tvtp_intercept = tvtp_intercept)
-end
-
-"""
 generate_msm(μ::Vector{Float64}, σ::Vector{Float64}, P::Matrix{Float64}, T::Int64; <keyword arguments>)
 
 Generate artificial data from Markov switching model from provided parameters.
@@ -35,7 +12,7 @@ Note, in order to have non-switching parameter provide it k-times.
 - `σ::Vector{AbstractFloat}`: standard deviations for each state.
 - `P::Matrix{AbstractFloat}`: transition matrix.
 - `T::Int64`: number of observations to generate.
-- `β::Vector{AbstractFloat}`: switching coefficients.
+- `β::Vector{AbstractFloat}`: switching coefficients. (first k elements in vector are coefficeints of first state equation).
 - `β_ns::Vector{AbstractFloat}`: non-switching coefficients.
 - `δ::Vector{AbstractFloat}`: tvtp coefficients.
 - `tvtp_intercept::Bool`: whether to include an intercept in the tvtp model.
@@ -106,4 +83,27 @@ function generate_msm(μ::Vector{V},
     end
 
     return y, s_t, X
+end
+
+"""
+generate_msm(model::MSM, T::Int64)
+
+When applied to estimated model, generates artificial data of size T from the model.
+"""
+function generate_msm(model::MSM, T::Int64 = 0)
+    
+    # extract parameters from model
+    μ    = [model.β[i][1] for i in 1:model.k]
+    β    = [model.β[i][2:(1+model.n_β)] for i in 1:model.k]
+    β    = vec(reduce(hcat, [β...]))
+    β_ns = model.β[1][(2+model.n_β):end]
+    T    = T == 0 ? model.T : T
+    
+    # extract tvtp parameters from model
+    δ = model.δ
+    n_δ = Int(length(δ)/(model.k*(model.k-1)))
+    exog_tvtp = model.x[:, end-n_δ+1:end]  
+    tvtp_intercept = isempty(δ) ? false : all(exog_tvtp[:,1] .== exog_tvtp[1,1])
+
+    return generate_msm(μ, model.σ, model.P, T, β = β, β_ns = β_ns, δ = δ, tvtp_intercept = tvtp_intercept)
 end
