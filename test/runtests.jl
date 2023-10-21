@@ -40,6 +40,7 @@ Random.seed!(seed)
     @test model.β isa Vector{Vector{Float64}}
     @test !isnan(model.Likelihood) && (model.Likelihood != Inf)
     @test model.σ isa Vector{Float64}
+    @test ergodic_probs(model.P) isa Vector{Float64}
 
     @test size(get_std_errors(model))[1] == size(model.raw_params)[1]
     @test expected_duration(model) isa Vector{Float64}
@@ -182,6 +183,7 @@ end
     @test size(smoothed_probs(model)) == (T, k)
     @test model.nlopt_msg == :XTOL_REACHED
 
+    @test isapprox(sum(ergodic_probs(model.P)), 1.0)
 end
 
 @testset "stochastic component - non-switching variance" begin
@@ -239,6 +241,8 @@ end
     ŷ, P̂ = MarSwitching.predict(model, false)
 
     @test (cor([ŷ y[1:end-1]])[2]) > 0.6
+
+    @test all(isapprox.(sum(ergodic_probs(model), dims=2), 1.0))
 end
 
 @testset "predict function" begin 
