@@ -135,6 +135,16 @@ function trans_θ(θ::Vector{Float64},
     return tvtp ? (σ, β) : (σ, β, P)
 end
 
+# function to shift the vector - circshift() equivalent
+# circshift does not work for stable julia 1.6
+function my_circshift(x, n)
+    if n > 0
+        return [x[end-n+1:end]; x[1:end-n]]
+    else
+        return [x[-n+1:end]; x[1:-n]]
+    end
+end
+
 # function to calculate moores-penrose pseudoinverse
 # Function pinv() can't be used because the package won't be compatible with Julia 1.6
 # anyway it's slightly but significantly faster than pinv() in benchmarks

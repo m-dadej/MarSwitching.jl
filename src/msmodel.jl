@@ -73,7 +73,7 @@ function em_algorithm(X::VecOrMat,
     while (Q[end] / Q[1] - 1) > tol
         ϕ = hcat([pdf.(Normal.(x*β_hat[j], σ_hat[j]), y) for j in 1:k]...)
         w = (ϕ .* π_em') ./ sum(ϕ .* π_em', dims = 2)
-        circshift!(Q, -1)
+        Q = my_circshift(Q, -1)
         Q[end] = sum(sum(w[i,j] .* ϕ[i,j] for j in 1:k) for i in 1:T)
 
         π_em  = (sum(w, dims=1) / T)'
