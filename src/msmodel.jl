@@ -143,13 +143,15 @@ For the same reason, it is recommended not to estimate model with many states (e
 - `x0::Vector{V}`: initial guess for the parameters. If empty, the initial guess is generated from k-means clustering.
 - `algorithm::Symbol`: optimization algorithm to use. One of [:LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX]
 - `maxtime::Int64`: maximum time in seconds to run the optimization. If negative, the maximum time is equal T/2.
-- `random_search::Int64`: number of random searches to perform. If 0, no random search is performed.
-- `verbatim::Bool`: if true, prints out the progress of the random searches.
+- `random_search_em::Int64`: number of random searches to perform for the EM algorithm. If 0, no random search is performed.
+- `random_search::Int64`: number of random searches to perform. 
+- `verbose::Bool`: if true, prints out the progress of the random searches.
 
 References:
 - Hamilton, J. D. (1989). A new approach to the economic analysis of nonstationary time series and the business cycle. Econometrica: Journal of the Econometric Society, 357-384.
 - Filardo, Andrew J. (1994). Business cycle phases and their transitional dynamics. Journal of Business & Economic Statistics, 12(3), 299-308.
 
+See also [`grid_search_msm`](@ref).
 """
 function MSModel(y::VecOrMat{V},
                  k::Int64;
@@ -163,12 +165,13 @@ function MSModel(y::VecOrMat{V},
                  maxtime::Int64 = -1,
                  random_search_em::Int64 = 0,
                  random_search::Int64 = 0,
-                 verbatim::Bool = true) where V <: AbstractFloat              
+                 verbose::Bool = true) where V <: AbstractFloat              
 
     @assert size(y)[1] > 0 "y should be a vector or matrix with at least one observation"
     @assert k >= 2 "k should be at least 2, otherwise use standard linear regression"
     @assert intercept in ["switching", "non-switching", "no"] "intercept should be either 'switching', 'non-switching' or 'no'"
     @assert algorithm in [:LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX] "algorithm should be either :LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX"
+    @assert (random_search_em >= 0) & (random_search >= 0) "Number of random searches for EM and optimization needs to be positive"
 
     # convert to matrix if vector
     exog_vars = typeof(exog_vars) <: Vector ? reshape(exog_vars, size(exog_vars)[1], 1) : exog_vars
@@ -234,13 +237,13 @@ function MSModel(y::VecOrMat{V},
 
         for i in 2:random_search_em+1
             param_space[i] .= em_algorithm(x, k, n_β_ns, n_δ, n_intercept, switching_var)
-            verbatim && println("EM algorithm random search: $(i-1) out of $random_search_em | Q = $(round.(param_space[i][end])) vs. Q_0 = $(round.(param_space[1][end]))")
+            verbose && println("EM algorithm random search: $(i-1) out of $random_search_em | Q = $(round.(param_space[i][end])) vs. Q_0 = $(round.(param_space[1][end]))")
         end
 
         [param_space[i][end] for i in 1:random_search_em+1]
 
         param_space = sort(param_space, by = x -> x[end], rev = false)
-        (random_search_em > 0) & verbatim && println("Q improvement with random search: $(round.(Q_init)) -> $(round.(param_space[end][end]))")
+        (random_search_em > 0) & verbose && println("Q improvement with random search: $(round.(Q_init)) -> $(round.(param_space[end][end]))")
         p_em, β_hat, σ_em = param_space[end]
 
         ### transformation of ergodic probabilities to probabilites input to the optimization
@@ -283,14 +286,14 @@ function MSModel(y::VecOrMat{V},
         rand_θ = max.(opt.lower_bounds, rand_θ)
 
         param_space[i][1], param_space[i][2], param_space[i][3] = NLopt.optimize(opt, rand_θ)        
-        verbatim && println("Optimization random search: $(i-1) out of $random_search | LL = $(-round.(param_space[i][1]))")
+        verbose && println("Optimization random search: $(i-1) out of $random_search | LL = $(-round.(param_space[i][1]))")
     end
 
     param_space = sort(param_space, by = x -> x[1], rev = true)
     minf        = param_space[end][1]
     θ_hat       = param_space[end][2]
     ret         = param_space[end][3]
-    (random_search > 0) & verbatim && println("loglikelihood improvement with random search: $(-round.(minf_init)) -> $(-round.(param_space[end][1]))")
+    (random_search > 0) & verbose && println("loglikelihood improvement with random search: $(-round.(minf_init)) -> $(-round.(param_space[end][1]))")
 
     ### transformation of variables - tvtp or not ###
     if n_δ > 0
@@ -304,3 +307,106 @@ function MSModel(y::VecOrMat{V},
     
     return MSM(β, σ, P, δ, k, n_β, n_β_ns, intercept, switching_var, x, T, -minf, θ_hat, ret)
 end
+
+"""
+    grid_search_msm(y::VecOrMat{V}, 
+                    x::VecOrMat{V},
+                    criterion::String = "AIC";
+                    k::Vector{Int64} = [2,3,4],
+                    intercept::Vector{String} = ["switching", "non-switching"],
+                    vars::Vector{Vector{String}},
+                    switching_var::Vector{Bool} = [true, false],
+                    random_n::Int64,
+                    random_search_em::Int64 = 0,
+                    random_search::Int64 = 0,
+                    verbose::Bool = true,
+                    algorithm::Symbol = :LN_SBPLX,
+                    maxtime::Int64 = -1) where V <: AbstractFloat  
+
+Function for exhaustive or random search over specified parameter values for a Markov switching model.
+    
+Returns a selected MSM model, vector of criterion values and a vector of tuples containing parameter space.
+
+Note:
+Unless the data is of small size (both dimensions), it is best to limit the parameter space by providing smaller possible parameters or by chosing random number of parameters to evaluate.
+
+# Arguments
+- `y::VecOrMat{V}`: dependent variable.
+- `x::VecOrMat{V}`: independent variables.
+- `criterion::String`: criterion to use for model selection. One of "AIC" (default) or "BIC".
+- `k::Int64`: vector of states to evaluate.
+- `intercept::String`: vector of "switching", "non-switching" or "no".
+- `vars::Vector{Vector{String}}`: vector of vectors with either "switching" or "non-switching" for corresponding variables in `x` argument.
+- `switching_var::Vector{Bool}`: vector of booleans for variance state dependency.
+- `switching_var::Bool`: is variance state dependent?
+- `random_n::Int64`: number of random parameters combinations to evaluate. If negative, performs an exhaustive grid search.
+- `random_search_em::Int64`: number of random searches to perform for the EM algorithm in eery model estimation. If 0, no random search is performed.
+- `random_search::Int64`: number of random searches to perform. 
+- `algorithm::Symbol`: optimization algorithm to use. One of [:LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX]
+- `maxtime::Int64`: maximum time in seconds to run the optimization. If negative, the maximum time is equal T/2.
+- `verbose::Bool`: if true, prints out the progress of the grid/random search.
+
+See also [`MSModel`](@ref).
+"""
+function grid_search_msm(y::VecOrMat{V}, 
+                        x::VecOrMat{V},
+                        criterion::String = "AIC";
+                        k::Vector{Int64} = [2,3,4],
+                        intercept::Vector{String} = ["switching", "non-switching"],
+                        vars::Vector{Vector{String}} = Vector{String}[],
+                        switching_var::Vector{Bool} = [true, false],
+                        algorithm::Symbol = :LN_SBPLX,
+                        maxtime::Int64 = -1,
+                        random_search_em::Int64 = 0,
+                        random_search::Int64 = 0,
+                        verbose::Bool = true,
+                        random_n::Int64 = -1) where V <: AbstractFloat  
+                             
+    x = typeof(x) <: Vector ? reshape(x, size(x)[1], 1) : x
+    @assert size(y)[1] > 0 "y should be a vector or matrix with at least one observation"
+    @assert all(k .>= 2) "k should be at least 2, otherwise use standard linear regression"
+    @assert algorithm in [:LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX] "algorithm should be either :LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX"                   
+    @assert all([intercept[i] in ["switching", "non-switching", "no"] for i in 1:length(intercept)]) "Possible parameters for intercept are [`switching`, `non-switching`, `no`]"
+    @assert criterion in ["AIC", "BIC"] "Available criteria are `AIC` and `BIC`"
+    @assert size(x)[1] == size(y)[1] "x and y should have the same number of observations"
+    @assert (random_search_em >= 0) & (random_search >= 0) "Number of random searches for EM and optimization needs to be positive"
+
+    vars = length(vars) == 0 ? [["switching", "non-switching"] for _ in 1:size(x)[2]] : vars                     
+    @assert length(vars) == size(x)[2] "vars should be a vector of length equal to the number of columns in x"  
+    @assert all([vars[i][j] in ["switching", "non-switching"] for i in 1:length(vars) for j in 1:length(vars[i])]) "Possible parameters for variables are `switching` or `non-switching`"
+
+    vars_comb = vec(collect(Base.product(vars...)))
+    n_combs = prod(size(Base.product(k, intercept, vars_comb, switching_var)))
+    random_n = random_n == -1 ? n_combs : min(random_n, n_combs)
+    param_space = vec(collect(Base.product(k, intercept, vars_comb, switching_var)))[sample(1:n_combs, random_n, replace = false)]
+
+    models = Vector{MSM}(undef, size(param_space)[1])
+    crit = Vector{Float64}(undef, size(param_space)[1])
+
+    for i in 1:size(param_space)[1]
+
+        models[i] = MSModel(y, 
+                            param_space[i][1], 
+                            intercept = param_space[i][2],
+                            exog_vars = x[:, findall(param_space[i][3] .== "non-switching")],
+                            exog_switching_vars = x[:, findall(param_space[i][3] .== "switching")],
+                            switching_var = param_space[i][4],
+                            algorithm = :LN_SBPLX,
+                            maxtime = maxtime,
+                            random_search_em = random_search_em,
+                            random_search = random_search,
+                            verbose = false)
+
+        n_params  = length(models[i].raw_params)
+
+        if criterion == "AIC"
+            crit[i] = 2*n_params - 2*models[i].Likelihood
+        elseif criterion == "BIC"
+            crit[i] = log(models[i].T)*n_params - 2*models[i].Likelihood
+        end                
+        verbose && println("calculating combination $i/$(size(param_space)[1]) | criterion: $(round(crit[i], digits = 3))")                        
+    end
+
+    return models[findmin(crit)[2]], crit, param_space                   
+end   
+             

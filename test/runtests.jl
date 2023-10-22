@@ -202,6 +202,22 @@ end
     @test model.nlopt_msg == :XTOL_REACHED
 end
 
+@testset "stochastic component - model selection" begin
+    k = 3
+    μ = [1.0, -0.5, 0.12] 
+    β_ns = Vector{Float64}([0.633])
+    σ = [1.7,  0.8, 0.9] 
+    P = [0.9 0.05 0.1; 0.05 0.85 0.05; 0.05 0.1 0.85]
+    T = 200
+
+    y, s_t, X = generate_msm(μ, σ, P, T, β_ns = β_ns)
+
+    model, crit, params = grid_search_msm(y, X[:,2], 
+                                        random_search_em = 2,
+                                        random_n = 3);
+    @test model isa MSM
+end
+
 @testset "stochastic component - tvtp" begin
     
     k = 2
