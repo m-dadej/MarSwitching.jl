@@ -144,6 +144,7 @@ For the same reason, it is recommended not to estimate model with many states (e
 - `algorithm::Symbol`: optimization algorithm to use. One of [:LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX]
 - `maxtime::Int64`: maximum time in seconds to run the optimization. If negative, the maximum time is equal T/2.
 - `random_search::Int64`: number of random searches to perform. If 0, no random search is performed.
+- `verbatim::Bool`: if true, prints out the progress of the random searches.
 
 References:
 - Hamilton, J. D. (1989). A new approach to the economic analysis of nonstationary time series and the business cycle. Econometrica: Journal of the Econometric Society, 357-384.
@@ -161,7 +162,8 @@ function MSModel(y::VecOrMat{V},
                  algorithm::Symbol = :LN_SBPLX,
                  maxtime::Int64 = -1,
                  random_search_em::Int64 = 0,
-                 random_search::Int64 = 0) where V <: AbstractFloat              
+                 random_search::Int64 = 0,
+                 verbatim::Bool = true) where V <: AbstractFloat              
 
     @assert size(y)[1] > 0 "y should be a vector or matrix with at least one observation"
     @assert k >= 2 "k should be at least 2, otherwise use standard linear regression"
@@ -232,13 +234,13 @@ function MSModel(y::VecOrMat{V},
 
         for i in 2:random_search_em+1
             param_space[i] .= em_algorithm(x, k, n_β_ns, n_δ, n_intercept, switching_var)
-            println("EM algorithm random search: $(i-1) out of $random_search_em | Q = $(round.(param_space[i][end])) vs. Q_0 = $(round.(param_space[1][end]))")
+            verbatim && println("EM algorithm random search: $(i-1) out of $random_search_em | Q = $(round.(param_space[i][end])) vs. Q_0 = $(round.(param_space[1][end]))")
         end
 
         [param_space[i][end] for i in 1:random_search_em+1]
 
         param_space = sort(param_space, by = x -> x[end], rev = false)
-        random_search_em > 0 && println("Q improvement with random search: $(round.(Q_init)) -> $(round.(param_space[end][end]))")
+        (random_search_em > 0) & verbatim && println("Q improvement with random search: $(round.(Q_init)) -> $(round.(param_space[end][end]))")
         p_em, β_hat, σ_em = param_space[end]
 
         ### transformation of ergodic probabilities to probabilites input to the optimization
@@ -281,14 +283,14 @@ function MSModel(y::VecOrMat{V},
         rand_θ = max.(opt.lower_bounds, rand_θ)
 
         param_space[i][1], param_space[i][2], param_space[i][3] = NLopt.optimize(opt, rand_θ)        
-        println("Optimization random search: $(i-1) out of $random_search | LL = $(-round.(param_space[i][1]))")
+        verbatim && println("Optimization random search: $(i-1) out of $random_search | LL = $(-round.(param_space[i][1]))")
     end
 
     param_space = sort(param_space, by = x -> x[1], rev = true)
-    random_search > 0 && println("loglikelihood improvement with random search: $(-round.(minf_init)) -> $(-round.(param_space[end][1]))")
     minf        = param_space[end][1]
     θ_hat       = param_space[end][2]
     ret         = param_space[end][3]
+    (random_search > 0) & verbatim && println("loglikelihood improvement with random search: $(-round.(minf_init)) -> $(-round.(param_space[end][1]))")
 
     ### transformation of variables - tvtp or not ###
     if n_δ > 0
