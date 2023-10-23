@@ -11,6 +11,7 @@ MarSwitching.jl is a package for estimating Markov switching dynamic models (als
 
 Author: Mateusz Dadej, m.dadej at unibs.it
 
+Please check the [documentation](https://m-dadej.github.io/MarSwitching.jl/dev) for more regarding use of the package. 
 
 ## Installation
 MarSwitching is in general registry. To install simply use following command:
