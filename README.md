@@ -9,7 +9,7 @@
 
 MarSwitching.jl is a package for estimating Markov switching dynamic models (also called regime switching) in Julia. 
 
-Contact: Mateusz Dadej, m.dadej at unibs.it
+Author: Mateusz Dadej, m.dadej at unibs.it
 
 
 ## Installation
@@ -46,7 +46,7 @@ Where $\mathbf{y}_t$ is vector of dependent variables, $\mathbf{\mu}_s$ and $\ma
 
 Because of the unobserved nature of the state, the model is estimated by maximum likelihood. The likelihood function is calculated using the method described in Hamilton, 1989.
 
-The package also provide time-varying transition probabilities (TVTP) (Filardo, 1994) which allows for the transition matrix to change over time. Each transition probability has a following form:
+The package also provide time-varying transition probabilities (TVTP) (Filardo, 1994) which allows for the transition matrix to change over time, depending on exogenous variables. Each transition probability has a following form:
 
 ```math
 p_{i,j,t} = \dfrac{exp(\delta_{i,j}'\mathbf{Z}_t)}{\textstyle \sum_{j=1} exp(\delta_{i,j}'\mathbf{Z}_t)}
@@ -99,6 +99,7 @@ Following example will estimate a simple Markov switching model with regime depe
 ```julia
 using MarSwitching
 using Random
+import Statistics: quantile
 
 k = 2            # number of regimes
 T = 400          # number of generated observations
@@ -167,12 +168,12 @@ The package also provides a function for filtered transition probabilites $P(S_t
 ```julia
 using Plots
 
-plot(smoothed_probs(model),
+plot(filtered_probs(model),
      label     = ["Regime 1" "Regime 2"],
-     title     = "Smoothed transition probabilities", 
+     title     = "Transition probabilities", 
      linewidth = 2)
 ```     
-![Plot](img/transition_probs.svg)
+![Plot](img/filtered_probs.png)
 
 ```julia
 plot([smoothed_probs(model)[:,2] s_t.-1],
@@ -180,7 +181,7 @@ plot([smoothed_probs(model)[:,2] s_t.-1],
      title     = "Smoothed transition probabilities",
      linewidth = 2)  
 ```
- ![Plot](img/actual_probs.svg)
+ ![Plot](img/smoothed_probs.png)
 
 ## Functions
 
