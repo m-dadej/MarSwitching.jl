@@ -1,9 +1,11 @@
+push!(LOAD_PATH,"../src/")
+
 using Documenter
 using MarSwitching
+using DocumenterTools
 
 makedocs(;
     sitename = "MarSwitching.jl",
-    format = Documenter.HTML(),
     doctest = false,
     clean = false,
     modules = [MarSwitching],
@@ -11,10 +13,8 @@ makedocs(;
              "man/get_started.md",
              "API" => "man/docstrings.md"]
 )
-
 deploydocs(
-    repo = "github.com/m-dadej/MarSwitching.jl.git",
-    target = "build",
+    repo = "github.com/m-dadej/MarSwitching.jl.git", 
+    devbranch = "gh-pages"
 )
-
 
