@@ -70,18 +70,21 @@ function em_algorithm(X::VecOrMat,
     π_em = π_em ./ sum(π_em)
     
     while (Q[end] / Q[1] - 1) > tol
+        ## Expectation step
         ϕ = hcat([pdf.(Normal.(x*β_hat[j], σ_hat[j]), y) for j in 1:k]...)
         w = (ϕ .* π_em') ./ sum(ϕ .* π_em', dims = 2)
         Q = my_circshift(Q, -1)
         Q[end] = sum(sum(w[i,j] .* ϕ[i,j] for j in 1:k) for i in 1:T)
 
+        ## maximization step
         π_em  = (sum(w, dims=1) / T)'
         β_hat = [MarSwitching.mp_inverse(x'diagm(w[:,j])*x) * x'diagm(w[:,j])*y for j in 1:k]
+        # averaging non-switching β
+        β_ns_avrg = mean(reduce(hcat, β_hat)'[:, (end-n_β_ns+1):end], dims=1)
+        [β_hat[i][(end-n_β_ns+1):end] = β_ns_avrg for i in 1:k]
+        
         σ_hat = [sqrt(sum(w[:,j] .* (y .- x*β_hat[j]).^2) / sum(w[:,j])) for j in 1:k]
     end
-
-    β_ns_avrg = mean(reduce(hcat, β_hat)'[:, (end-n_β_ns+1):end], dims=1)
-    [β_hat[i][(end-n_β_ns+1):end] = β_ns_avrg for i in 1:k]
 
     if n_intercept == 1
         intercept_avrg = mean(reduce(hcat, β_hat)'[:, 1])
@@ -323,7 +326,7 @@ end
                     algorithm::Symbol = :LN_SBPLX,
                     maxtime::Int64 = -1) where V <: AbstractFloat  
 
-Function for exhaustive or random search over specified parameter values for a Markov switching model.
+Function for exhaustive or random search over specified parameter values for a Markov switching model (currently non-TVTP).
     
 Returns a selected MSM model, vector of criterion values and a vector of tuples containing parameter space.
 
@@ -360,7 +363,7 @@ function grid_search_msm(y::VecOrMat{V},
                         random_search_em::Int64 = 0,
                         random_search::Int64 = 0,
                         verbose::Bool = true,
-                        random_n::Int64 = -1) where V <: AbstractFloat  
+                        random_n::Int64 = -1) where V <: AbstractFloat                          
                              
     x = typeof(x) <: Vector ? reshape(x, size(x)[1], 1) : x
     @assert size(y)[1] > 0 "y should be a vector or matrix with at least one observation"
