@@ -2,7 +2,7 @@ push!(LOAD_PATH,"../src/")
 
 using Documenter
 using MarSwitching
-using DocumenterTools
+
 
 makedocs(;
     sitename = "MarSwitching.jl",
@@ -14,7 +14,6 @@ makedocs(;
              "API" => "man/docstrings.md"]
 )
 deploydocs(
-    repo = "github.com/m-dadej/MarSwitching.jl.git", 
-    devbranch = "gh-pages"
+    repo = "github.com/m-dadej/MarSwitching.jl.git"
 )
 
