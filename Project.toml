@@ -5,6 +5,7 @@ version = "0.1.1"
 
 [deps]
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
+DocThemeIndigo = "8bac0ac5-51bf-41f9-885e-2bf1ac2bec5f"
 Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 DocumenterTools = "35a29f4d-8980-5a13-9543-d66fff28ecb8"
 FiniteDiff = "6a86dc24-6348-571c-b903-95158fe2bd41"
