@@ -13,10 +13,13 @@ Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
 
 [compat]
-Distributions = ">= 0.24"
-NLopt = ">= 0.6.5"
+LinearAlgebra = "1.6"
+Printf = "1.6"
+Random = "1.6"
+Distributions = "0.21, 0.22, 0.23, 0.24, 0.25"
 FiniteDiff = "2"
-StatsBase = ">= 0.31"
+NLopt = "0.6, 1"
+StatsBase = "0.32, 0.33, 0.34"
 julia = "1.6"
 
 [extras]
