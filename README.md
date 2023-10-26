@@ -82,7 +82,7 @@ For more thorough introduction to the markov switching models, see 9th chapter o
 
 ## Example
 
-Following example will estimate a simple Markov switching model with regime dependent intercept, exogenous variable and variance. The model is defined as follows:
+Following example will first generate artificial data and then estimate a simple Markov switching model with regime dependent intercept, exogenous variable and variance. The model is defined as follows:
 
 ```math
 \begin{align*}
@@ -164,6 +164,8 @@ left-stochastic transition matrix:
  regime 1 |   91.181%  |    3.499%  |
  regime 2 |    8.819%  |   96.501%  |
  ```
+
+As can be seen, the parameters correspond to the ones defined when producing the data generating process. 
 
 The package also provides a function for filtered transition probabilites $P(S_t = i | \Psi_t)$, as well as smoothed ones (Kim, 1994) $P(S_t = i | \Psi_T)$. Essentially, the difference is that, in order to calculate the smoothed probabilites the whole sample is used.
 
