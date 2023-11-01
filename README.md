@@ -285,13 +285,13 @@ It is also possible to simulate data from a given parameters:
 
 ```julia
 generate_msm(μ::Vector{Float64},    # vector of intercepts for each state
-              σ::Vector{Float64},    # vector of error variances for each state
-              P::Matrix{Float64},    # transition matrix
-              T::Int64;              # number of observations
-              β::Vector{Float64},    # vector of coefficients for each state
-              β_ns::Vector{Float64}, # vector of non-switching coefficients
-              δ::Vector{Float64},    # vector of coefficients for time-varying transition matrix
-              tvtp_intercept::Bool)  # should TVTP have an intercept?
+             σ::Vector{Float64},    # vector of error variances for each state
+             P::Matrix{Float64},    # transition matrix
+             T::Int64;              # number of observations
+             β::Vector{Float64},    # vector of coefficients for each state
+             β_ns::Vector{Float64}, # vector of non-switching coefficients
+             δ::Vector{Float64},    # vector of coefficients for time-varying transition matrix
+             tvtp_intercept::Bool)  # should TVTP have an intercept?
 ```
 or thanks to multiple dispatch, simulate data from estimated model (as in example):
 
