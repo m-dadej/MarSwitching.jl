@@ -83,11 +83,13 @@ function state_coeftable(model::MSM, state::Int64; digits::Int64=3)
     # β statistics
     for i in 1:length(model.β[state])
         estimate, std_err, z, pr = coef_clean(model.β[state][i], V_β[state][i], digits)
+        std_err = std_err > 1e6 ? "> 10e6" : std_err
         @printf "%0s%11s%13s%15s%12s%12s\n" "β_$(i-1)" "|" "$estimate  |" "$std_err  |" "$z  |" "$pr  "
     end
     
     # σ statistics
     estimate_σ, σ_std_err, σ_z, σ_pr = coef_clean(model.σ[state], V_σ[state])
+    σ_std_err = σ_std_err > 1e6 ? "> 10e6" : σ_std_err
 
     exp_duration = isempty(model.P) ? mean(expected_duration(model)[:, state]) : expected_duration(model)[state]
     @printf "%0s%13s%13s%15s%12s%12s\n" "σ" "|" "$estimate_σ  |" "$σ_std_err  |" "$σ_z  |" "$σ_pr  "
