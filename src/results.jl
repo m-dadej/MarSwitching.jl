@@ -42,11 +42,12 @@ function coef_clean(coef::Float64, std_err::Float64, digits::Int64=3)
     
     my_round(x) = round(x, digits = digits)
 
-    coef       = my_round.(coef)
-    std_err    = my_round.(std_err)
-    z          = my_round.(coef / std_err)
+    z          = coef / std_err
     pr         = 1-cdf(Chi(1), abs(z))
     pr         = pr < 0.1^(digits) ? "< 1e-$digits" : my_round.(pr)
+    coef       = my_round.(coef)
+    std_err    = my_round.(std_err)
+    z          = my_round.(z)
 
     return coef, std_err, z, pr
 end
