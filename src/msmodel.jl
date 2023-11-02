@@ -94,40 +94,9 @@ function em_algorithm(X::VecOrMat,
 
     σ_hat = switching_var ? σ_hat : (σ_hat'π_em)[:]
 
-    return  π_em, β_hat, σ_hat
+    return  π_em, β_hat, σ_hat, Q[end] 
 end
 
-function to_init_values(β_hat, p_em, n_β_ns, n_β, intercept, k, n_p, n_δ)
-    
-    # this is bad code 
-    # what i want to do is put the probabilites from EM algorithm into x0 anyhow
-        
-    if n_δ > 0
-        p_em = ones(n_p)
-    else
-        pmat_em       = zeros(k,k)
-        [pmat_em[i,i] = p_em[i] for i in 1:k]
-        [pmat_em[i,j] = minimum(p_em) /2 for i in 1:k, j in 1:k if i != j]
-        pmat_em       = pmat_em ./ sum(pmat_em, dims=1)
-        pmat_em       = pmat_em[1:k-1, :] .* sum(pmat_em[1:k-1, :] .+ 1, dims=1) 
-        p_em          = vec(pmat_em)    
-    end
-
-    ### converting initial values from EM to vector of parameters ###
-    if intercept == "switching"
-        μ_em = [β_hat[i][1] for i in 1:k]
-    elseif intercept == "non-switching"
-        μ_em = β_hat[1][1]
-    elseif intercept == "no"
-        μ_em = Vector{Float64}([])
-    end
-
-    β_ns_em = β_hat[1][(end-n_β_ns+1):end]
-    β_s_em  = [β_hat[i][(end - n_β_ns - n_β+1):(end-n_β_ns)] for i in 1:k]
-    β_s_em = vec(reduce(hcat, [β_s_em...]))
-
-    return [μ_em; β_s_em; β_ns_em; p_em]
-end    
 
 function obj_func(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var)  
     
@@ -267,28 +236,50 @@ function MSModel(y::VecOrMat{V},
     
     ### initial guess ###
     if isempty(x0)
-        p_em_init, β_hat_init, σ_em_init = em_algorithm(x, k, n_β_ns, n_δ, n_intercept, switching_var)
+        p_em_init, β_hat_init, σ_em_init, Q_init = em_algorithm(x, k, n_β_ns, n_δ, n_intercept, switching_var)
 
         ### random search for EM algorithm
-        x0 = to_init_values(β_hat_init, p_em_init, n_β_ns, n_β, intercept, k, n_p, n_δ)
-        x0 = [σ_em_init; x0]        
-        param_space = [[p_em_init, β_hat_init, σ_em_init, 0] for _ in 1:random_search_em+1]
-        init_loglik = param_space[1][end] = n_δ == 0 ? loglik(x0, x, k, n_β, n_β_ns, intercept, switching_var)[1] : -loglik_tvtp(x0, x, k, n_β, n_β_ns, intercept, switching_var, n_δ)[1]
+        param_space = [[p_em_init, β_hat_init, σ_em_init, Q_init] for _ in 1:random_search_em+1]
 
         for i in 2:random_search_em+1
-            param_space[i][1:3] .= em_algorithm(x, k, n_β_ns, n_δ, n_intercept, switching_var)
-            x0 = to_init_values(param_space[i][2], param_space[i][1], n_β_ns, n_β, intercept, k, n_p, n_δ)
-            x0 = [param_space[i][3]; x0]
-            param_space[i][end] = n_δ == 0 ? loglik(x0, x, k, n_β, n_β_ns, intercept, switching_var)[1] : -loglik_tvtp(x0, x, k, n_β, n_β_ns, intercept, switching_var, n_δ)[1]
-            verbose && println("EM algorithm random search: $(i-1) out of $random_search_em | LL = $(round.(param_space[i][end])) vs. LL_0 = $(round.(param_space[1][end]))")
+            param_space[i] .= em_algorithm(x, k, n_β_ns, n_δ, n_intercept, switching_var)
+            verbose && println("EM algorithm random search: $(i-1) out of $random_search_em | Q = $(round.(param_space[i][end])) vs. Q_0 = $(round.(param_space[1][end]))")
         end
 
+        [param_space[i][end] for i in 1:random_search_em+1]
+
         param_space = sort(param_space, by = x -> x[end], rev = false)
-        (random_search_em > 0) & verbose && println("Loglik improvement with random search: $(round.(init_loglik)) -> $(round.(param_space[end][end]))")
+        (random_search_em > 0) & verbose && println("Q improvement with random search: $(round.(Q_init)) -> $(round.(param_space[end][end]))")
         p_em, β_hat, σ_em = param_space[end]
 
-        x0 = to_init_values(β_hat, p_em, n_β_ns, n_β, intercept, k, n_p, n_δ)
-        x0 = [σ_em; x0]
+        ### transformation of ergodic probabilities to probabilites input to the optimization
+        # this is bad code 
+        # what i want to do is put the probabilites from EM algorithm into x0 anyhow
+        if n_δ > 0
+            p_em = ones(n_p)
+        else
+            pmat_em       = zeros(k,k)
+            [pmat_em[i,i] = p_em[i] for i in 1:k]
+            [pmat_em[i,j] = minimum(p_em) /2 for i in 1:k, j in 1:k if i != j]
+            pmat_em       = pmat_em ./ sum(pmat_em, dims=1)
+            pmat_em       = pmat_em[1:k-1, :] .* sum(pmat_em[1:k-1, :] .+ 1, dims=1) 
+            p_em          = vec(pmat_em)    
+        end
+
+        ### converting initial values from EM to vector of parameters ###
+        if intercept == "switching"
+            μ_em = [β_hat[i][1] for i in 1:k]
+        elseif intercept == "non-switching"
+            μ_em = β_hat[1][1]
+        elseif intercept == "no"
+            μ_em = Vector{Float64}([])
+        end
+
+        β_ns_em = β_hat[1][(end-n_β_ns+1):end]
+        β_s_em  = [β_hat[i][(end - n_β_ns - n_β+1):(end-n_β_ns)] for i in 1:k]
+        β_s_em = vec(reduce(hcat, [β_s_em...]))
+
+        x0 = [σ_em; μ_em; β_s_em; β_ns_em; p_em]
     end
 
     (minf_init, θ_hat_init, ret_init) = NLopt.optimize(opt, x0)
