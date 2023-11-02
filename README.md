@@ -70,10 +70,9 @@ For more thorough introduction to the markov switching models, see 9th chapter o
     - instantaneous and one step ahead `predict()`
     - Expected regime duration
     - Simulation of data both from estimated model and from given parameters
-    - Adding lagged variables to the matrix
+    - variable and number of states selection (with random and grid search)
 - Planned functionality:
     - other error distributions (student-t, GED, etc.)
-    - variable and number of states selection
     - Markov Switching GARCH model
     - Markov Switching VAR model
     - Markov Switching model with lagged states. E.g. $y_t = \mu_{S_t} + \phi(y_{t-1} - \mu_{S_{t-1}})$

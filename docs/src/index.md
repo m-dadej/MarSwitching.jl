@@ -45,9 +45,9 @@ Assuming that you already have at least Julia 1.6 (stable version) installed.
     - instantaneous and one step ahead `predict()`
     - Expected regime duration
     - Simulation of data both from estimated model and from given parameters
+    - variable and number of states selection (with random and grid search)
 - Planned functionality:
     - other error distributions (student-t, GED, etc.)
-    - variable and number of states selection
     - Markov Switching GARCH model
     - Markov Switching VAR model
     - Markov Switching model with lagged states. E.g. $y_t = \mu_{S_t} + \phi(y_{t-1} - \mu_{S_{t-1}})$
