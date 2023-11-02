@@ -18,8 +18,8 @@ makedocs(;
     modules = [MarSwitching],
     pages = ["Home" => "index.md",
              "man/get_started.md",
-             "API" => "man/docstrings.md",
-             "Examples" => "man/example.md"]
+             "Examples" => "man/example.md",
+             "API" => "man/docstrings.md"]
 )
 deploydocs(
     repo = "github.com/m-dadej/MarSwitching.jl.git",
