@@ -1,11 +1,11 @@
 
 ## Regime switching Phillips curve
 
-One of the most popular macroeconomic relationships is the trade-off between inflation and unemployment. The so-called Phillips curve is discussed in both introductory macroeconomics courses and at meetings of central banks. The curve is an empirical observation that provide some evidence of a stylized fact that the inflation falls during recessions and rises during booms.
+One of the most popular macroeconomic relationships is the trade-off between inflation and unemployment. The so-called Phillips curve is discussed in both introductory macroeconomics courses and at the meetings of central banks. The curve is an empirical observation that provide some evidence of a stylized fact that the inflation falls during recessions and rises during booms.
 
 However, many policymakers and academic economists have argued that the historical relationship has changed over time. The 'flattening' of the Phillips curve poses a challenge for policymakers, as it can imply that countercyclical policy may not be effective in steering inflation toward the established central bank's target.
 
-To investigate the time-varying nature of the Phillips curve, we estimate a Markov switching model.
+To investigate the time-varying nature of the Phillips curve, we will estimate a Markov switching model.
 
 First we would need a dataset with quarterly inflation and unemployment. We will use the data from the Federal Reserve Bank of St. Louis (FRED) database. The data are available in the repo of the package.
 
@@ -19,12 +19,12 @@ df = CSV.read("my_assets/philips.csv", DataFrame)
 model_df = dropmissing(select(df, [:inflation_q, :unrate, :infexp]))  
 ```
 
-Let's see how the relationship looks like in the data:
+Let's see how the relationship looks like in the raw data:
 
 ```jldoctest
 using Plots
 
-plot_df = filter(x -> x.inflation_q .> -5, model_df)
+plot_df = filter(x -> x.inflation_q .> -5, model_df) # remove outliers
 
 phil_plot = plot(plot_df.unrate, plot_df.inflation_q,
                 seriestype=:scatter, legend = :none,
@@ -52,7 +52,7 @@ Now, how can theory guide our model specification? The developments in New Keyne
 
 - Inflation expectations matter. The economic agents keep in mind the inflation target of the central bank or the past inflation when setting prices.
 
-Both of the reasons above suggests the use of another variable, namely inflation moving average. Altough obvious frome purely econometric point of view, addition of this variable is well grounded in theory. 
+Both of the reasons above suggests the use of another variable, namely inflation moving average. Altough obvious from purely econometric point of view, addition of this variable is well grounded in theory. 
 
 ```jldoctest
 x = [ones(size(model_df)[1]) model_df.unrate model_df.infexp]
@@ -68,7 +68,7 @@ x = [ones(size(model_df)[1]) model_df.unrate model_df.infexp]
 
 Indeed, once we add the inflation expectations, the slope of the New Keynesian Phillips curve becomes more negative.
 
-Now, in order to check the time-varying nature of the Phillips curve, or the so-called "flattening" of thereof. We will estimate a Markov switching model. 
+Now, in order to check the time-varying nature of the Phillips curve, or the so-called "flattening" of thereof, we will estimate a Markov switching model. 
 
 ```jldoctest
 using Random
@@ -119,7 +119,7 @@ left-stochastic transition matrix:
  regime 2 |   12.798%  |   96.753%  |
 ```
 
-The model shows that there are 2 regimes of the cyclical relationship. The first regime is characterized by significantly negative slope of the Phillips curve. This is a regime, which allows should allow policy makers to have some influence on the inflation. The second regime is characterized by a very flat Phillips curve, as the coefficient for unemployment is not significantly different than zero.
+The model shows that there are 2 regimes of the cyclical relationship. The first regime is characterized by significantly negative slope of the Phillips curve. This is a regime, which should allow policy makers to have some influence on the inflation. The second regime is characterized by a very flat Phillips curve, as the coefficient for unemployment is not significantly different than zero. The inflation during this regime is also substantially less volatile than otherwise. 
 
 Unfortunately for policy makers, the average duration of the favorable regime is ~8 quarters, while the flat Phillips curve is the dominant regime with the average duration of ~31 quarters.
 
@@ -132,5 +132,5 @@ probs_phil = plot(filtered_probs(model),
 ```
 ![Plot](my_assets/probs_phil.svg)
 
-The plot above shows the probability of being in particular regime. Instead of "flattening" the model shows more of an infreaquent appearences of Steep Phillips curve. Altough indeed, this regime was more frequent in the 70s and 80s than it is now. 
+The plot above shows the probability of being in particular regime. Instead of "flattening" the model shows more of an infreaquent appearences of steep Phillips curve. Altough indeed, this regime was more frequent in the 70s and 80s than it is now. 
 
