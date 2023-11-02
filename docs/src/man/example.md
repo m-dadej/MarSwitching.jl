@@ -9,7 +9,7 @@ To investigate the time-varying nature of the Phillips curve, we estimate a Mark
 
 First we would need a dataset with quarterly inflation and unemployment. We will use the data from the Federal Reserve Bank of St. Louis (FRED) database. The data are available in the repo of the package.
 
-```@example phillips
+```jldoctest phillips
 using MarSwitching
 using DataFrames
 using CSV
