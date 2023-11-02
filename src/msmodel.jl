@@ -49,6 +49,7 @@ function em_algorithm(X::VecOrMat,
                       n_δ::Int64,
                       n_intercept::Int64,
                       switching_var::Bool;
+                      random_factor::Float64 = 0.5,
                       tol::Float64 = 0.01)
 
     Q = [0.0, 1.0, 2.0, 3.0]
@@ -58,14 +59,15 @@ function em_algorithm(X::VecOrMat,
     T = size(y)[1]
     w = zeros(size(y)[1], k)
 
-    β_hat = [rand(Normal(0, 1), size(x)[2]) for _ in 1:k]
+    init_x = x \ y
+    β_hat = [init_x .+ (rand(Normal(0, 1)) .* random_factor) for _ in 1:k]
 
     if n_intercept > 0
         [β_hat[i][1] = n_intercept == 1 ? 0.0 : rand(Normal(0, 1)) for i in 1:k]
     end  
     [β_hat[i][(end-n_β_ns+1):end] .= 0.0 for i in 1:k]
 
-    σ_hat = repeat([(std(y)) + rand()], k)
+    σ_hat = [std(y) * (i/(k/2)) for i in 1:k]
     π_em = rand(k) 
     π_em = π_em ./ sum(π_em)
     
@@ -236,7 +238,7 @@ function MSModel(y::VecOrMat{V},
     
     ### initial guess ###
     if isempty(x0)
-        p_em_init, β_hat_init, σ_em_init, Q_init = em_algorithm(x, k, n_β_ns, n_δ, n_intercept, switching_var)
+        p_em_init, β_hat_init, σ_em_init, Q_init = em_algorithm(x, k, n_β_ns, n_δ, n_intercept, switching_var, random_factor = 0.0)
 
         ### random search for EM algorithm
         param_space = [[p_em_init, β_hat_init, σ_em_init, Q_init] for _ in 1:random_search_em+1]
