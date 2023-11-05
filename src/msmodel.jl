@@ -59,8 +59,10 @@ function em_algorithm(X::VecOrMat,
     T = size(y)[1]
     w = zeros(size(y)[1], k)
 
-    init_x = x \ y
-    β_hat = [init_x .+ (rand(Normal(0, 1)) .* random_factor) for _ in 1:k]
+    # init_x = x \ y
+    # β_hat = [init_x .+ (rand(Normal(0, 1)) .* random_factor) for _ in 1:k]
+
+    β_hat = [rand(Normal(0, 1), size(x)[2]) for _ in 1:k]
 
     if n_intercept > 0
         [β_hat[i][1] = n_intercept == 1 ? 0.0 : rand(Normal(0, 1)) for i in 1:k]
