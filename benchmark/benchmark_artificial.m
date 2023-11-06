@@ -1,4 +1,9 @@
 clear; 
+% to run this script make sure the MS_Regress package is in the current
+% folder
+% the package can be found in https://github.com/msperlin/MS_Regress-Matlab
+
+% additionally, the MEX add on should be installed
 
 M = csvread("artificial.csv", 1,0)
 addpath('m_Files')

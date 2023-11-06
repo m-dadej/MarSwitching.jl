@@ -81,20 +81,20 @@ For more thorough introduction to the markov switching models, see 9th chapter o
 
 ## Performance comparison    
 
-`MarSwitching.jl` is the fastest open source implementation of the model. The benchmark was done on artificially generated data from the model with 3 regimes, 1 switching and 1 non switching exogenous variable. Table below shows error of estimated parameters with respect to the actual parameters from `generate_msm()` function.
+`MarSwitching.jl` is the fastest open source implementation of the model. The benchmark was done on artificially generated data with 400 observations, from the model with 3 regimes, 1 switching and 1 non switching exogenous variable. Table below shows mean absolute error of estimated parameters with respect to the actual parameters from `generate_msm()` function.
 
-|   |                | MarSwitching | statsmodels   | MSwM     | MS_Regress     |
-|---|:---------------|-------------:|--------------:|---------:|---------------:|
-|   | implementation | Julia        | Python/cython | R        | Matlab/MEX/C++ |
-|   | error:         |              |               |          |                |
-|   | mu             | 0,0363       | 0,0363        | 0,036    | 0,1668         |
-|   | beta_s         | 0,0237       | 0,0237        | 0,0245   | 0,8058         |
-|   | beta_ns        | 0,01508      | 0,01508       | 0,0211   | 0,0021         |
-|   | sigma          | 0,0083       | 0,0083        | 0,0108   | 0,9623         |
-|   | p              | 0,0138       | 0,0138        | 0,0157   | 0,0691         |
-|   |                |              |               |          |                |
-|   | runtime        | 0,922        | 3,162         | 3,867    | 65,28          |
-|   | relative       | 1            | 3,429         | 4,1      |    70,802      |
+|                | MarSwitching | statsmodels   | MSwM     | MS_Regress     |
+|:---------------|-------------:|--------------:|---------:|---------------:|
+| implementation | Julia        | Python/cython | R        | Matlab/MEX/C++ |
+| error:         |              |               |          |                |
+| mu             | 0,0363       | 0,0363        | 0,036    | 0,1668         |
+| beta_s         | 0,0237       | 0,0237        | 0,0245   | 0,8058         |
+| beta_ns        | 0,0150       | 0,01508       | 0,0211   | 0,0021         |
+| sigma          | 0,0083       | 0,0083        | 0,0108   | 0,9623         |
+| p              | 0,0138       | 0,0138        | 0,0157   | 0,0691         |
+|                |              |               |          |                |
+| runtime        | 0,922        | 3,162         | 3,867    | 65,28          |
+| relative       | 1            | 3,429         | 4,1      |    70,802      |
 
 `MarSwitching.jl` is 3.4 times faster than `statsmodels` implementation in `Python`, 4.1 times faster than `MSwM` in `R` and 70.8 times faster than `MS_Regress` in `MATLAB`, altough Matlab package is also calculating standard errors during function call. Every implementation had virtually the same error of estimated parameters, except the `MATLAB` implementation, which have a problem converging with more complex model.
 

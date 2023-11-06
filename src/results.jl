@@ -152,6 +152,8 @@ See also [`summary_msm`](@ref), [`state_coeftable`](@ref), [`coeftable_tvtp`](@r
 """
 function transition_mat(model::MSM; digits::Int64=2)
 
+    @assert !isempty(model.P) "transition_mat() is defined only for model with constant transition matrix"
+
     @printf "left-stochastic transition matrix: \n"
     @printf "%20s" " | regime 1"
     

@@ -50,7 +50,7 @@ function em_algorithm(X::VecOrMat,
                       n_intercept::Int64,
                       switching_var::Bool;
                       random_factor::Float64 = 0.5,
-                      tol::Float64 = 0.01)
+                      tol::Float64 = 1e-6)
 
     Q = [0.0, 1.0, 2.0, 3.0]
     y = X[:,1]
@@ -229,7 +229,7 @@ function MSModel(y::VecOrMat{V},
     # also: LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX
     opt               = Opt(algorithm, n_params) 
     opt.lower_bounds  = [repeat([0], n_var); repeat([-Inf], k*n_β + n_β_ns + n_intercept); repeat([n_δ > 0 ? -Inf : 0.0], n_p)]
-    opt.xtol_rel      = 0
+    opt.xtol_rel      = 1e-4
     opt.maxtime       = maxtime < 0 ? T/2 : maxtime
 
     if n_δ == 0
