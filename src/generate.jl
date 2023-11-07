@@ -29,6 +29,7 @@ function generate_msm(μ::Vector{V},
     isempty(δ) && @assert size(μ)[1] == size(σ)[1] == size(P)[2] "size of μ, σ and P implies different number of states"
     !isempty(δ) && @assert size(μ)[1] == size(σ)[1] "size of μ and σ implies different number of states"
     @assert T > 0 "T should be a positive integer"
+    !isempty(β) && @assert length(β) % size(μ)[1] == 0 "β should be a multiple of k"
 
     # for transition matrix without last row, add it and normalize
     if size(P)[2] != size(P)[1]
