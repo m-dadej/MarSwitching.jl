@@ -1,4 +1,11 @@
 
+# trimmed mean of each column
+function trim_mean(x::Vector{Float64}, prop::Float64)
+    n = length(x)
+    k = round(Int, n*prop)
+    return mean(sort(x)[k+1:end-k])
+end 
+
 @doc raw"""
     get_std_errors(model::MSM)
 
@@ -91,7 +98,7 @@ function state_coeftable(model::MSM, state::Int64; digits::Int64=3)
     estimate_σ, σ_std_err, σ_z, σ_pr = coef_clean(model.σ[state], V_σ[state])
     σ_std_err = σ_std_err > 1e6 ? "> 10e6" : σ_std_err
 
-    exp_duration = isempty(model.P) ? mean(expected_duration(model)[:, state]) : expected_duration(model)[state]
+    exp_duration = isempty(model.P) ? trim_mean(expected_duration(model)[:, state], 0.01) : expected_duration(model)[state]
     @printf "%0s%13s%13s%15s%12s%12s\n" "σ" "|" "$estimate_σ  |" "$σ_std_err  |" "$σ_z  |" "$σ_pr  "
     @printf "-------------------------------------------------------------------\n"
     @printf "Expected regime duration: %0.2f periods\n" exp_duration
@@ -202,8 +209,8 @@ function summary_msm(model::MSM; digits::Int64=3)
     k         = model.n_β + model.n_β_ns + n_δ - 1 + exog_tvtp
     step_r2   = r2(MarSwitching.predict(model, false)[1], y[1:end-1])
     inst_r2   = r2(MarSwitching.predict(model, true)[1], y)
-    step_r2   = round.((step_r2 - k/(model.T - 1)) * ((model.T - 1)/(model.T - k - 1)), digits = 2)
-    inst_r2   = round.((inst_r2 - k/(model.T - 1)) * ((model.T - 1)/(model.T - k - 1)), digits = 2)
+    step_r2   = round.((step_r2 - k/(model.T - 1)) * ((model.T - 1)/(model.T - k - 1)), digits = 4)
+    inst_r2   = round.((inst_r2 - k/(model.T - 1)) * ((model.T - 1)/(model.T - k - 1)), digits = 4)
 
     println("Markov Switching Model with $(model.k) regimes")
     @printf "=================================================================\n"

@@ -12,7 +12,7 @@ Note, in order to have non-switching parameter provide it k-times.
 - `σ::Vector{AbstractFloat}`: standard deviations for each state.
 - `P::Matrix{AbstractFloat}`: transition matrix.
 - `T::Int64`: number of observations to generate.
-- `β::Vector{AbstractFloat}`: switching coefficients. (first k elements in vector are coefficeints of first state equation).
+- `β::Vector{AbstractFloat}`: switching coefficients. (first k elements in vector are coefficeints of the first state equation).
 - `β_ns::Vector{AbstractFloat}`: non-switching coefficients.
 - `δ::Vector{AbstractFloat}`: tvtp coefficients.
 - `tvtp_intercept::Bool`: whether to include an intercept in the tvtp model.

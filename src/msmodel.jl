@@ -261,6 +261,7 @@ function MSModel(y::VecOrMat{V},
         # what i want to do is put the probabilites from EM algorithm into x0 anyhow
         if n_δ > 0
             p_em = ones(n_p)
+            p_em[1:k:end] .= 1.5 # initial values with prior - diagonals are higher
         else
             pmat_em       = zeros(k,k)
             [pmat_em[i,i] = p_em[i] for i in 1:k]
