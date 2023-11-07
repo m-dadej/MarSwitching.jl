@@ -18,7 +18,8 @@ makedocs(;
     modules = [MarSwitching],
     pages = ["Home" => "index.md",
              "man/get_started.md",
-             "Examples" => "man/example.md",
+             "Examples" => Any["man/examples/example.md",
+                               "man/examples/example_spx.md"],
              "API" => "man/docstrings.md"]
 )
 deploydocs(
