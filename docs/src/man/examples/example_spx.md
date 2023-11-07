@@ -1,5 +1,4 @@
-
-## Time-varying transition probabilites - modelling stock market
+# Time-varying transition probabilites - modelling stock market
 
 Stock market practitioners often describes different periods as volatile or calm market conditions. 
 Each of these states of market are characterized by different dynamics of stock prices. 
