@@ -1,21 +1,24 @@
 # Regime switching Phillips curve
 
-One of the most popular macroeconomic relationships is the trade-off between inflation and unemployment. The so-called Phillips curve is discussed in both introductory macroeconomics courses and at the meetings of central banks. The curve is an empirical observation that provide some evidence of a stylized fact that the inflation falls during recessions and rises during booms.
+One of the most popular macroeconomic relationships is the trade-off between inflation and unemployment. The so-called Phillips curve is discussed in both introductory macroeconomics courses and at the meetings of the most influential central banks. The curve is an empirical observation which introduced a stylized fact that the inflation falls during recessions and rises during booms.
 
 However, many policymakers and academic economists have argued that the historical relationship has changed over time. The 'flattening' of the Phillips curve poses a challenge for policymakers, as it can imply that countercyclical policy may not be effective in steering inflation toward the established central bank's target.
 
 To investigate the time-varying nature of the Phillips curve, we will estimate a Markov switching model.
 
-First we would need a dataset with quarterly inflation and unemployment. We will use the data from the Federal Reserve Bank of St. Louis (FRED) database. The data are available in the repo of the package.
+First we would need a dataset with quarterly inflation and unemployment. We will use the data from the Federal Reserve Bank of St. Louis (FRED) database. The data is available in the repository of the package.
 
 ```jldoctest phillips
 using MarSwitching
 using DataFrames
 using CSV
+using Plots
+using Random
+using Dates
 
-df = CSV.read("my_assets/philips.csv", DataFrame)
+df = CSV.read("my_assets/philips.csv", DataFrame, missingstring = "NA")
 
-model_df = dropmissing(select(df, [:inflation_q, :unrate, :infexp]))  
+model_df = dropmissing(select(df, [:cpi, :unemp,  :infexp, :s_shock]))  
 ```
 
 Let's see how the relationship looks like in the raw data:
@@ -23,27 +26,28 @@ Let's see how the relationship looks like in the raw data:
 ```jldoctest
 using Plots
 
-plot_df = filter(x -> x.inflation_q .> -5, model_df) # remove outliers
+plot_df = filter(x -> x.cpi .> -2, model_df) # remove outliers
 
-phil_plot = plot(plot_df.unrate, plot_df.inflation_q,
+phil_plot = plot(plot_df.unemp, plot_df.cpi,
                 seriestype=:scatter, legend = :none,
-                xlabel = "Unemployment rate gap", ylabel = "CPI change", title = "Phillips curve for USA")
+                title = "Phillips curve",
+                xlabel = "Unemployment rate gap", ylabel = "CPI change")
 ```
 ![Plot](my_assets/philips.svg)
 
 Overall, the relationship is far from being clear. The slope of plotted data is just slightly negative. 
 
 ```jldoctest
-x = [ones(size(model_df)[1]) model_df.unrate]
-(x'x)^(-1)*(x'model_df.inflation_q)
+x = [ones(size(model_df)[1]) model_df.unemp]
+(x'x)^(-1)*(x'model_df.cpi)
 ```
 ```jldoctest
 2-element Vector{Float64}:
-  3.7063395889109216
- -0.009863282898990633
+  0.926584897227734
+ -0.0024658207247481023
 ```
 
-However, as it often the case, plotting scatterplots falls short when trying to find evidence of more complex phenomena. 
+However, as it often the case, simply plotting scatterplots falls short when trying to find evidence of more complex phenomena. 
 
 Now, how can theory guide our model specification? The developments in New Keynesian economic theory, provides a model where: 
 
@@ -51,85 +55,82 @@ Now, how can theory guide our model specification? The developments in New Keyne
 
 - Inflation expectations matter. The economic agents keep in mind the inflation target of the central bank or the past inflation when setting prices.
 
-Both of the reasons above suggests the use of another variable, namely inflation moving average. Altough obvious from purely econometric point of view, addition of this variable is well grounded in theory. 
-
-```jldoctest
-x = [ones(size(model_df)[1]) model_df.unrate model_df.infexp]
-(x'x)^(-1)*(x'model_df.inflation_q)
-```
+Both of the reasons above suggests the use of another variable, namely moving average of past 4 quarters of inflation. Altough obvious from purely econometric point of view, addition of this variable is well grounded in theory. 
 
 ```jldoctest
 3-element Vector{Float64}:
-  2.4568979893419316
- -0.30170682289104334
-  0.8229587847541349
-```  
+  0.6142244973354851
+ -0.07542670572276094
+  0.2057396961885335
+```
 
-Indeed, once we add the inflation expectations, the slope of the New Keynesian Phillips curve becomes more negative.
+Indeed, once we add the inflation expectations, the slope of the New Keynesian Phillips curve becomes slightly more negative. It is still far from what we would expect from the theory, but it is a step in the right direction.
 
-Now, in order to check the time-varying nature of the Phillips curve, or the so-called "flattening" of thereof, we will estimate a Markov switching model. 
+Now, in order to check the time-varying nature of the Phillips curve, or the so-called "flattening" of thereof, we will estimate a Markov switching model. The set of variables will also be extended to include a proxy for the supply shock, which will be a difference between core and headline inflation. This variable might be relevant as we might expect some changes in e.g. prices of commodities on global market to have a material impact on the inflation. At the same time being unrelated to the domestic economic conditions and the phenomena we would like to describe. 
 
 ```jldoctest
-using Random
+Random.seed!(0)
+model = MSModel(model_df.cpi, 2, 
+                exog_switching_vars = [model_df.unemp model_df.infexp],
+                exog_vars =  model_df.s_shock)
 
-Random.seed!(1)
-model = MSModel(model_df.inflation_q, 2, 
-                exog_switching_vars = [model_df.unrate model_df.infexp],
-                switching_var = true)
-
-summary_msm(model) 
+summary_msm(model)
 ```
 ```jldoctest
 Markov Switching Model with 2 regimes
-=================================================================      
-# of observations:          259 AIC:                      1117.738     
-# of estimated parameters:   10 BIC:                      1153.306     
-Error distribution:    Gaussian Instant. adj. R^2:            0.51     
-Loglikelihood:           -548.9 Step-ahead adj. R^2:          0.48     
------------------------------------------------------------------      
+=================================================================
+# of observations:          259 AIC:                       108.149
+# of estimated parameters:   11 BIC:                       147.274
+Error distribution:    Gaussian Instant. adj. R^2:          0.7311
+Loglikelihood:            -43.1 Step-ahead adj. R^2:        0.7308
+-----------------------------------------------------------------
 ------------------------------
 Summary of regime 1:
 ------------------------------
-Coefficient  |  Estimate  |  Std. Error  |  z value  |  Pr(>|z|)       
--------------------------------------------------------------------    
-β_0          |    10.961  |       2.473  |    4.433  |    < 1e-3  
-β_1          |    -1.569  |       0.392  |   -4.004  |    < 1e-3  
-β_2          |     0.968  |       0.195  |    4.967  |    < 1e-3       
-σ            |     3.612  |       0.106  |   33.952  |    < 1e-3       
--------------------------------------------------------------------    
-Expected regime duration: 7.81 periods
--------------------------------------------------------------------    
+Coefficient  |  Estimate  |  Std. Error  |  z value  |  Pr(>|z|)
+-------------------------------------------------------------------
+β_0          |     1.092  |       0.191  |    5.724  |    < 1e-3  
+β_1          |    -0.129  |        0.03  |   -4.261  |    < 1e-3  
+β_2          |     0.207  |       0.019  |    10.89  |    < 1e-3
+β_3          |     0.232  |       0.008  |   28.674  |    < 1e-3
+σ            |     0.505  |       0.025  |   20.303  |    < 1e-3
+-------------------------------------------------------------------
+Expected regime duration: 18.28 periods
+-------------------------------------------------------------------
 ------------------------------
 Summary of regime 2:
 ------------------------------
-Coefficient  |  Estimate  |  Std. Error  |  z value  |  Pr(>|z|)       
--------------------------------------------------------------------    
-β_0          |     1.367  |       0.474  |     2.88  |     0.004  
-β_1          |    -0.035  |       0.073  |   -0.483  |     0.629  
-β_2          |     0.565  |       0.072  |    7.898  |    < 1e-3       
-σ            |     1.519  |       0.037  |   41.113  |    < 1e-3       
--------------------------------------------------------------------    
-Expected regime duration: 30.79 periods
--------------------------------------------------------------------    
+Coefficient  |  Estimate  |  Std. Error  |  z value  |  Pr(>|z|)
+-------------------------------------------------------------------
+β_0          |     0.337  |       0.065  |    5.223  |    < 1e-3  
+β_1          |    -0.009  |       0.009  |   -0.987  |     0.324  
+β_2          |     0.111  |       0.012  |    9.531  |    < 1e-3
+β_3          |     0.232  |       0.008  |   28.674  |    < 1e-3
+σ            |     0.151  |       0.012  |   12.384  |    < 1e-3
+-------------------------------------------------------------------
+Expected regime duration: 27.25 periods
+-------------------------------------------------------------------
 left-stochastic transition matrix:
           | regime 1   | regime 2
 ---------------------------------------
- regime 1 |   87.202%  |    3.247%  |
- regime 2 |   12.798%  |   96.753%  |
+ regime 1 |   94.528%  |    3.669%  |
+ regime 2 |    5.472%  |   96.331%  |
 ```
 
-The model shows that there are 2 regimes of the cyclical relationship. The first regime is characterized by significantly negative slope of the Phillips curve. This is a regime, which should allow policy makers to have some influence on the inflation. The second regime is characterized by a very flat Phillips curve, as the coefficient for unemployment is not significantly different than zero. The inflation during this regime is also substantially less volatile than otherwise. 
+The model shows that there are 2 regimes of the cyclical relationship. The second regime is characterized by significantly negative slope of the Phillips curve. This is a regime, which should allow policy makers to have some influence on the inflation. The second regime is characterized by a very flat Phillips curve, as the coefficient for unemployment is not significantly different than zero. The inflation during this regime is also substantially less volatile than otherwise. 
 
-Unfortunately for policy makers, the average duration of the favorable regime is ~8 quarters, while the flat Phillips curve is the dominant regime with the average duration of ~31 quarters.
+Unfortunately for policy makers, the average duration of the favorable regime is ~18 quarters, while the flat Phillips curve is the dominant regime with the average duration of ~27 quarters.
 
 ```jldoctest
-probs_phil = plot(filtered_probs(model),
-                    label     = ["Steep Phillips curve" "Flat Phillips curve"],
-                    title     = "Regime probabilities", 
-                    linewidth = 2,
-                    legend = :bottomleft)
+plot(df.date[9:end], 
+    [filtered_probs(model)[:,1] filtered_probs(model)[:,2]],
+    xticks = (Date.(minimum(year.(df.date)):4:maximum(year.(df.date))),minimum(year.(df.date)):4:maximum(year.(df.date))),
+    xrotation= 45,
+    label     = ["Steep Phillips curve" "Flat Phillips curve"],
+    linewidth = 2,
+    legend = :bottomleft)
 ```
 ![Plot](my_assets/probs_phil.svg)
 
-The plot above shows the probability of being in particular regime. Instead of "flattening" the model shows more of an infreaquent appearences of steep Phillips curve. Altough indeed, this regime was more frequent in the 70s and 80s than it is now. 
+The plot above shows the probability of being in particular regime. The model confirms some of the concerns among economists regarding the "flattening" of the Phillips curve. Indeed, the period when Phillips curve behave as expected by the theory has changed at the beginnning of 1990. Since then, the ability of policymakers to influence the inflation has been substantially reduced. 
 
