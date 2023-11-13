@@ -1,12 +1,12 @@
 # Regime switching Phillips curve
 
-One of the most popular macroeconomic relationships is the trade-off between inflation and unemployment. The so-called Phillips curve is discussed in both introductory macroeconomics courses and at the meetings of the most influential central banks. The curve is an empirical observation which introduced a stylized fact that the inflation falls during recessions and rises during booms.
+One of the most popular macroeconomic relationships is the trade-off between inflation and unemployment. The so-called Phillips curve is discussed in both introductory macroeconomics courses and at the meetings of the most influential central banks. The curve introduced a stylized fact that the inflation falls during recessions and rises during booms.
 
 However, many policymakers and academic economists have argued that the historical relationship has changed over time. The 'flattening' of the Phillips curve poses a challenge for policymakers, as it can imply that countercyclical policy may not be effective in steering inflation toward the established central bank's target.
 
 To investigate the time-varying nature of the Phillips curve, we will estimate a Markov switching model.
 
-First we would need a dataset with quarterly inflation and unemployment. We will use the data from the Federal Reserve Bank of St. Louis (FRED) database. The data is available in the repository of the package.
+First we would need a dataset with quarterly inflation and unemployment. We will use the data from the Federal Reserve Bank of St. Louis (FRED) database. The data is available in the repository of the package. It's already transformed into log differences.
 
 ```jldoctest phillips
 using MarSwitching
@@ -35,7 +35,7 @@ phil_plot = plot(plot_df.unemp, plot_df.cpi,
 ```
 ![Plot](my_assets/philips.svg)
 
-Overall, the relationship is far from being clear. The slope of plotted data is just slightly negative. 
+Overall, the relationship is far from being clear. The slope of plotted data is just slightly negative. At least for these 
 
 ```jldoctest
 x = [ones(size(model_df)[1]) model_df.unemp]
@@ -47,7 +47,7 @@ x = [ones(size(model_df)[1]) model_df.unemp]
  -0.0024658207247481023
 ```
 
-However, as it often the case, simply plotting scatterplots falls short when trying to find evidence of more complex phenomena. 
+However, as is often the case, simply plotting scatterplots falls short when trying to find evidence of more complex phenomena. 
 
 Now, how can theory guide our model specification? The developments in New Keynesian economic theory, provides a model where: 
 
@@ -55,7 +55,7 @@ Now, how can theory guide our model specification? The developments in New Keyne
 
 - Inflation expectations matter. The economic agents keep in mind the inflation target of the central bank or the past inflation when setting prices.
 
-Both of the reasons above suggests the use of another variable, namely moving average of past 4 quarters of inflation. Altough obvious from purely econometric point of view, addition of this variable is well grounded in theory. 
+Both of the reasons above suggests the use of another variable, somethign that can control for past inflation and inflation expectations. We will use the moving average of past 4 quarters of inflation. Altough obvious from purely econometric point of view, addition of this variable is well grounded in theory. 
 
 ```jldoctest
 3-element Vector{Float64}:
@@ -66,7 +66,7 @@ Both of the reasons above suggests the use of another variable, namely moving av
 
 Indeed, once we add the inflation expectations, the slope of the New Keynesian Phillips curve becomes slightly more negative. It is still far from what we would expect from the theory, but it is a step in the right direction.
 
-Now, in order to check the time-varying nature of the Phillips curve, or the so-called "flattening" of thereof, we will estimate a Markov switching model. The set of variables will also be extended to include a proxy for the supply shock, which will be a difference between core and headline inflation. This variable might be relevant as we might expect some changes in e.g. prices of commodities on global market to have a material impact on the inflation. At the same time being unrelated to the domestic economic conditions and the phenomena we would like to describe. 
+Now, in order to check the time-varying nature of the Phillips curve, or the so-called "flattening" of thereof, we will estimate a Markov switching model. The set of variables will also be extended to include a proxy for the supply shock, which will be a difference between core and headline inflation. This variable might be relevant as we might expect some changes in e.g. prices of commodities on global market to have a material impact on the inflation. At the same time being unrelated to the domestic economic conditions and the phenomena we would like to describe. We don't expect the effect of supply shock to differ across regimes, so we will not include it in the list of variables that are regime-specific.
 
 ```jldoctest
 Random.seed!(0)

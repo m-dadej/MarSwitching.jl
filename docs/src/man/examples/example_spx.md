@@ -32,7 +32,7 @@ df.spx = (df.spx .- μ_spx) ./ σ_spx
 df.vix_lag = (df.vix_lag .- μ_vix) ./ σ_vix
 df.spx_lag = (df.spx_lag .- μ_spx) ./ σ_spx
 ```
-We want to inspect how the S&P500 returns behave under different regimes and how the probability of switching between them is determined. In order not to risk falling into local maxima the we will estimate a univariate model with lags and a single exogenous variable (VIX) for TVTP parameters. Note, in order to have intercept in the TVTP parameters the user need to provide a column of singles. Unlike in the specification of regression, that is done with `intercept` argument. We will also use random search for expectation-maximization algorithm to find the best starting values that are possibly close to global maxima.
+We want to inspect how the S&P500 returns behave under different regimes and how the probability of switching between them is determined. In order not to risk falling into local maxima we will estimate a univariate model with lags and a single exogenous variable (VIX) for TVTP parameters. Note, in order to have intercept in the TVTP parameters the user need to provide a column of singles. Unlike in the specification of regression, that is done with `intercept` argument. We will also use random search for expectation-maximization algorithm to find the best starting values that are possibly close to global maxima.
 
 ```jldoctest spx
 # estimating 2-regime model with TVTP and one switching variable
@@ -137,7 +137,7 @@ plot(expected_duration(model)[expected_duration(model)[:,2] .< 100,:],
 ```
 ![Plot](my_assets/spx_exp_dur.svg)
 
-Since the transition matrix is time-varying, its expected duration is as well. Similarily, the plot shows that predominantly, markets are expected to stay in the calm regime.
+Since the transition matrix is time-varying, its expected duration is as well. Similarily, the plot shows that predominantly, markets are expected to stay in the calm regime. This is despite the trimmed mean of expected duration shown in the model summary, which is skewed by the outliers. It is useful to plot the time series of expected duration, as the values can often reach extreme values due to logistic tranformation (e.g. a 100% diagonal probability of transition implies an infinite expected duration).
 
 Having already found a decent model for the data generating process of the stock market returns, we can also use it for risk management. Function `generate_msm` thanks to Julia's multi-threading, is able to work either with provided parameters of Markov Switching model or from already estimated one. We will use this function for Monte carlo simulation that will allow us to calculate 1% Value-at-Risk (VaR) of S&P500 index. 
 
