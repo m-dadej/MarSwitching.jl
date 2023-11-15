@@ -87,40 +87,19 @@ For more thorough introduction to the markov switching models, see 9th chapter o
 |:---------------|-------------:|--------------:|---------:|---------------:|
 | implementation | Julia        | Python/cython | R        | Matlab/MEX/C++ |
 | error:         |              |               |          |                |
-| mu             | 0,0363       | 0,0363        | 0,036    | 0,1668         |
-| beta_s         | 0,0237       | 0,0237        | 0,0245   | 0,8058         |
-| beta_ns        | 0,0150       | 0,01508       | 0,0211   | 0,0021         |
-| sigma          | 0,0083       | 0,0083        | 0,0108   | 0,9623         |
-| p              | 0,0138       | 0,0138        | 0,0157   | 0,0691         |
+| mu             | 0,0363       | 0,0363        | 0,036    | 0,0367         |
+| beta_s         | 0,0237       | 0,0237        | 0,0245   | 0,0241         |
+| beta_ns        | 0,0150       | 0,01508       | 0,0211   | 0,0157         |
+| sigma          | 0,0083       | 0,0083        | 0,0108   | 0,0084         |
+| p              | 0,0138       | 0,0138        | 0,0157   | 0,0139         |
 |                |              |               |          |                |
-| runtime        | 0,922        | 3,162         | 3,867    | 65,28          |
-| relative       | 1            | 3,429         | 4,1      |    70,802      |
+| runtime        | 0,922        | 3,162         | 3,867    | 19,959         |
+| relative       | 1            | 3,429         | 4,1      |    21,647      |
 
-`MarSwitching.jl` is 3.4 times faster than `statsmodels` implementation in `Python`, 4.1 times faster than `MSwM` in `R` and 70.8 times faster than `MS_Regress` in `MATLAB`, altough Matlab package is also calculating standard errors during function call. Every implementation had virtually the same error of estimated parameters, except the `MATLAB` implementation, which have a problem converging with more complex model.
+
+`MarSwitching.jl` is 3.4 times faster than `statsmodels` implementation in `Python`, 4.1 times faster than `MSwM` in `R` and 21.6 times faster than `MS_Regress` in `MATLAB`, altough Matlab package is also calculating standard errors during function call. Every implementation had virtually the same error of estimated parameters.
 
 Code of the benchmarks can be found in `benchmark` folder.
-
-```math
-\begin{table}[]
-  \begin{tabular}{l l l l l}
-    \hline 
-                 & \pkg{MarSwitching} & \pkg{statsmodels}   & \pkg{MSwM}     & \pkg{MS\_Regress}**    \\ [0.5ex] \hline
-  implementation & Julia        & Python/cython & R        & MATLAB/MEX/C++ \\ [0.5ex] \hline
-  \multicolumn{5}{c}{Error*} \\ [0.5ex]
-  $\mu$             & 0.0363       & 0.0363        & 0.036    & 0.0367         \\ [0.5ex]
-  $\beta_s$        & 0.0237       & 0.0237        & 0.0245   & 0.0241         \\ [0.5ex]
-  $\beta$       & 0.01508      & 0.01508       & 0.0211   & 0.0157         \\ [0.5ex]
-  $\sigma$          & 0.0083       & 0.0083        & 0.0108   & 0.0084         \\ [0.5ex]
-  $p_{i,i}$         & 0.0138       & 0.0138        & 0.0157   & 0.0139         \\ [0.5ex] \hline
-  \multicolumn{5}{c}{Runtime} \\ [0.5ex]
-  Absolute (s)        & 0.922        & 3.162         & 3.867    & 19.95          \\ 
-  relative       & 1            & 3.429   & 4.194 & 21.647      \\ [0.5ex] \hline
-  \multicolumn{5}{l}{\footnotesize *mean absolute difference between estimated and true parameters.} \\
-  \multicolumn{5}{l}{\footnotesize **The estimating function also involves calculating standard errors. Although the runtime is still notably slower.} \\
-  \end{tabular}
-  \caption{Benchmark of different implementations of Markov switching models.}
-\end{table}
-```
 
 ## Example
 
