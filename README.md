@@ -79,6 +79,8 @@ For more thorough introduction to the markov switching models, see 9th chapter o
     - Markov Switching VAR model
     - Markov Switching model with lagged states. E.g. $y_t = \mu_{S_t} + \phi(y_{t-1} - \mu_{S_{t-1}})$
 
+Future development is closely related to the package's popularity.
+
 ## Performance comparison    
 
 `MarSwitching.jl` is the fastest open source implementation of the model. The benchmark was done on artificially generated data with 400 observations, from the model with 3 regimes, 1 switching and 1 non switching exogenous variable. Table below shows mean absolute error of estimated parameters with respect to the actual parameters from `generate_msm()` function.
@@ -152,38 +154,39 @@ The `summary_msm(model)`  will output following summary table:
 
 ```jldoctest
 Markov Switching Model with 2 regimes
-=====================================================
-# of observations:          400 Loglikelihood:            -576.692 
-# of estimated parameters:    8  AIC                      1169.384 
-Error distribution:    Gaussian  BIC                      1201.316 
-------------------------------------------------------
+=================================================================  
+# of observations:          400 AIC:                      1169.384 
+# of estimated parameters:    8 BIC:                      1201.316 
+Error distribution:    Gaussian Instant. adj. R^2:          0.4957 
+Loglikelihood:           -576.7 Step-ahead adj. R^2:        0.3757 
+-----------------------------------------------------------------  
 ------------------------------
 Summary of regime 1:
 ------------------------------
 Coefficient  |  Estimate  |  Std. Error  |  z value  |  Pr(>|z|)   
 -------------------------------------------------------------------
-β_0          |     0.824  |       0.132  |    6.242  |    < 1e-3  
-β_1          |    -1.483  |        0.12  |  -12.358  |    < 1e-3   
-σ            |     1.124  |       0.046  |   24.435  |    < 1e-3   
--------------------------------------------------------------------
-Expected regime duration: 11.34 periods
--------------------------------------------------------------------
+β_0          |    -0.516  |       0.052  |   -9.874  |    < 1e-3  
+β_1          |    -0.003  |       0.051  |   -0.058  |     0.954  
+σ            |     0.843  |       0.022  |   38.751  |    < 1e-3  
+-------------------------------------------------------------------        
+Expected regime duration: 28.58 periods
+-------------------------------------------------------------------        
 ------------------------------
 Summary of regime 2:
 ------------------------------
 Coefficient  |  Estimate  |  Std. Error  |  z value  |  Pr(>|z|)
--------------------------------------------------------------------
-β_0          |    -0.516  |       0.052  |   -9.923  |    < 1e-3  
-β_1          |    -0.003  |       0.051  |   -0.059  |     0.953  
-σ            |     0.843  |       0.022  |   38.318  |    < 1e-3
--------------------------------------------------------------------
-Expected regime duration: 28.58 periods
--------------------------------------------------------------------
+-------------------------------------------------------------------        
+β_0          |     0.824  |       0.132  |    6.256  |    < 1e-3  
+β_1          |    -1.483  |        0.12  |  -12.308  |    < 1e-3  
+σ            |     1.124  |       0.046  |   24.639  |    < 1e-3
+-------------------------------------------------------------------        
+Expected regime duration: 11.34 periods
+-------------------------------------------------------------------        
 left-stochastic transition matrix:
           | regime 1   | regime 2
 ---------------------------------------
- regime 1 |   91.181%  |    3.499%  |
- regime 2 |    8.819%  |   96.501%  |
+ regime 1 |   96.501%  |    8.819%  |
+ regime 2 |    3.499%  |   91.181%  |
  ```
 
 As can be seen, the parameters correspond to the ones defined when producing the data generating process. 
@@ -195,18 +198,18 @@ using Plots
 
 plot(filtered_probs(model),
      label     = ["Regime 1" "Regime 2"],
-     title     = "Transition probabilities", 
+     title     = "Regime probabilities", 
      linewidth = 2)
 ```     
-![Plot](img/filtered_probs.png)
+![Plot](img/filtered_probs.svg)
 
 ```julia
-plot([smoothed_probs(model)[:,2] s_t.-1],
-     label     = ["Regime 1" "Actual regime"],
-     title     = "Smoothed transition probabilities",
+plot(smoothed_probs(model),
+     label     = ["Regime 1" "Regime 2"],
+     title     = "Smoothed regime probabilities",
      linewidth = 2)  
 ```
- ![Plot](img/smoothed_probs.png)
+ ![Plot](img/smoothed_probs.svg)
 
 ## Functions
 

@@ -52,8 +52,9 @@ Assuming that you already have at least Julia 1.6 (stable version) installed.
     - Markov Switching VAR model
     - Markov Switching model with lagged states. E.g. $y_t = \mu_{S_t} + \phi(y_{t-1} - \mu_{S_{t-1}})$
 
-## Performance comparison    
+Future development is closely related to the package's popularity.
 
+## Performance comparison    
 
 `MarSwitching.jl` is the fastest open source implementation of the model. The benchmark was done on artificially generated data with 400 observations, from the model with 3 regimes, 1 switching and 1 non switching exogenous variable. Table below shows mean absolute error of estimated parameters with respect to the actual parameters from `generate_msm()` function.
 
