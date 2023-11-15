@@ -74,7 +74,7 @@ plot(filtered_probs(model),
      title     = "Regime probabilities", 
      linewidth = 2)
 ```     
-![Plot](my_assets/filtered_probs.svg)
+![Plot](filtered_probs.svg)
 
 ```julia
 using Plots
@@ -84,4 +84,4 @@ plot(smoothed_probs(model),
      title     = "Smoothed regime probabilities", 
      linewidth = 2)
 ```     
-![Plot](my_assets/smoothed_probs.svg)
+![Plot](smoothed_probs.svg)
