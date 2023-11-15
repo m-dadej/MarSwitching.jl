@@ -100,6 +100,28 @@ For more thorough introduction to the markov switching models, see 9th chapter o
 
 Code of the benchmarks can be found in `benchmark` folder.
 
+```math
+\begin{table}[]
+  \begin{tabular}{l l l l l}
+    \hline 
+                 & \pkg{MarSwitching} & \pkg{statsmodels}   & \pkg{MSwM}     & \pkg{MS\_Regress}**    \\ [0.5ex] \hline
+  implementation & Julia        & Python/cython & R        & MATLAB/MEX/C++ \\ [0.5ex] \hline
+  \multicolumn{5}{c}{Error*} \\ [0.5ex]
+  $\mu$             & 0.0363       & 0.0363        & 0.036    & 0.0367         \\ [0.5ex]
+  $\beta_s$        & 0.0237       & 0.0237        & 0.0245   & 0.0241         \\ [0.5ex]
+  $\beta$       & 0.01508      & 0.01508       & 0.0211   & 0.0157         \\ [0.5ex]
+  $\sigma$          & 0.0083       & 0.0083        & 0.0108   & 0.0084         \\ [0.5ex]
+  $p_{i,i}$         & 0.0138       & 0.0138        & 0.0157   & 0.0139         \\ [0.5ex] \hline
+  \multicolumn{5}{c}{Runtime} \\ [0.5ex]
+  Absolute (s)        & 0.922        & 3.162         & 3.867    & 19.95          \\ 
+  relative       & 1            & 3.429   & 4.194 & 21.647      \\ [0.5ex] \hline
+  \multicolumn{5}{l}{\footnotesize *mean absolute difference between estimated and true parameters.} \\
+  \multicolumn{5}{l}{\footnotesize **The estimating function also involves calculating standard errors. Although the runtime is still notably slower.} \\
+  \end{tabular}
+  \caption{Benchmark of different implementations of Markov switching models.}
+\end{table}
+```
+
 ## Example
 
 Following example will first generate artificial data and then estimate a simple Markov switching model with regime dependent intercept, exogenous variable and variance. The model is defined as follows:
