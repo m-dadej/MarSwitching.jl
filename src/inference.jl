@@ -229,9 +229,9 @@ function smoothed_probs(model::MSM; kwargs...)
 end
 
 @doc raw"""
-    predict(model::MSM, instanteous::Bool = false; kwargs...)
+    predict(model::MSM, instantaneous::Bool = false; kwargs...)
 
-Provide either instanteous or one-step-ahead prediction of the dependent variable.    
+Provide either instantaneous or one-step-ahead prediction of the dependent variable.    
 
 Which is the probability weighted average of predictions of each state equation:
     
@@ -256,7 +256,7 @@ Returns a tuple of `(ŷ, ξ_t)` where `ŷ` is the predicted value of the depen
 - `exog_tvtp`: optional exogenous variables for the tvtp part of the model.
 
 """
-function predict(model::MSM, instanteous::Bool = false; kwargs...)
+function predict(model::MSM, instantaneous::Bool = false; kwargs...)
 
     check_args(model; kwargs...)   
 
@@ -275,7 +275,7 @@ function predict(model::MSM, instanteous::Bool = false; kwargs...)
         ξ_t = filtered_probs(model; kwargs...) 
     end
 
-    if instanteous
+    if instantaneous
         ŷ_s = (x*hcat(model.β...))
     else
         if isempty(model.P)
