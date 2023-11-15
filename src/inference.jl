@@ -10,7 +10,7 @@ function check_args(model::MSM; kwargs...)
     exog_tvtp = haskey(kwargs, :exog_tvtp) ? convert_arg(:exog_tvtp; kwargs...) : Matrix{Float64}(undef, 0, 0)
 
     # for the case when data is provided
-    if !isempty(kwargs) #isempty(exog_vars) || isempty(exog_switching_vars) || isempty(y) || isempty(exog_tvtp))
+    if !isempty(kwargs) 
         
         n_δ = Int(length(model.δ)/(model.k*(model.k-1)))
 
@@ -58,7 +58,7 @@ end
 @doc raw"""
     ergodic_probs(model::MSM, exog_tvtp::VecOrMat{V})
 
-when applied to the model non-TVTP model, returns a `k`-size Vector of ergodic probabilites of each state.     
+when applied to the non-TVTP model, returns a `k`-size Vector of ergodic probabilites of each state.     
 For TVTP model, returns $T \times K$ a matrix of ergodic probabilites of each state at time t.
 
 # Arguments
@@ -143,7 +143,7 @@ function filtered_probs(model::MSM; kwargs...)
                         
     check_args(model; kwargs...)                        
     
-    if isempty(kwargs) #isempty(exog_vars) & isempty(exog_switching_vars) & isempty(y) & isempty(exog_tvtp)
+    if isempty(kwargs) 
         x = model.x
     else
         T = length(kwargs[:y])

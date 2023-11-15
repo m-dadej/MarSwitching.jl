@@ -49,7 +49,6 @@ function em_algorithm(X::VecOrMat,
                       n_δ::Int64,
                       n_intercept::Int64,
                       switching_var::Bool;
-                      random_factor::Float64 = 0.5,
                       tol::Float64 = 1e-6)
 
     Q = [0.0, 1.0, 2.0, 3.0]
@@ -240,7 +239,7 @@ function MSModel(y::VecOrMat{V},
     
     ### initial guess ###
     if isempty(x0)
-        p_em_init, β_hat_init, σ_em_init, Q_init = em_algorithm(x, k, n_β_ns, n_δ, n_intercept, switching_var, random_factor = 0.0)
+        p_em_init, β_hat_init, σ_em_init, Q_init = em_algorithm(x, k, n_β_ns, n_δ, n_intercept, switching_var)
 
         ### random search for EM algorithm
         param_space = [[p_em_init, β_hat_init, σ_em_init, Q_init] for _ in 1:random_search_em+1]

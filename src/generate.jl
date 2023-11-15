@@ -37,7 +37,6 @@ function generate_msm(μ::Vector{V},
         P = P ./ sum(P, dims=1)
     end
 
-
     k      = length(μ)
     n_β    = Int(size(β)[1]/k)
     n_β_ns = size(β_ns)[1]
@@ -63,7 +62,7 @@ function generate_msm(μ::Vector{V},
     y_s = zeros(T, k)
     X = [ones(T) rand(Normal(0,1), T, n_β + n_β_ns)]
 
-    # conert parameters to matrix for easier matrix multiplication
+    # convert parameters to matrix for easier matrix multiplication
     params = [zeros(1 + n_β + n_β_ns) for _ in 1:k]
     [params[i][1] = μ[i] for i in 1:k]                          # populate intercepts
     [params[i][2:(n_β+1)] .= β[1+n_β*(i-1):n_β*i] for i in 1:k] # populate switching betas

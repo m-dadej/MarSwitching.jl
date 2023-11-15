@@ -20,7 +20,7 @@ function loglik(θ::Vector{Float64},
 
     # f(y | S_t, x, θ, Ψ_t-1) density function 
     η = reduce(hcat, [pdf.(Normal.(view(X, :,2:n_β+n_β_ns+2)*β[i], σ[i]), view(X, :,1)) for i in 1:k])
-    η .+= 1e-12
+    η .+= 1e-12 
 
     @inbounds for t in 1:T
         ξ[t,:] = t == 1 ? ξ_0 : view(ξ, t-1, :)
