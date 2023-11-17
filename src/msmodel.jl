@@ -79,7 +79,7 @@ function em_algorithm(X::VecOrMat,
         ϕ .+= 1e-12
         w = (ϕ .* π_em') ./ sum(ϕ .* π_em', dims = 2)
         Q = my_circshift(Q, -1)
-        Q[end] = sum(sum(w[i,j] .* ϕ[i,j] for j in 1:k) for i in 1:T)
+        Q[end] = sum(dot(view(w, i, :), view(ϕ, i, :)) for i in 1:T)
 
         ## maximization step
         π_em  = (sum(w, dims=1) / T)'
