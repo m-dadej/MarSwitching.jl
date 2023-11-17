@@ -256,10 +256,8 @@ function MSModel(y::VecOrMat{V},
             verbose && println("EM algorithm random search: $(i-1) out of $random_search_em | Q = $(round.(param_space[i][end])) vs. Q_0 = $(round.(param_space[1][end]))")
         end
 
-        [param_space[i][end] for i in 1:random_search_em+1]
-
-        param_space = sort(param_space, by = x -> x[end], rev = false)
-        (random_search_em > 0) & verbose && println("Q improvement with random search: $(round.(Q_init)) -> $(round.(param_space[end][end]))")
+        param_space = sort(param_space, by = last, rev = false)
+        (random_search_em > 0) & verbose && println("Q improvement with random search: $(round.(Q_init)) -> $(round.(last(param_space[end]))))")
         p_em, β_hat, σ_em = param_space[end]
 
         ### transformation of ergodic probabilities to probabilites input to the optimization
