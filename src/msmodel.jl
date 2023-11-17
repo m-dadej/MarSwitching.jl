@@ -42,6 +42,7 @@ function Base.show(io::IO, ::MIME"text/plain", model::MSM)
     @printf io "%0s" "\nNLopt msg: $(model.nlopt_msg)"
 end    
 
+
 # Expectation-maximization algorithm for initial guess
 function em_algorithm(X::VecOrMat, 
                       k::Int64,
@@ -82,7 +83,13 @@ function em_algorithm(X::VecOrMat,
 
         ## maximization step
         π_em  = (sum(w, dims=1) / T)'
-        β_hat = [MarSwitching.mp_inverse(x'diagm(w[:,j])*x) * x'diagm(w[:,j])*y for j in 1:k]
+
+        # weighted OLS
+        β_hat = Vector{Vector{Float64}}(undef, k)
+        for j in 1:k
+            wj = w[:,j]
+            β_hat[j] = MarSwitching.mp_inverse((x'*(wj.*x))) * (x'*(wj.*y))
+        end
         # averaging non-switching β
         β_ns_avrg = mean(reduce(hcat, β_hat)'[:, (end-n_β_ns+1):end], dims=1)
         [β_hat[i][(end-n_β_ns+1):end] = β_ns_avrg for i in 1:k]
