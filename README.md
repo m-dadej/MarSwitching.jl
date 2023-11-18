@@ -23,7 +23,7 @@ MarSwitching is in general registry. To install simply use following command:
 
 ## Markov regime switching model in a nutshell
 
-The markov switching models are a class of models that allow for the parameters to change over time, depending on the unobservable state like economic recession, high volatility on financial markets or epidemiologic outbreak. The state follows markov process with a given probability transition matrix for each of $k$ states:
+The Markov switching models are a class of models that allow for the parameters to change over time, depending on the unobservable state like economic recession, high volatility on financial markets or epidemiologic outbreak. The state follows Markov process with a given probability transition matrix for each of $k$ states:
 
 ```math
 \begin{equation*}
@@ -37,7 +37,7 @@ p_{k,1} & p_{k,2} & \cdots & p_{k,k}
 \end{equation*}
 ```
 
-Satisfying standard markovian properties. The general model is defined as follows:
+Satisfying standard Markovian properties. The general model is defined as follows:
 
 ```math
 \begin{align*}
@@ -55,7 +55,7 @@ The package also provide time-varying transition probabilities (TVTP) (Filardo, 
 p_{i,j,t} = \dfrac{exp(\delta_{i,j}'\mathbf{Z}_t)}{\textstyle \sum_{j=1} exp(\delta_{i,j}'\mathbf{Z}_t)}
 ```
 
-For more thorough introduction to the markov switching models, see 9th chapter of Guidolin and Pedio, 2018.
+For more thorough introduction to the Markov switching models, see 9th chapter of Guidolin and Pedio, 2018.
 
 
 ## Functionality 
@@ -65,9 +65,9 @@ For more thorough introduction to the markov switching models, see 9th chapter o
         - intercept
         - variance
         - exogenous variables
-    - model with time-varying transition probabilites (TVTP) (à la Filardo 1994) 
-    - Filtered probabilites
-    - Smoothed probabilites (Kim, 1994)
+    - model with time-varying transition probabilities (TVTP) (à la Filardo 1994) 
+    - Filtered probabilities
+    - Smoothed probabilities (Kim, 1994)
     - Summary statistics of coefficients
     - instantaneous and one step ahead `predict()`
     - Expected regime duration
@@ -99,7 +99,7 @@ Future development is closely related to the package's popularity.
 | relative       | 1            | 6,713         | 8,21     |    42,376      |
 
 
-`MarSwitching.jl` is 6,7 times faster than `statsmodels` implementation in `Python`, 8,2 times faster than `MSwM` in `R` and 42 times faster than `MS_Regress` in `MATLAB`, although MATLAB package is also calculating standard errors during function call. Every implementation had virtually the same error of estimated parameters.
+`MarSwitching.jl` is 6,7 times faster than `statsmodels` implementation in `Python`/`Cython`, 8,2 times faster than `MSwM` in `R` and 42 times faster than `MS_Regress` in `MATLAB`/`MEX`, although MATLAB package is also calculating standard errors during function call. Every implementation had virtually the same error of estimated parameters.
 
 Code of the benchmarks can be found in `benchmark` folder.
 
@@ -191,7 +191,7 @@ left-stochastic transition matrix:
 
 As can be seen, the parameters correspond to the ones defined when producing the data generating process. 
 
-The package also provides a function for filtered transition probabilites $P(S_t = i | \Psi_t)$, as well as smoothed ones (Kim, 1994) $P(S_t = i | \Psi_T)$. Essentially, the difference is that, in order to calculate the smoothed probabilites the whole sample is used.
+The package also provides a function for filtered transition probabilities $P(S_t = i | \Psi_t)$, as well as smoothed ones (Kim, 1994) $P(S_t = i | \Psi_T)$. Essentially, the difference is that, in order to calculate the smoothed probabilities the whole sample is used.
 
 ```julia
 using Plots
@@ -215,7 +215,7 @@ plot(smoothed_probs(model),
 
 Every exported function have a docstring, which can be accessed by `?` in REPL.
 
-The function for estimating the markov switching model is: 
+The function for estimating the Markov switching model is: 
 
 ```Julia
 MSModel(y::VecOrMat{V},                    # vector of dependent variable
@@ -251,7 +251,7 @@ struct MSM{V <: AbstractFloat}
     nlopt_msg::Symbol     # message from NLopt.jl solver
 end
 ```
-Filtered transition probabilites can be calculated from estimated model:
+Filtered transition probabilities can be calculated from estimated model:
 
 ```julia
 filtered_probs(model::MSM,                           # estimated model
@@ -262,7 +262,7 @@ filtered_probs(model::MSM,                           # estimated model
                 
 ```
 
-Similarily, smoothed transition probabilites can be also calculated from estimated model:
+Similarly, smoothed transition probabilities can be also calculated from estimated model:
 
 ```julia
 smoothed_probs(model::MSM,                           # estimated model
@@ -272,11 +272,11 @@ smoothed_probs(model::MSM,                           # estimated model
                exog_tvtp::Matrix{Float64})           # optional matrix of exogenous variables for time-varying transition matrix
 ```
 
-The `predict()` function can be used to calculate instanteous or one step ahead predictions from estimated model:
+The `predict()` function can be used to calculate instantaneous or one step ahead predictions from estimated model:
 
 ```julia
 predict(model::MSM,                            # estimated model
-        instanteous::Bool = false;             # instanteous or one-step ahead prediction
+        instantaneous::Bool = false;             # instanteous or one-step ahead prediction
         y::Vector{Float64},                    # optional vector of dependent variables
         exog_vars::Matrix{Float64},            # optional matrix of exogenous variables
         exog_switching_vars::Matrix{Float64},  # optional matrix of exogenous variables with regime switching
@@ -296,7 +296,7 @@ And for one step ahead, the state probabilities have to be predicted themselves:
 
 The one step ahead prediction will return a vector of size $(T-1) \times 1$, as the observation $t-1$ is used to forecast state probability ($P\hat{\xi}_{i,t}$)
 
-The provided new data needs to match the data used for estimation (with except of observations size). If not provided the prediction is done on the data used for estimation. For one step ahed forecast, there is no look-ahead bias, the y vector needs to be provided in order to calculate the state probabilites at time $t$.
+The provided new data needs to match the data used for estimation (with except of observations size). If not provided the prediction is done on the data used for estimation. For one step ahead forecast, there is no look-ahead bias, the y vector needs to be provided in order to calculate the state probabilities at time $t$.
 
 
 The `summary_msm(model::MSM; digits::Int64=3)` function outputs a summary table that is built from 4 functions: 
@@ -305,7 +305,7 @@ The `summary_msm(model::MSM; digits::Int64=3)` function outputs a summary table 
 - `state_coeftable(model::MSM, state::Int64; digits::Int64=3)` - prints coefficient table for given state
 - `expected_duration(model::MSM; digits::Int64=2)` - prints expected duration of each state, or a time series of expected duration for TVTP model
 
-It is also possible to simulate data from a given parameters:
+It is also possible to simulate data from a given set of parameters:
 
 ```julia
 generate_msm(μ::Vector{Float64},    # vector of intercepts for each state

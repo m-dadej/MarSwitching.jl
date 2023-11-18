@@ -47,7 +47,7 @@ x = [ones(size(model_df)[1]) model_df.unemp]
  -0.0024658207247481023
 ```
 
-However, as is often the case, simply plotting scatterplots falls short when trying to find evidence of more complex phenomena. 
+However, as is often the case, simply plotting scatter plots falls short when trying to find evidence of more complex phenomena. 
 
 Now, how can theory guide our model specification? The developments in New Keynesian economic theory, provides a model where: 
 
@@ -55,7 +55,7 @@ Now, how can theory guide our model specification? The developments in New Keyne
 
 - Inflation expectations matter. The economic agents keep in mind the inflation target of the central bank or the past inflation when setting prices.
 
-Both of the reasons above suggests the use of another variable, somethign that can control for past inflation and inflation expectations. We will use the moving average of past 4 quarters of inflation. Altough obvious from purely econometric point of view, addition of this variable is well grounded in theory. 
+Both of the reasons above suggests the use of another variable, something that can control for past inflation and inflation expectations. We will use the moving average of past 4 quarters of inflation. Although obvious from purely econometric point of view, addition of this variable is well grounded in theory. 
 
 ```jldoctest
 3-element Vector{Float64}:
@@ -117,9 +117,9 @@ left-stochastic transition matrix:
  regime 2 |    5.472%  |   96.331%  |
 ```
 
-The model shows that there are 2 regimes of the cyclical relationship. The second regime is characterized by significantly negative slope of the Phillips curve. This is a regime, which should allow policy makers to have some influence on the inflation. The second regime is characterized by a very flat Phillips curve, as the coefficient for unemployment is not significantly different than zero. The inflation during this regime is also substantially less volatile than otherwise. 
+The model shows that there are 2 regimes of the cyclical relationship. The second regime is characterized by significantly negative slope of the Phillips curve. This is a regime, which should allow policy-makers to have some influence on the inflation. The second regime is characterized by a very flat Phillips curve, as the coefficient for unemployment is not significantly different from zero. The inflation during this regime is also substantially less volatile than otherwise. 
 
-Unfortunately for policy makers, the average duration of the favorable regime is ~18 quarters, while the flat Phillips curve is the dominant regime with the average duration of ~27 quarters.
+Unfortunately for policy-makers, the average duration of the favorable regime is ~18 quarters, while the flat Phillips curve is the dominant regime with the average duration of ~27 quarters.
 
 ```jldoctest
 plot(df.date[9:end], 
@@ -132,5 +132,5 @@ plot(df.date[9:end],
 ```
 ![Plot](my_assets/probs_phil.svg)
 
-The plot above shows the probability of being in particular regime. The model confirms some of the concerns among economists regarding the "flattening" of the Phillips curve. Indeed, the period when Phillips curve behave as expected by the theory has changed at the beginnning of 1990. Since then, the ability of policymakers to influence the inflation has been substantially reduced. 
+The plot above shows the probability of being in particular regime. The model confirms some of the concerns among economists regarding the "flattening" of the Phillips curve. Indeed, the period when Phillips curve behave as expected by the theory has changed at the beginning of 1990. Since then, the ability of policymakers to influence the inflation has been substantially reduced. 
 

@@ -20,7 +20,7 @@ using Statistics
 df = CSV.read("my_assets/df_spx.csv", DataFrame)
 ```
 
-The model we are going to estimate might be challanging for the optimizing algorithm, thus we can help it by standardizing the variables. This is especially important for the models with time-varying transition probability matrix.
+The model we are going to estimate might be challenging for the optimizing algorithm, thus we can help it by standardizing the variables. This is especially important for the models with time-varying transition probability matrix.
 
 ```jldoctest spx
 σ_spx = std(df.spx)
@@ -115,9 +115,9 @@ The estimated model distinguish two market regimes. The first one may be describ
 
 The second regime is characterized by a negative drift and a much higher volatility. This regime is often referred to as a bear market. The price dynamics in this regime behave more like random walk with a negative drift, as the lagged variable have no significant effect on the current price change.
 
-What can the TVTP parameter tell us? Since the model uses logit function in order to model probabilites in a reasonable way, it is complicated to interpret them in a natural way (as is the case for logistic regression). However, we can see that the chance of switching from the second regime to the first one is significantly decreasing with the VIX index, thus the VIX is triggering the bear market. The same in the opposite direction.
+What can the TVTP parameter tell us? Since the model uses logit function in order to model probabilities reasonably, it is complicated to interpret them in a natural way (as is the case for logistic regression). However, we can see that the chance of switching from the second regime to the first one is significantly decreasing with the VIX index, thus the VIX is triggering the bear market. The same in the opposite direction.
 
-We can now inspect the smoothed probabilites of each regime:
+We can now inspect the smoothed probabilities of each regime:
 
 ```jldoctest spx
 plot(smoothed_probs(model)[end-300:end,:],
@@ -137,9 +137,9 @@ plot(expected_duration(model)[expected_duration(model)[:,2] .< 100,:],
 ```
 ![Plot](my_assets/spx_exp_dur.svg)
 
-Since the transition matrix is time-varying, its expected duration is as well. Similarily, the plot shows that predominantly, markets are expected to stay in the calm regime. This is despite the trimmed mean of expected duration shown in the model summary, which is skewed by the outliers. It is useful to plot the time series of expected duration, as the values can often reach extreme values due to logistic tranformation (e.g. a 100% diagonal probability of transition implies an infinite expected duration).
+Since the transition matrix is time-varying, its expected duration is as well. Similarly, the plot shows that predominantly, markets are expected to stay in the calm regime. This is despite the trimmed mean of expected duration shown in the model summary, which is skewed by the outliers. It is useful to plot the time series of expected duration, as the values can often reach extreme values due to logistic transformation (e.g. a 100% diagonal probability of transition implies an infinite expected duration).
 
-Having already found a decent model for the data generating process of the stock market returns, we can also use it for risk management. Function `generate_msm` thanks to Julia's multi-threading, is able to work either with provided parameters of Markov Switching model or from already estimated one. We will use this function for Monte carlo simulation that will allow us to calculate 1% Value-at-Risk (VaR) of S&P500 index. 
+Having already found a decent model for the data generating process of the stock market returns, we can also use it for risk management. Function `generate_msm` thanks to Julia's multi-threading, is able to work either with provided parameters of Markov Switching model or from already estimated one. We will use this function for Monte Carlo simulation that will allow us to calculate 1% Value-at-Risk (VaR) of S&P500 index. 
 
 ```jldoctest spx
 println("model VaR: ", round(quantile((generate_msm(model, 5000)[1] .+ μ_spx ) .* σ_spx, 0.01), digits=4))
@@ -151,7 +151,7 @@ model VaR: -0.0773
 empirical VaR: -0.0735
 Distribution VaR: -0.0503
 ```
-Altough the model was not explicitly specified to explain the tail distribution, it manages to capture it quite well. The VaR calculated from the model is closer to the empirical one than the VaR calculated from the normal distribution (which to be fair is not the best distribution in finance but nonetheless is used commonly).
+Although the model was not explicitly specified to explain the tail distribution, it manages to capture it quite well. The VaR calculated from the model is closer to the empirical one than the VaR calculated from the normal distribution (which to be fair is not the best distribution in finance but nonetheless is used commonly).
 
 
 

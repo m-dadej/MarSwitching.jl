@@ -64,7 +64,7 @@ y_t =
 \end{equation*}
 ```
 
-The package also provides a functions for filtered transition probabilites $P(S_t = i | \Psi_t)$, as well as smoothed ones $P(S_t = i | \Psi_T)$. Essentially, the difference is that in order to calculate the smoothed probabilites the whole sample is used.
+The package also provides functions for filtered transition probabilities $P(S_t = i | \Psi_t)$, as well as smoothed ones $P(S_t = i | \Psi_T)$. Essentially, the difference is that in order to calculate the smoothed probabilities the whole sample is used.
 
 ```julia
 using Plots

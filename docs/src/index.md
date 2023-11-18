@@ -38,9 +38,9 @@ Assuming that you already have at least Julia 1.6 (stable version) installed.
         - intercept
         - variance
         - exogenous variables
-    - model with time-varying transition probabilites (TVTP) (à la Filardo 1994) 
-    - Filtered probabilites
-    - Smoothed probabilites (Kim, 1994)
+    - model with time-varying transition probabilities (TVTP) (à la Filardo 1994) 
+    - Filtered probabilities
+    - Smoothed probabilities (Kim, 1994)
     - Summary statistics of coefficients
     - instantaneous and one step ahead `predict()`
     - Expected regime duration
@@ -72,13 +72,13 @@ Future development is closely related to the package's popularity.
 | relative       | 1            | 6,713         | 8,21     |    42,376      |
 
 
-`MarSwitching.jl` is 6,7 times faster than `statsmodels` implementation in `Python`, 8,2 times faster than `MSwM` in `R` and 42 times faster than `MS_Regress` in `MATLAB`, although MATLAB package is also calculating standard errors during function call. Every implementation had virtually the same error of estimated parameters.
+`MarSwitching.jl` is 6,7 times faster than `statsmodels` implementation in `Python`/`Cython`, 8,2 times faster than `MSwM` in `R` and 42 times faster than `MS_Regress` in `MATLAB`/`MEX`, although MATLAB package is also calculating standard errors during function call. Every implementation had virtually the same error of estimated parameters.
 
 Code of the benchmarks can be found in `benchmark` folder.
 
 ## Markov regime switching model in a nutshell
 
-The markov switching models are a class of models that allow for the parameters to change over time, depending on the unobservable state like economic recession, high volatility on financial markets or epidemiologic outbreak. The state follows markov process with a given probability transition matrix for each of $k$ states:
+The Markov switching models are a class of models that allow for the parameters to change over time, depending on the unobservable state like economic recession, high volatility on financial markets or epidemiologic outbreak. The state follows Markov process with a given probability transition matrix for each of $k$ states:
 
 ```math
 \begin{equation*}
@@ -92,7 +92,7 @@ p_{k,1} & p_{k,2} & \cdots & p_{k,k}
 \end{equation*}
 ```
 
-Satisfying standard markovian properties. The general model is defined as follows:
+Satisfying standard Markovian properties. The general model is defined as follows:
 
 ```math
 \begin{align*}
