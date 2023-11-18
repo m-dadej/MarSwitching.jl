@@ -37,9 +37,9 @@ mean(abs.(sort(model.σ) .- sort(σ)))
 mean(abs.(sort(diag(model.P)) .- sort(diag(P))))
 
 
-Random.seed!(1234)
+Random.seed!(123)
 @benchmark begin
-        model = MSModel(y, k, 
+model = MSModel(y, k, 
         exog_switching_vars = X[:,2],
         exog_vars = X[:,3])
 end    

@@ -272,7 +272,15 @@ function MSModel(y::VecOrMat{V},
             [pmat_em[i,j] = minimum(p_em) /2 for i in 1:k, j in 1:k if i != j]
             pmat_em       = pmat_em ./ sum(pmat_em, dims=1)
             pmat_em       = pmat_em[1:k-1, :] .* sum(pmat_em[1:k-1, :] .+ 1, dims=1) 
-            p_em          = vec(pmat_em)    
+            p_em          = vec(pmat_em)  
+            
+            ## alternatively:
+            # pmat_em = fill(0.05, k-1, k)
+            # for d in 1:k-1
+            #     pmat_em[d,d] += p_em[d] * 7
+            # end
+            # pmat_em .+= 0.05
+            # p_em = vec(pmat_em)
         end
 
         ### converting initial values from EM to vector of parameters ###

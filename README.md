@@ -85,9 +85,9 @@ Future development is closely related to the package's popularity.
 
 `MarSwitching.jl` is the fastest open source implementation of the model. The benchmark was done on artificially generated data with 400 observations, from the model with 3 regimes, 1 switching and 1 non switching exogenous variable. Table below shows mean absolute error of estimated parameters with respect to the actual parameters from `generate_msm()` function.
 
-|                | MarSwitching | statsmodels   | MSwM     | MS_Regress     |
+|                |MarSwitching.jl| statsmodels  | MSwM     | MS_Regress     |
 |:---------------|-------------:|--------------:|---------:|---------------:|
-| implementation | Julia        | Python/cython | R        | Matlab/MEX/C++ |
+| implementation | Julia        | Python/Cython | R        | Matlab/MEX/C++ |
 | error:         |              |               |          |                |
 | mu             | 0,0363       | 0,0363        | 0,036    | 0,0367         |
 | beta_s         | 0,0237       | 0,0237        | 0,0245   | 0,0241         |
@@ -95,11 +95,11 @@ Future development is closely related to the package's popularity.
 | sigma          | 0,0083       | 0,0083        | 0,0108   | 0,0084         |
 | p              | 0,0138       | 0,0138        | 0,0157   | 0,0139         |
 |                |              |               |          |                |
-| runtime        | 0,922        | 3,162         | 3,867    | 19,959         |
-| relative       | 1            | 3,429         | 4,1      |    21,647      |
+| runtime (s)    | 0,471        | 3,162         | 3,867    | 19,959         |
+| relative       | 1            | 6,713         | 8,21     |    42,376      |
 
 
-`MarSwitching.jl` is 3.4 times faster than `statsmodels` implementation in `Python`, 4.1 times faster than `MSwM` in `R` and 21.6 times faster than `MS_Regress` in `MATLAB`, altough Matlab package is also calculating standard errors during function call. Every implementation had virtually the same error of estimated parameters.
+`MarSwitching.jl` is 6,7 times faster than `statsmodels` implementation in `Python`, 8,2 times faster than `MSwM` in `R` and 42 times faster than `MS_Regress` in `MATLAB`, although MATLAB package is also calculating standard errors during function call. Every implementation had virtually the same error of estimated parameters.
 
 Code of the benchmarks can be found in `benchmark` folder.
 
