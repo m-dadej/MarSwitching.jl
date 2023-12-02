@@ -9,6 +9,20 @@ MarSwitching.jl is a package for estimating Markov switching dynamic models (als
 
 Author: Mateusz Dadej, m.dadej at unibs.it
 
+**citation**: I encourage to cite the [working paper](https://ssrn.com/abstract=4638279) of package when using it in your research. You can use the following BibTeX entry from the `CITATION.bib` file:
+
+```
+@article{DadejMarswitching2019,
+  title       = {MarSwitching.jl: A Julia package for Markov Switching Dynamic Models},
+  author      = {Mateusz Dadej},
+  institution = {University of Brescia},
+  journal     = {Available at SSRN 4638279},
+  year        = {2023},
+  doi         = {https://dx.doi.org/10.2139/ssrn.4638279},
+  url         = {https://ssrn.com/abstract=4638279}
+}
+```
+
 !!! info "Star it on GitHub!"
     If you have found this package useful, please consider starring it on [GitHub](https://github.com/m-dadej/MarSwitching.jl).
     ```@raw html

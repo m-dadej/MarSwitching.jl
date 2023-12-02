@@ -14,6 +14,22 @@ Author: Mateusz Dadej, m.dadej at unibs.it
 
 Please check the [documentation](https://m-dadej.github.io/MarSwitching.jl/dev) for examples and information on using the package. 
 
+**citation**: I encourage to cite the [working paper](https://ssrn.com/abstract=4638279) of package when using it in your research. You can use the following BibTeX entry from the `CITATION.bib` file:
+
+```
+@article{DadejMarswitching2019,
+  title       = {MarSwitching.jl: A Julia package for Markov Switching Dynamic Models},
+  author      = {Mateusz Dadej},
+  institution = {University of Brescia},
+  journal     = {Available at SSRN 4638279},
+  year        = {2023},
+  doi         = {https://dx.doi.org/10.2139/ssrn.4638279},
+  url         = {https://ssrn.com/abstract=4638279}
+}
+```
+(I won't be mad if you star the repo as well!)
+
+
 ## Installation
 MarSwitching is in general registry. To install simply use following command:
 
