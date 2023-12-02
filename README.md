@@ -10,7 +10,7 @@
 
 MarSwitching.jl is a package for estimating Markov switching dynamic models (also called regime switching) in Julia. 
 
-Author: Mateusz Dadej, m.dadej at unibs.it
+**Author**: Mateusz Dadej, m.dadej at unibs.it
 
 Please check the [documentation](https://m-dadej.github.io/MarSwitching.jl/dev) for examples and information on using the package. 
 

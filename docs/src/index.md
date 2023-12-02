@@ -7,7 +7,21 @@
 
 MarSwitching.jl is a package for estimating Markov switching dynamic models (also called regime switching) for Julia. This is a class of models with time-varying coefficients depending on an unobservable state/regime that follows Markov process. The package provides tools for estimation, inference and simulation of the models. 
 
-Author: Mateusz Dadej, m.dadej at unibs.it
+**Author**: Mateusz Dadej, m.dadej at unibs.it
+
+!!! info "Star it on GitHub!"
+    If you have found this package useful, please consider starring it on [GitHub](https://github.com/m-dadej/MarSwitching.jl).
+    ```@raw html
+    <script async defer src="https://buttons.github.io/buttons.js"></script>
+
+    <a class="github-button" 
+    href="https://github.com/m-dadej/MarSwitching.jl" 
+    data-icon="octicon-star" 
+    data-size="large" 
+    data-show-count="true" 
+    aria-label="Star alan-turing-institute/MLJ.jl on GitHub">
+    Star</a>
+    ```
 
 **citation**: I encourage to cite the [working paper](https://ssrn.com/abstract=4638279) of package when using it in your research. You can use the following BibTeX entry from the `CITATION.bib` file:
 
@@ -23,19 +37,7 @@ Author: Mateusz Dadej, m.dadej at unibs.it
 }
 ```
 
-!!! info "Star it on GitHub!"
-    If you have found this package useful, please consider starring it on [GitHub](https://github.com/m-dadej/MarSwitching.jl).
-    ```@raw html
-    <script async defer src="https://buttons.github.io/buttons.js"></script>
 
-    <a class="github-button" 
-    href="https://github.com/m-dadej/MarSwitching.jl" 
-    data-icon="octicon-star" 
-    data-size="large" 
-    data-show-count="true" 
-    aria-label="Star alan-turing-institute/MLJ.jl on GitHub">
-    Star</a>
-    ```
 
 ## Installation
 MarSwitching is in general registry. To install simply enter `]` in the Julia's REPL and use following command:
