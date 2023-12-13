@@ -1,4 +1,4 @@
-## MarSwitching.jl: Markov Switching dynamic models in Julia
+## MarSwitching.jl: Markov sSwitching Dynamic Models in Julia
 
 [![docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://m-dadej.github.io/MarSwitching.jl/dev)
 [![Build Status](https://github.com/m-dadej/MARS.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/m-dadej/MARS.jl/actions/workflows/CI.yml?query=branch%3Amain)
