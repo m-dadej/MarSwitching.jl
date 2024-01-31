@@ -1,4 +1,4 @@
-## MarSwitching.jl: Markov Switching dynamic models in Julia
+## MarSwitching.jl: Markov sSwitching Dynamic Models in Julia
 
 [![docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://m-dadej.github.io/MarSwitching.jl/dev)
 [![Build Status](https://github.com/m-dadej/MARS.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/m-dadej/MARS.jl/actions/workflows/CI.yml?query=branch%3Amain)
@@ -81,16 +81,16 @@ For more thorough introduction to the Markov switching models, see 9th chapter o
         - intercept
         - variance
         - exogenous variables
-    - model with time-varying transition probabilities (TVTP) (à la Filardo 1994) 
+    - Model with time-varying transition probabilities (TVTP) (à la Filardo 1994) 
     - Filtered probabilities
     - Smoothed probabilities (Kim, 1994)
     - Summary statistics of coefficients
-    - instantaneous and one step ahead `predict()`
+    - Instantaneous and one step ahead `predict()`
     - Expected regime duration
     - Simulation of data both from estimated model and from given parameters
-    - variable and number of states selection (with random and grid search)
+    - Variable and number of states selection (with random and grid search)
 - Planned functionality:
-    - other error distributions (student-t, GED, etc.)
+    - Other error distributions (student-t, GED, etc.)
     - Markov Switching GARCH model
     - Markov Switching VAR model
     - Markov Switching model with lagged states. E.g. $y_t = \mu_{S_t} + \phi(y_{t-1} - \mu_{S_{t-1}})$
@@ -156,9 +156,9 @@ Random.seed!(123)
 y, s_t, X = generate_msm(μ, σ, P, T, β = β) 
 
 # estimate the model
-model = MSModel(y, k, intercept = "switching", exog_switching_vars = X[:,2])
+model = MSModel(y, k, intercept = "switching", exog_switching_vars = X)
 
-# we may simulated data also from estimated model
+# we may simulate data also from estimated model
 # e.g. for calculating VaR:
 quantile(generate_msm(model, 1000)[1], 0.05)
 
