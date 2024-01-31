@@ -40,32 +40,7 @@ The Markov switching regression (also referred to as regime switching) was first
 
 Markov switching models are a class of regression models that allow for time variation of parameters in an otherwise linear model. More specifically, the current state is determined only by the state from the previous period, which is described in the transition matrix.
 
-Consider a general model:
-$$\mathbf{y}_t = \mathbf{X}_{t,i} \mathbf{\beta}_{S, i} + \mathbf{\epsilon}_t$$
-$$\mathbf{\epsilon} \sim f(0,\mathbf{\Sigma}_s)$$
-Where $\mathbf{y}_t$ is $N$ size vector of dependent variable indexed by time $t$. $\mathbf{X}_{t,i}$ is $N \times M$ matrix of exogenous regressors. $\mathbf{\beta}_{S, i}$ is $K$ size vector of parameters. $\mathbf{\epsilon}_t$ is $N$ size vector of errors. The errors are distributed according to some distribution $f(0,\mathbf{\Sigma}_s)$ with mean zero and covariance matrix $\mathbf{\Sigma}_s$. The state $S$ is a latent (unobservable) variable that can take values from $1$ to $K$. Parameters indexed by $S$ are different for each state.
 
-The state $S_t$ is governed by the Markov process. The probability of transition from state $i$ to state $j$ is given by the $K \times K$ left-stochastic transition matrix $\mathbf{P}$:
-
-$$\begin{equation*}
-  \mathbf{P} = P(S_t = i | S_{t-1} = j) = 
-    \begin{pmatrix}
-    p_{1,1} & p_{1,2} & \cdots & p_{1,k} \\
-    p_{2,1} & p_{2,2} & \cdots & p_{2,k} \\
-    \vdots  & \vdots  & \ddots & \vdots  \\
-    p_{k,1} & p_{k,2} & \cdots & p_{k,k} 
-    \end{pmatrix}
-\end{equation*}$$
-
-With standard constraints: $0 < p_{i,j} < 1, \forall j,i \in \{1,\dots, K\}$ and $\sum_{i}^{K} p_{i,j} \forall j \in \{1, \dots, K\}$.
-
-In a standard model, the transition matrix is assumed to be constant over time. However, it is possible to allow for time variation of the transition matrix itself, as described in [@filardo94] (and as implemented in the package). In this case, each of the transition probabilities is modeled as a function of the exogenous variables $\mathbf{Z}_{t}$:
-
-$$\begin{equation*}
-p_{i,j,t} = \dfrac{\exp(\delta_{i,j}'\mathbf{Z}_t)}{\textstyle \sum_{j=1} \exp(\delta_{i,j}'\mathbf{Z}_t)} 
-\end{equation*}$$
-
-Where $\delta_{i,j}$ is a vector of coefficients. The exponentiation and sum division of the coefficients ensure that the probabilities are non-negative and sum to one. For this model, the expected duration is time-varying as well.
 
 # Main features
 
