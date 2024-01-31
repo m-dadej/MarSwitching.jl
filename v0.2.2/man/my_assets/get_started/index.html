@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Getting started · MarSwitching.jl</title><meta name="title" content="Getting started · MarSwitching.jl"/><meta property="og:title" content="Getting started · MarSwitching.jl"/><meta property="twitter:title" content="Getting started · MarSwitching.jl"/><meta name="description" content="Documentation for MarSwitching.jl."/><meta property="og:description" content="Documentation for MarSwitching.jl."/><meta property="twitter:description" content="Documentation for MarSwitching.jl."/><script data-outdated-warner src="../../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../../assets/documenter.js"></script><script src="../../../search_index.js"></script><script src="../../../siteinfo.js"></script><script src="../../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../../assets/themeswap.js"></script><link href="../../../assets/indigo.css" rel="stylesheet" type="text/css"/></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../../">MarSwitching.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../../">Home</a></li><li><a class="tocitem" href="../../get_started/">Getting started</a></li><li><span class="tocitem">Examples</span><ul><li><a class="tocitem" href="../../examples/example/">Regime switching Phillips curve</a></li><li><a class="tocitem" href="../../examples/example_spx/">Time-varying transition probabilites - modelling stock market</a></li></ul></li><li><a class="tocitem" href="../../docstrings/">API</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Getting started</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Getting started</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/m-dadej/MarSwitching.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/m-dadej/MarSwitching.jl/blob/main/docs/src/man/my_assets/get_started.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Getting-started"><a class="docs-heading-anchor" href="#Getting-started">Getting started</a><a id="Getting-started-1"></a><a class="docs-heading-anchor-permalink" href="#Getting-started" title="Permalink"></a></h1><p>Following example will estimate a simple Markov switching model with regime dependent intercept, exogenous variable and variance. The model is defined as follows:</p><p class="math-container">\[\begin{align*}
+    y_t &amp;= \mu_s + \beta_s x_t + \epsilon_t, &amp; \epsilon &amp;\sim \mathbb{N}(0,\mathcal{\Sigma}_s) \\
+\end{align*}\]</p><p class="math-container">\[\begin{equation*}
+    P(S_t = i | S_{t-1} = j) = \begin{bmatrix}
+        p_1 &amp; 1 - p_2\\
+        1 - p_1 &amp; p_2
+        \end{bmatrix}
+\end{equation*}\]</p><pre><code class="language-julia hljs">using MarSwitching
+using Random
+using Statistics
+
+k = 2            # number of regimes
+T = 400          # number of generated observations
+μ = [1.0, -0.5]  # regime-switching intercepts
+β = [-1.5, 0.0]  # regime-switching coefficient for β
+σ = [1.1,  0.8]  # regime-switching standard deviation
+P = [0.9 0.05    # transition matrix (left-stochastic)
+     0.1 0.95]
+
+Random.seed!(123)
+
+# generate artificial data with given parameters
+y, s_t, X = generate_msm(μ, σ, P, T, β = β)
+
+# estimate the model
+model = MSModel(y, k, intercept = &quot;switching&quot;, exog_switching_vars = X[:,2])
+
+# we may simulated data also from estimated model
+# e.g. for calculating VaR:
+quantile(generate_msm(model, 1000)[1], 0.05)
+
+# or more interestingly, output summary table
+summary_msm(model)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Markov Switching Model with 2 regimes
+=================================================================
+# of observations:          400 AIC:                      1115.629
+# of estimated parameters:    8 BIC:                      1147.561
+Error distribution:    Gaussian Instant. adj. R^2:          0.5955
+Loglikelihood:           -549.8 Step-ahead adj. R^2:        0.4432
+-----------------------------------------------------------------
+------------------------------
+Summary of regime 1:
+------------------------------
+Coefficient  |  Estimate  |  Std. Error  |  z value  |  Pr(&gt;|z|)
+-------------------------------------------------------------------
+β_0          |    -0.463  |       0.047  |   -9.828  |    &lt; 1e-3
+β_1          |     0.048  |       0.047  |    1.011  |     0.312
+σ            |     0.755  |       0.019  |   38.897  |    &lt; 1e-3
+-------------------------------------------------------------------
+Expected regime duration: 27.73 periods
+-------------------------------------------------------------------
+------------------------------
+Summary of regime 2:
+------------------------------
+Coefficient  |  Estimate  |  Std. Error  |  z value  |  Pr(&gt;|z|)
+-------------------------------------------------------------------
+β_0          |     0.975  |       0.097  |   10.049  |    &lt; 1e-3
+β_1          |    -1.552  |        0.09  |  -17.326  |    &lt; 1e-3
+σ            |     1.044  |       0.034  |   30.835  |    &lt; 1e-3
+-------------------------------------------------------------------
+Expected regime duration: 13.94 periods
+-------------------------------------------------------------------
+left-stochastic transition matrix:
+          | regime 1   | regime 2
+---------------------------------------
+ regime 1 |   96.394%  |    7.173%  |
+ regime 2 |    3.606%  |   92.827%  |</code></pre><p>The estimated model has a following form:</p><p class="math-container">\[y_t = 
+\begin{cases}
+    0.82 - 1.48 \times x_t + \epsilon_{1,t} ,&amp; \epsilon_1 &amp;\sim \mathbb{N}(0,1.12), &amp; \text{for } S_t = 1\\
+    -0.51 - 0.003 \times x_t + \epsilon_{2,t} ,&amp; \epsilon_2 &amp;\sim \mathbb{N}(0,0.84), &amp; \text{for } S_t = 2
+\end{cases}\]</p><p class="math-container">\[\begin{equation*}
+    P(S_t = i | S_{t-1} = j) = \begin{bmatrix}
+        91.18\% &amp; 3.5\% \\
+        8.82\% &amp; 96.5\%
+        \end{bmatrix}
+\end{equation*}\]</p><p>The package also provides a functions for filtered transition probabilites <span>$P(S_t = i | \Psi_t)$</span>, as well as smoothed ones <span>$P(S_t = i | \Psi_T)$</span>. Essentially, the difference is that in order to calculate the smoothed probabilites the whole sample is used.</p><pre><code class="language-julia hljs">using Plots
+
+plot(filtered_probs(model),
+     label     = [&quot;Regime 1&quot; &quot;Regime 2&quot;],
+     title     = &quot;Regime probabilities&quot;, 
+     linewidth = 2)</code></pre><p><img src="../filtered_probs.svg" alt="Plot"/></p><pre><code class="language-julia hljs">using Plots
+
+plot(smoothed_probs(model),
+     label     = [&quot;Regime 1&quot; &quot;Regime 2&quot;],
+     title     = &quot;Smoothed regime probabilities&quot;, 
+     linewidth = 2)</code></pre><p><img src="../smoothed_probs.svg" alt="Plot"/></p></article><nav class="docs-footer"><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="auto">Automatic (OS)</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.2.1 on <span class="colophon-date" title="Wednesday 31 January 2024 14:23">Wednesday 31 January 2024</span>. Using Julia version 1.6.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
