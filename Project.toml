@@ -1,21 +1,16 @@
 name = "MarSwitching"
 uuid = "b2b8a7f1-da70-4e5f-beaa-e2774ec39c2f"
 authors = ["Mateusz Dadej <m.dadej@unibs.it>"]
-version = "0.2.1"
+version = "0.2.2"
 
 [deps]
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
-DocThemeIndigo = "8bac0ac5-51bf-41f9-885e-2bf1ac2bec5f"
-Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
 FiniteDiff = "6a86dc24-6348-571c-b903-95158fe2bd41"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 NLopt = "76087f3c-5699-56af-9a33-bf431cd00edd"
 Printf = "de0858da-6303-5e67-8744-51eddeeeb8d7"
 Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
-Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
 StatsBase = "2913bbd2-ae8a-5f71-8c99-4fb6c76f3a91"
-TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
-Traceur = "37b6cedf-1f77-55f8-9503-c64b63398394"
 
 [compat]
 Distributions = "0.21, 0.22, 0.23, 0.24, 0.25"
