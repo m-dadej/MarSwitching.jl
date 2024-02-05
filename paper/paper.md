@@ -37,9 +37,11 @@ The Markov switching regression (also referred to as regime switching) was first
 Markov switching models are a class of regression models that allow for time variation of parameters in an otherwise linear model. More specifically, the current state is determined only by the state from the previous period, which is described in the transition matrix.
 
 Consider a general model:
-$$\mathbf{y}_t = \mathbf{X}_{t,i} \mathbf{\beta}_{S, i} + \mathbf{\epsilon}_t$$
-$$\mathbf{\epsilon} \sim f(0,\mathbf{\Sigma}_s)$$
-Where $\mathbf{y}_t$ is $N$ size vector of dependent variable indexed by time $t$. $\mathbf{X}_{t,i}$ is $N \times M$ matrix of exogenous regressors. $\mathbf{\beta}_{S, i}$ is $K$ size vector of parameters. $\mathbf{\epsilon}_t$ is $N$ size vector of errors. The errors are distributed according to some distribution $f(0,\mathbf{\Sigma}_s)$ with mean zero and covariance matrix $\mathbf{\Sigma}_s$. The state $S$ is a latent (unobservable) variable that can take values from $1$ to $K$. Parameters indexed by $S$ are different for each state.
+
+\mathbf{y}_t = \mathbf{X}_{t,i} \mathbf{\beta}_{S, i} + \mathbf{\epsilon}_t$$
+\mathbf{\epsilon} \sim f(0,\mathbf{\Sigma}_s)
+
+Where $\mathbf{y}_t$ is $N$ size vector of dependent variable indexed by time $t$. $\mathbf{X}_{t,i}$ is $N \times M$ matrix of exogenous regressors. \mathbf{\beta}_{S, i} is $K$ size vector of parameters. \mathbf{\epsilon}_t is $N$ size vector of errors. The errors are distributed according to some distribution f(0,\mathbf{\Sigma}_s) with mean zero and covariance matrix \mathbf{\Sigma}_s. The state $S$ is a latent (unobservable) variable that can take values from $1$ to $K$. Parameters indexed by $S$ are different for each state.
 
 The state $S_t$ is governed by the Markov process. The probability of transition from state $i$ to state $j$ is given by the $K \times K$ left-stochastic transition matrix $\mathbf{P}$:
 
@@ -63,62 +65,69 @@ p_{i,j,t} = \dfrac{\exp(\delta_{i,j}'\mathbf{Z}_t)}{\textstyle \sum_{j=1} \exp(\
 
 Where $\delta_{i,j}$ is a vector of coefficients. The exponentiation and sum division of the coefficients ensure that the probabilities are non-negative and sum to one. For this model, the expected duration is time-varying as well.
 
-# Main features
+# Quick start
 
-## Model estimation
+The package allows for simulation of data from the Markov switching model. The user can specify the number of states, observations, and model parameters (both transition and regression parameters). The package will return a simulated dataset and the standardized exogenous variables.
 
-There is a single function to estimate the model. With following simplified syntax
+```Julia
+using MarSwitching
+using Random
+import Statistics: quantile
 
+k = 2            # number of regimes
+T = 400          # number of generated observations
+μ = [1.0, -0.5]  # regime-switching intercepts
+β = [-1.5, 0.0]  # regime-switching coefficient for β
+σ = [1.1,  0.8]  # regime-switching standard deviation
+P = [0.9 0.05    # transition matrix (left-stochastic)
+     0.1 0.95]
+
+Random.seed!(123)
+
+# generate artificial data with given parameters
+y, s_t, X = generate_msm(μ, σ, P, T, β = β)
 ```
-MSModel(y::VecOrMat{V},
-        k::Int64,
-        ;intercept::String = "switching",
-        exog_vars::VecOrMat{V},
-        exog_switching_vars::VecOrMat{V},
-        switching_var::Bool = true,
-        exog_tvtp::VecOrMat{V},
-        random_search::Int64 = 0,
-        random_search_em::Int64) where V <: AbstractFloat
+
+The model is estimated using `MSModel()` function. The user needs to specify the dependent variable `y`, the number of states `k`. The exogenous variables are passes to either `exog_vars` or `exog_switching_vars` argument, depending wether the variable is expected to have a switching parameter. In a similar vein the user may pass exogenous variable for tim-varying transition matrix into `exog_tvtp`. However, in order to have an intercept the column of ones needs to be added explicitly.
+
+```Julia
+# estimate the model
+model = MSModel(y, k, intercept = "switching", exog_switching_vars = X)
 ```
 
-With the mandatory arguments being:
+Thanks to Julia's multiple dispatch, the `generate_msm()` function works by either providing the parameters as in the first code chunk or using the previously estimated model. This is useful e.g. for assessing the statistical properties of the model by Monte Carlo simulation. 
 
-- `y::VecOrMat{V}` - Data of dependent variable.
-- `k::Int64` - Number of states. Needs to be at least 2. Since a model with `k=1` is equivalent to a standard linear regression model.
+```Julia
+quantile(generate_msm(model, 1000)[1], 0.05)
+```
 
-- `Intercept::String` - A string defining the intercept term. Possible values are `"switching"` (default), `"non-switching"` and `"no"` (for model without intercept)
-- `exog_vars::VecOrMat{V}` - A vector or matrix of non-switching exogenous variables.
-- `exog_switching_vars::VecOrMat{V}` - A vector or matrix of switching exogenous variables.
-- `switching_var::Bool` - A boolean value indicating whether the variance of the error term is switching. Default is `true`.
-- `exog_tvtp::VecOrMat{V}` - A vector or matrix of exogenous variables for time-varying transition probabilities. To define the intercept in the equation of transition probabilities, the user should include a column of ones in the matrix. On default the model assumes that the transition probabilities are constant over time.
-- `random_search::Int64` - Number of random searches of the optimization (excluding the initial one). The optimization is ran each time with random changes to the initial values of the parameters. The best result is then chosen based on the log-likelihood value. Default is `0`, which means no random searches are performed.
-- `random_search_em::Int64` - Number of random searches of the expectation-maximization algorithm. Default is `0`, which means no random searches are performed.
+There are several functions for printing statistics of the estimated model. Each of the functions has a `digits` argument specifying a rounding number. `state_coeftable()` shows model coefficients’ statistics for a given state and the expected duration of the state. For a standard model with constant transition matrix, the function `transition_mat()` prints a formatted matrix of estimated transition probabilities. For models with time-varying transition probabilities, the coefficients can be inspected with `coeftable_tvtp()`. The function `summary_mars()` prints all the relevant information about the model for each of the states. Additionally, it shows basic information about the model and fitness statistics.
 
-## Model summary
+The package also provides a function for filtered transition probabilities ($P(S_t = i | \Psi_t)$), as well as smoothed ones (($P(S_t = i | \Psi_T)$)) ([@kim94]). Where the former is estimated using the data up to time $t$ and the latter using the whole dataset. The functions to get these probabilities are `filtered_probs()` and `smoothed_probs()` respectively.
 
+```Julia
+using Plots
 
-There are several functions for printing statistics of the estimated model. `state_coeftable(model::MSM, state::Int64; digits::Int64=3)` shows model coefficient's statistics for a given state and expected duration of the state. The standard errors are calculated using the inverse Hessian method [@penrose55]. For a standard model with a constant transition matrix, the function `transition_mat(model::MSM; digits::Int64=2)` prints a formatted matrix of estimated transition probabilities. For models with time-varying transition probabilities, the coefficients can be inspected with `coeftable_tvtp(model::MSM; digits::Int64=3)`.The functions above are building blocks of the main summary function `summary_mars(model::MSM)`, which prints all the relevant information about the model for each of the states from previous functions. Additionally, it shows basic information about the model and fitness statistics.
+plot(filtered_probs(model),
+     label     = ["Regime 1" "Regime 2"],
+     title     = "Regime probabilities", 
+     linewidth = 2)
+```
 
-## Model simulation
+Figure \autoref{fig:example} presents the output of the code above.
 
-It is possible to simulate the data either from an estimated model or for a specified parameter set. Thanks to `Julia`'s multiple dispatch, the function `generate_msm` may be called in two ways. Either with the model object as an argument:
+![Filtered probabilites. \label{fig:example}](filtered_probs.svg)
 
-`generate_msm(model::MSM, T::Int64=model.T)`
+The package also provides a function for forecasting the dependent variable. However, for the Markov switching models, the prediction is not as intuitive as in less complex models. The reason is that the model requires also a forecast of state at time $t+1$.
 
-Or for the given parameters of the model:
+`predict()` function returns the forcasted values either calculated in the instantaneous way:
 
-`generate_msm(\mu::Vector{Float64}, 
-              \sigma::Vector{Float64}, 
-              P::Matrix{Float64}, 
-              T::Int64; 
-              \beta::Vector{Float64}, 
-              \beta_ns::Vector{Float64}, 
-              \delta::Vector{Float64}, tvtp_intercept::Bool)`
+$$\hat{y}_t = \sum_{i=1}^{k} \hat{\xi}_{i,t}X_{t}'\hat{\beta}_{i}$$
 
-The function returns an object of type `tuple` containing the dependent variable `y::VectorFloat64`,
-regimes time series `s_t::VectorFloat64`, and the design matrix `X::MatrixFloat64` ($X \sim N(0,1)$).
+Or as a one step ahead forecast, where the states are predicted themselves:
 
-# Citations
+$$\hat{y}_{t+1} = \sum_{i=1}^{k} (P\hat{\xi}_{i,t})X_{t+1}'\hat{\beta}_{i}$$
+
 
 # Acknowledgements
 
