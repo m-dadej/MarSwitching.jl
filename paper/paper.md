@@ -122,11 +122,11 @@ The package also provides a function for forecasting the dependent variable. How
 
 `predict()` function returns the forcasted values either calculated in the instantaneous way:
 
-$$\hat{y}_t = \sum_{i=1}^{k} \hat{\xi}_{i,t}X_{t}'\hat{\beta}_{i}$$
+\hat{y}_t = \sum_{i=1}^{k} \hat{\xi}_{i,t}X_{t}'\hat{\beta}_{i}
 
 Or as a one step ahead forecast, where the states are predicted themselves:
 
-$$\hat{y}_{t+1} = \sum_{i=1}^{k} (P\hat{\xi}_{i,t})X_{t+1}'\hat{\beta}_{i}$$
+\hat{y}_{t+1} = \sum_{i=1}^{k} (P\hat{\xi}_{i,t})X_{t+1}'\hat{\beta}_{i}
 
 
 # Acknowledgements
