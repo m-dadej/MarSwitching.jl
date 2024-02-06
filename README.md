@@ -33,7 +33,7 @@ Please check the [documentation](https://m-dadej.github.io/MarSwitching.jl/dev) 
 ## Installation
 MarSwitching is in general registry. To install simply use following command:
 
-```julia
+```
 ] add MarSwitching
 ```
 
@@ -156,7 +156,7 @@ Random.seed!(123)
 y, s_t, X = generate_msm(μ, σ, P, T, β = β) 
 
 # estimate the model
-model = MSModel(y, k, intercept = "switching", exog_switching_vars = X)
+model = MSModel(y, k, intercept = "switching", exog_switching_vars = X[:,1])
 
 # we may simulate data also from estimated model
 # e.g. for calculating VaR:
@@ -166,7 +166,7 @@ quantile(generate_msm(model, 1000)[1], 0.05)
 summary_msm(model)
 ````
 
-The `summary_msm(model)`  will output following summary table:
+The `summary_msm(model)` will output following summary table:
 
 ```jldoctest
 Markov Switching Model with 2 regimes
