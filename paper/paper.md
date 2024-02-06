@@ -41,7 +41,8 @@ Consider a general model:
 $$\mathbf{y}_t = \mathbf{X}_{t,i} \mathbf{\beta}_{S, i} + \mathbf{\epsilon}_t$$
 $$\mathbf{\epsilon} \sim f(0,\mathbf{\Sigma}_s)$$
 
-Where $\mathbf{y}_t$ is $N$ size vector of dependent variable indexed by time $t$. $\mathbf{X}_{t,i}$ is $N \times M$ matrix of exogenous regressors. \mathbf{\beta}_{S, i} is $K$ size vector of parameters. \mathbf{\epsilon}_t is $N$ size vector of errors. The errors are distributed according to some distribution f(0,\mathbf{\Sigma}_s) with mean zero and covariance matrix \mathbf{\Sigma}_s. The state $S$ is a latent (unobservable) variable that can take values from $1$ to $K$. Parameters indexed by $S$ are different for each state.
+Where $\mathbf{y}_t$ is $N$ size vector of dependent variable indexed by time $t$. $\mathbf{X}_{t,i}$ is $N \times M$ matrix of exogenous regressors. $\mathbf{\beta}_{S, i}$ is $K$ size vector of parameters. 
+$\mathbf{\epsilon}_t$ is $N$ size vector of errors. The errors are distributed according to some distribution $f(0,\mathbf{\Sigma}_s)$ with mean zero and covariance matrix $\mathbf{\Sigma}_s$. The state $S$ is a latent (unobservable) variable that can take values from $1$ to $K$. Parameters indexed by $S$ are different for each state.
 
 The state $S_t$ is governed by the Markov process. The probability of transition from state $i$ to state $j$ is given by the $K \times K$ left-stochastic transition matrix $\mathbf{P}$:
 
