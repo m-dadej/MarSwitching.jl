@@ -25,6 +25,7 @@ bibliography: paper.bib
 
 'MarSwitching.jl'([@bezanson2017julia]) is the first package in Julia programming language implementing Markov Switching Dynamic Models. It provides a set of tools for estimation, simulation and forecasting of Markov switching models. This class of models is the principal tool for modelling time series with regime changes. The time-variation of model parameters is governed by the limited memory Markov process. Because of non-trivial likelihood function and the amount of model parameters, Julia is a perfect language to implement this class of models due to its performance. 
 
+Currently, the package provides model estimation with a combination of switching or non-switching intercept, error variance and exogenous variables. The transition matrix can be either constant or time-varying. The package also provides a set of functions for model diagnostics and forecasting. Further development of the package is considered, conditional on the interest of thereof.
 
 # Statement of need
 
@@ -64,7 +65,7 @@ In a standard model, the transition matrix is assumed to be constant over time. 
 p_{i,j,t} = \dfrac{\exp(\delta_{i,j}'\mathbf{Z}_t)}{\textstyle \sum_{j=1} \exp(\delta_{i,j}'\mathbf{Z}_t)} 
 \end{equation*}
 
-Where $\delta_{i,j}$ is a vector of coefficients. The exponentiation and sum division of the coefficients ensure that the probabilities are non-negative and sum to one. For this model, the expected duration is time-varying as well.
+Where $\delta_{i,j}$ is a vector of coefficients. The exponentiation and sum division of the coefficients ensure that the probabilities are non-negative and sum to one. For this model, the expected duration of the state is time-varying as well.
 
 # Quick start
 
@@ -89,7 +90,7 @@ Random.seed!(123)
 y, s_t, X = generate_msm(μ, σ, P, T, β = β)
 ```
 
-The model is estimated using `MSModel()` function. The user needs to specify the dependent variable `y`, the number of states `k`. The exogenous variables are passes to either `exog_vars` or `exog_switching_vars` argument, depending wether the variable is expected to have a switching parameter. In a similar vein the user may pass exogenous variable for tim-varying transition matrix into `exog_tvtp`. However, in order to have an intercept the column of ones needs to be added explicitly.
+The model is estimated using `MSModel()` function. The user needs to specify the dependent variable `y`, the number of states `k`. The exogenous variables are passed to either `exog_vars` or `exog_switching_vars` argument, depending wether the variable is expected to have a switching parameter. In a similar vein the user may pass exogenous variable for time-varying transition matrix into `exog_tvtp`. However, in order to have an intercept the column of ones needs to be added explicitly.
 
 ```Julia
 # estimate the model
@@ -117,11 +118,11 @@ plot(filtered_probs(model),
 
 Figure \autoref{fig:example} presents the output of the code above.
 
-![Filtered probabilites. \label{fig:example}](regime_probs.svg){ width=130% }
+![Filtered probabilites. \label{fig:example}](regime_probs.svg){ width=80% }
 
 The package also provides a function for forecasting the dependent variable. However, for the Markov switching models, the prediction is not as intuitive as in less complex models. The reason is that the model requires also a forecast of state at time $t+1$.
 
-`predict()` function returns the forcasted values either calculated in the instantaneous way:
+`predict()` function returns the forecasted values either calculated in the instantaneous way:
 
 \begin{equation*}
 \hat{y}_t = \sum_{i=1}^{k} \hat{\xi}_{i,t}X_{t}'\hat{\beta}_{i}
@@ -132,8 +133,6 @@ Or as a one step ahead forecast, where the states are predicted themselves:
 \begin{equation*}
 \hat{y}_{t+1} = \sum_{i=1}^{k} (P\hat{\xi}_{i,t})X_{t+1}'\hat{\beta}_{i}
 \end{equation*}
-
-
 
 # Acknowledgements
 
