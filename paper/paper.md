@@ -105,7 +105,7 @@ quantile(generate_msm(model, 1000)[1], 0.05)
 
 There are several functions for printing statistics of the estimated model. Each of the functions has a `digits` argument specifying a rounding number. `state_coeftable()` shows model coefficients’ statistics for a given state and the expected duration of the state. For a standard model with constant transition matrix, the function `transition_mat()` prints a formatted matrix of estimated transition probabilities. For models with time-varying transition probabilities, the coefficients can be inspected with `coeftable_tvtp()`. The function `summary_mars()` prints all the relevant information about the model for each of the states. Additionally, it shows basic information about the model and fitness statistics.
 
-The package also provides a function for filtered transition probabilities ($P(S_t = i | \Psi_t)$), as well as smoothed ones ($P(S_t = i | \Psi_T)$)([@kim94]). Where the former is estimated using the data up to time $t$ and the latter using the whole dataset. The functions to get these probabilities are `filtered_probs()` and `smoothed_probs()` respectively.
+The package also provides a function for filtered transition probabilities ($P(S_t = i | \Psi_t)$), as well as smoothed ones ($P(S_t = i | \Psi_T)$)[@kim94]. Where the former is estimated using the data up to time $t$ and the latter using the whole dataset. The functions to get these probabilities are `filtered_probs()` and `smoothed_probs()` respectively.
 
 ```Julia
 using Plots
@@ -133,6 +133,8 @@ Or as a one step ahead forecast, where the states are predicted themselves:
 \begin{equation*}
 \hat{y}_{t+1} = \sum_{i=1}^{k} (P\hat{\xi}_{i,t})X_{t+1}'\hat{\beta}_{i}
 \end{equation*}
+
+For more details, the user is referred to the package [documentation](https://m-dadej.github.io/MarSwitching.jl/stable/). Alternatively, in order to inspect the description of a particular function, the help operator - `?` in Julia’s REPL may come in handy (e.g., ?MSModel).
 
 # Acknowledgements
 
