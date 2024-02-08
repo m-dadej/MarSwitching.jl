@@ -38,11 +38,11 @@ Markov switching models are a class of regression models that allow for time var
 
 Consider a general model:
 
-$$\mathbf{y}_t = \mathbf{X}_{t,i} \mathbf{\beta}_{S, i} + \mathbf{\epsilon}_t$$
-$$\mathbf{\epsilon} \sim f(0,\mathbf{\Sigma}_s)$$
+$$\mathbf{y}_t = \mathbf{X}_{t,i} \beta_{S, i} + \epsilon_t$$
+$$\epsilon \sim f(0,\Sigma_s)$$
 
-Where $\mathbf{y}_t$ is $N$ size vector of dependent variable indexed by time $t$. $\mathbf{X}_{t,i}$ is $N \times M$ matrix of exogenous regressors. $\mathbf{\beta}_{S, i}$ is $K$ size vector of parameters. 
-$\mathbf{\epsilon}_t$ is $N$ size vector of errors. The errors are distributed according to some distribution $f(0,\mathbf{\Sigma}_s)$ with mean zero and covariance matrix $\mathbf{\Sigma}_s$. The state $S$ is a latent (unobservable) variable that can take values from $1$ to $K$. Parameters indexed by $S$ are different for each state.
+Where $\mathbf{y}_t$ is $N$ size vector of dependent variable indexed by time $t$. $\mathbf{X}_{t,i}$ is $N \times M$ matrix of exogenous regressors. $\beta_{S, i}$ is $K$ size vector of parameters. 
+$\epsilon_t$ is $N$ size vector of errors. The errors are distributed according to some distribution $f(0,\Sigma_s)$ with mean zero and covariance matrix $\Sigma_s$. The state $S$ is a latent (unobservable) variable that can take values from $1$ to $K$. Parameters indexed by $S$ are different for each state.
 
 The state $S_t$ is governed by the Markov process. The probability of transition from state $i$ to state $j$ is given by the $K \times K$ left-stochastic transition matrix $\mathbf{P}$:
 
@@ -93,7 +93,7 @@ The model is estimated using `MSModel()` function. The user needs to specify the
 
 ```Julia
 # estimate the model
-model = MSModel(y, k, intercept = "switching", exog_switching_vars = X)
+model = MSModel(y, k, intercept = "switching", exog_switching_vars = X[:,2])
 ```
 
 Thanks to Julia's multiple dispatch, the `generate_msm()` function works by either providing the parameters as in the first code chunk or using the previously estimated model. This is useful e.g. for assessing the statistical properties of the model by Monte Carlo simulation. 
@@ -104,7 +104,7 @@ quantile(generate_msm(model, 1000)[1], 0.05)
 
 There are several functions for printing statistics of the estimated model. Each of the functions has a `digits` argument specifying a rounding number. `state_coeftable()` shows model coefficients’ statistics for a given state and the expected duration of the state. For a standard model with constant transition matrix, the function `transition_mat()` prints a formatted matrix of estimated transition probabilities. For models with time-varying transition probabilities, the coefficients can be inspected with `coeftable_tvtp()`. The function `summary_mars()` prints all the relevant information about the model for each of the states. Additionally, it shows basic information about the model and fitness statistics.
 
-The package also provides a function for filtered transition probabilities ($P(S_t = i | \Psi_t)$), as well as smoothed ones (($P(S_t = i | \Psi_T)$)) ([@kim94]). Where the former is estimated using the data up to time $t$ and the latter using the whole dataset. The functions to get these probabilities are `filtered_probs()` and `smoothed_probs()` respectively.
+The package also provides a function for filtered transition probabilities ($P(S_t = i | \Psi_t)$), as well as smoothed ones ($P(S_t = i | \Psi_T)$)([@kim94]). Where the former is estimated using the data up to time $t$ and the latter using the whole dataset. The functions to get these probabilities are `filtered_probs()` and `smoothed_probs()` respectively.
 
 ```Julia
 using Plots
@@ -117,7 +117,7 @@ plot(filtered_probs(model),
 
 Figure \autoref{fig:example} presents the output of the code above.
 
-![Filtered probabilites. \label{fig:example}](filtered_probs.svg)
+![Filtered probabilites. \label{fig:example}](regime_probs.svg)
 
 The package also provides a function for forecasting the dependent variable. However, for the Markov switching models, the prediction is not as intuitive as in less complex models. The reason is that the model requires also a forecast of state at time $t+1$.
 
@@ -132,6 +132,7 @@ Or as a one step ahead forecast, where the states are predicted themselves:
 \begin{equation*}
 \hat{y}_{t+1} = \sum_{i=1}^{k} (P\hat{\xi}_{i,t})X_{t+1}'\hat{\beta}_{i}
 \end{equation*}
+
 
 
 # Acknowledgements
