@@ -1,5 +1,5 @@
 ---
-title: 'MarSwitching.jl: Julia package for Markov switching dynamic models'
+title: 'MarSwitching.jl: A Julia package for Markov switching dynamic models'
 tags:
   - Julia
   - Time series
@@ -23,7 +23,7 @@ bibliography: paper.bib
 
 # Summary
 
-'MarSwitching.jl'([@bezanson2017julia]) is the first package in Julia programming language implementing Markov Switching Dynamic Models. It provides a set of tools for estimation, simulation and forecasting of Markov switching models. This class of models is the principal tool for modelling time series with regime changes. The time-variation of model parameters is governed by the limited memory Markov process. Because of non-trivial likelihood function and the amount of model parameters, Julia is a perfect language to implement this class of models due to its performance. 
+'MarSwitching.jl'[@bezanson2017julia] is the first package in Julia programming language implementing Markov Switching Dynamic Models. It provides a set of tools for estimation, simulation and forecasting of Markov switching models. This class of models is the principal tool for modelling time series with regime changes. The time-variation of model parameters is governed by the limited memory Markov process. Because of non-trivial likelihood function and the amount of model parameters, Julia is a perfect language to implement this class of models due to its performance. 
 
 Currently, the package provides model estimation with a combination of switching or non-switching intercept, error variance and exogenous variables. The transition matrix can be either constant or time-varying. The package also provides a set of functions for model diagnostics and forecasting. Further development of the package is considered, conditional on the interest of thereof.
 
@@ -118,7 +118,7 @@ plot(filtered_probs(model),
 
 Figure \autoref{fig:example} presents the output of the code above.
 
-![Filtered probabilites. \label{fig:example}](regime_probs.svg){ width=80% }
+![Filtered probabilites. \label{fig:example}](regime_probs.svg){ width=90% }
 
 The package also provides a function for forecasting the dependent variable. However, for the Markov switching models, the prediction is not as intuitive as in less complex models. The reason is that the model requires also a forecast of state at time $t+1$.
 
