@@ -14,8 +14,6 @@ authors:
 affiliations:
  - name: Phd. student, University of Brescia, Italy
    index: 1
- - name: Visiting Scholar, University of Mannheim, Germany
-   index: 2
 date: 30 February 2024
 bibliography: paper.bib
 
@@ -23,17 +21,17 @@ bibliography: paper.bib
 
 # Summary
 
-`MarSwitching.jl`[@bezanson2017julia] is the first package in Julia programming language implementing Markov Switching Dynamic Models. It provides a set of tools for estimation, simulation and forecasting of Markov switching models. This class of models is the principal tool for modelling time series with regime changes. The time-variation of model parameters is governed by the limited memory Markov process. Because of non-trivial likelihood function and the amount of model parameters, Julia is a perfect language to implement this class of models due to its performance. 
+`MarSwitching.jl` is the first package in Julia programming language s[@bezanson2017julia] implementing Markov switching dynamic models. It provides a set of tools for estimation, simulation and forecasting of Markov switching models. This class of models is the principal tool for modelling time series with regime changes. The time-variation of model parameters is governed by the limited memory Markov process. Because of non-trivial likelihood function and the amount of model parameters, Julia is a perfect language to implement this class of models due to its performance. 
 
-Currently, the package provides model estimation with a combination of switching or non-switching intercept, error variance and exogenous variables. The transition matrix can be either constant or time-varying. The package also provides a set of functions for model diagnostics and forecasting. Further development of the package is considered, conditional on the interest of thereof.
+Currently, the package provides model estimation with a combination of switching or non-switching intercept, error variance and exogenous variables. The transition matrix can be either constant or time-varying. The package also provides a set of functions for model diagnostics and forecasting. Further development of the package is considered, conditional on the interest in thereof.
 
 # Statement of need
 
 The Markov switching regression (also referred to as regime switching) was first introduced in the seminal work of [@hamilton89]. Since then, it has been extensively used in empirical research. Although the model was introduced as an application to economic data, the range of applications has expanded significantly since the first publication. These fields include finance [@buffington02], political science [@Brandt2014], hydrology [@wang23], epidemiology [@shiferaw21] and even bibliometrics [@delbianco20].
 
-The popularity of these models among applied scientists and industry professionals is reflected in the availability of implementations. There are several packages in R [@Rlang] such as `MSwM` [@MSwM] or `dynr` [@dynr]. For the Python language, the Markov switching model is implemented as part of the `statsmodels` package [@statsmodels]. MATLAB users may also estimate these models with `MS_Regress` [@msregress]. Most of the well-established closed-source statistical applications also have their own implementations of Markov switching models. These include EViews, Stata, and SAS.
+The popularity of these models among applied scientists and industry professionals is reflected in the availability of implementations. There are several packages in R [@Rlang] such as `MSwM` [@MSwM] or `dynr` [@dynr]. For the Python language, the Markov switching model is implemented as part of the `statsmodels` package [@statsmodels]. MATLAB users may also estimate these models with `MS_Regress` [@msregress] package. Most of the well-established closed-source statistical applications also have their own implementations of Markov switching models. These include EViews, Stata, and SAS.
 
-Despite the popularity of the method `MarSwitching.jl` is, at the moment, the only package dedicated to estimation of Markov switching models available in the Julia programming language. At the same time, it is implemented purely in this language. 
+Despite the popularity of the method, `MarSwitching.jl` is, at the moment, the only package dedicated to estimation of Markov switching models available in the Julia programming language. At the same time, it is implemented purely in this language. 
 
 # Background
 
