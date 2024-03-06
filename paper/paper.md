@@ -10,7 +10,7 @@ authors:
   - name: Mateusz Dadej
     orcid: 0000-0002-1791-7611
     corresponding: true
-    affiliation: "1, 2" # (Multiple affiliations must be quoted)
+    affiliation: 1 # (Multiple affiliations must be quoted)
 affiliations:
  - name: Phd. student, University of Brescia, Italy
    index: 1
