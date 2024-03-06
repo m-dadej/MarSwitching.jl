@@ -6,6 +6,7 @@
 [![codecov](https://codecov.io/gh/m-dadej/MarSwitching.jl/graph/badge.svg?token=AANR7304QU)](https://codecov.io/gh/m-dadej/MarSwitching.jl)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
+[![status](https://joss.theoj.org/papers/f0b33a8a4b30b3d9f0184dec014eb388/status.svg)](https://joss.theoj.org/papers/f0b33a8a4b30b3d9f0184dec014eb388)
 
 
 MarSwitching.jl is a package for estimating Markov switching dynamic models (also called regime switching) in Julia. 
