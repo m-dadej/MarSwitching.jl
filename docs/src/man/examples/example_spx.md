@@ -4,7 +4,7 @@ Stock market analysts often describes different periods as volatile or calm mark
 Each of these states of market are characterized by different dynamics of stock prices. 
 In following example we will see that the Markov Switching models are well suited to describe not only the regime characteristics but also what determines the chance of switching between them.
 
-We will begin by loading the weekly data of S&P 500 and VIX volatility index. S&P 500 is arguable the most important stock market index consisting of approximately 500 largest companies in the US. VIX is an option implied measure of expected volatility of S&P500 index. It is often referred to as the "fear index" as it tends to increase during periods of market turmoil. The dataset already contains columns with lagged variables and rate of returns.
+We will begin by loading the weekly data of S&P 500 and VIX volatility index. The data is downloaded from Yahoo finance and can be found in the github repo. S&P 500 is arguable the most important stock market index consisting of approximately 500 largest companies in the US. VIX is an option implied measure of expected volatility of S&P500 index. It is often referred to as the "fear index" as it tends to increase during periods of market turmoil. The dataset already contains columns with lagged variables and rate of returns.
 
 
 ```jldoctest spx
@@ -17,7 +17,7 @@ using Distributions
 using StatsBase
 using Statistics
 
-df = CSV.read("my_assets/df_spx.csv", DataFrame)
+df = CSV.read("docs/src/man/examples/my_assets/df_spx.csv", DataFrame)
 ```
 
 The model we are going to estimate might be challenging for the optimizing algorithm, thus we can help it by standardizing the variables. This is especially important for the models with time-varying transition probability matrix.
