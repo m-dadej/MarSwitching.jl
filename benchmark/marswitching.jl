@@ -21,7 +21,7 @@ y, _, X = generate_msm(μ, σ, P, T, β = β, β_ns = β_ns)
 
 # using Tables
 # CSV.write("artificial.csv", Tables.table([y X]))
-df = Matrix(CSV.read("artificial.csv", DataFrame))
+df = Matrix(CSV.read("benchmark/artificial.csv", DataFrame))
 
 Random.seed!(1234)
 model = MSModel(y, k,
@@ -43,3 +43,4 @@ model = MSModel(y, k,
         exog_switching_vars = X[:,2],
         exog_vars = X[:,3])
 end    
+

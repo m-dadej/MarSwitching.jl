@@ -17,9 +17,8 @@ res_ms = mod_ms.fit()
 res_ms.summary()
 # the parameters are the same as in Julia, so the errors are as well
 
-
 if __name__ == "__main__":
-    df = pd.read_csv("artificial.csv")
+    df = pd.read_csv("benchmark/artificial.csv")
     N = 30
     mod_ms = sm.tsa.MarkovRegression(
             df.iloc[:,0], k_regimes=3, 

@@ -157,7 +157,7 @@ For the same reason, it is recommended not to estimate model with many states (e
 - `exog_tvtp::VecOrMat{V}`: optional exogenous variables for the tvtp part of the model.
 
 - `x0::Vector{V}`: initial guess for the parameters. If empty, the initial guess is generated from k-means clustering.
-- `algorithm::Symbol`: optimization algorithm to use. One of [:LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX]
+- `algorithm::Symbol`: optimization algorithm to use. One of [`:LD_VAR2`, `:LD_VAR1`, `:LD_LBFGS`, `:LN_SBPLX`]
 - `maxtime::Int64`: maximum time in seconds to run the optimization. If negative, the maximum time is equal T/2.
 - `random_search_em::Int64`: number of random searches to perform for the EM algorithm. If 0, no random search is performed.
 - `random_search::Int64`: number of random searches to perform. 
