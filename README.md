@@ -347,6 +347,11 @@ The function returns a tuple of 3 elements, respectively:
 
 Function `add_lags(y::Vector{Float64}, p::Int64)` adds `p` lags to the matrix of dependent variables. The function returns a matrix of dependent variables with `p` lags.
 
+## Contributing
+
+- PRs with fixed bugs or new methods are highly appreciated. Especially the ones described in [functionality](https://github.com/m-dadej/MarSwitching.jl?tab=readme-ov-file#functionality) section.
+- Open an issue if the PR changes current code substanitally.
+- If unsure, check the [ColPrac](https://github.com/SciML/ColPrac) guide on collaborative practices for Packages.
 
 ## References
 
