@@ -104,19 +104,22 @@ Future development is closely related to the package's popularity.
 
 |                |MarSwitching.jl| statsmodels  | MSwM     | MS_Regress     |
 |:---------------|-------------:|--------------:|---------:|---------------:|
-| implementation | Julia        | Python/Cython | R        | Matlab/MEX/C++ |
+| implementation | Julia        | Python/Cython | R        | MATLAB/MEX/C++ |
 | error:         |              |               |          |                |
-| mu             | 0,0363       | 0,0363        | 0,036    | 0,0367         |
-| beta_s         | 0,0237       | 0,0237        | 0,0245   | 0,0241         |
-| beta_ns        | 0,0150       | 0,01508       | 0,0211   | 0,0157         |
-| sigma          | 0,0083       | 0,0083        | 0,0108   | 0,0084         |
-| p              | 0,0138       | 0,0138        | 0,0157   | 0,0139         |
+| mu             | 0.0363       | 0.0363        | 0.036    | 0.0367         |
+| beta_s         | 0.0237       | 0.0237        | 0.0245   | 0.0241         |
+| beta_ns        | 0.0150       | 0.01508       | 0.0211   | 0.0157         |
+| sigma          | 0.0083       | 0.0083        | 0.0108   | 0.0084         |
+| p              | 0.0138       | 0.0138        | 0.0157   | 0.0139         |
 |                |              |               |          |                |
-| runtime (s)    | 0,471        | 3,162         | 3,867    | 19,959         |
-| relative       | 1            | 6,713         | 8,21     |    42,376      |
+| runtime (s)    | 0.471        | 3.162         | 3.867    | 19.959         |
+| relative       | 1            | 6.713         | 8.21     |    42.376      |
 
 
 `MarSwitching.jl` is 6,7 times faster than `statsmodels` implementation in `Python`/`Cython`, 8,2 times faster than `MSwM` in `R` and 42 times faster than `MS_Regress` in `MATLAB`/`MEX`, although MATLAB package is also calculating standard errors during function call. Every implementation had virtually the same error of estimated parameters.
+
+Software versions: MarSwitching.jl v0.2.2, Statsmodels v0.14.1, MSwM v1.5, MS_Regress v1.11. The programming languages versions were: Julia v1.10.1, Python v3.12.2, R v4.2.1 and MATLAB vR2024a. Calculations were run on: Windows 11 x64 Intel(R) Core(TM) i7-9850H CPU @ 2.60GHz, 2592 Mhz, 6 Core(s), 12 Logical Processor(s).
+
 
 Code of the benchmarks can be found in `benchmark` folder.
 
