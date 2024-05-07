@@ -31,7 +31,7 @@ The Markov switching regression (also referred to as regime switching) was first
 
 The popularity of these models among applied scientists and industry professionals is reflected in the availability of implementations. There are several packages in R [@Rlang] such as `MSwM` [@MSwM] or `dynr` [@dynr]. For the Python language, the Markov switching model is implemented as part of the `statsmodels` package [@statsmodels]. MATLAB users may also estimate these models with `MS_Regress` [@msregress] package. Most of the well-established closed-source statistical applications also have their own implementations of Markov switching models. These include EViews, Stata, and SAS.
 
-Despite the popularity of the method, `MarSwitching.jl` is, at the moment, the only package that allows for effortless estimation of Markov switching models with Julia programming language. At the same time, it is implemented purely in this language. For more general modeling with hidden Markov models, Julia users may find `HiddenMarkovModels.jl` [@Dalle2024] package useful as well.
+Despite the popularity of the method, `MarSwitching.jl` is, at the moment, the only package that allows for effortless estimation of Markov switching models with Julia programming language. At the same time, it is implemented purely in this language. For more general modeling with hidden Markov models, Julia users may find `HiddenMarkovModels.jl` [@Dalle2024] package useful as well. `HiddenMarkovModels.jl` offers more generic approach to programming hidden Markov models, albeit requiring user-side development of certain estimation algorithms for Markov switching models, as well as model inference functions.
 
 # Background
 
