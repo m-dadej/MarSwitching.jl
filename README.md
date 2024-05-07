@@ -40,7 +40,7 @@ MarSwitching is in general registry. To install simply use following command:
 
 ## Markov regime switching model in a nutshell
 
-The Markov switching models are a class of models that allow for the parameters to change over time, depending on the unobservable state like economic recession, high volatility on financial markets or epidemiologic outbreak. The state follows Markov process with a given probability transition matrix for each of $k$ states:
+The Markov switching models are a class of models that allow for the parameters to change over time, depending on the unobservable state like economic recession, high volatility on financial markets or epidemiologic outbreak. The state follows a Markov process with a given probability transition matrix for each of $k$ states:
 
 ```math
 \begin{equation*}
