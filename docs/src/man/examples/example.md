@@ -16,7 +16,11 @@ using Plots
 using Random
 using Dates
 
-df = CSV.read("my_assets/philips.csv", DataFrame, missingstring = "NA")
+philips_csv_path = joinpath(
+    dirname(pathof(MarSwitching)),
+    "../docs/src/man/examples/my_assets/philips.csv"
+)
+df = CSV.read(philips_csv_path, DataFrame, missingstring = "NA")
 
 model_df = dropmissing(select(df, [:cpi, :unemp,  :infexp, :s_shock]))  
 ```

@@ -17,7 +17,11 @@ using Distributions
 using StatsBase
 using Statistics
 
-df = CSV.read("docs/src/man/examples/my_assets/df_spx.csv", DataFrame)
+df_spx_csv_path = joinpath(
+    dirname(pathof(MarSwitching)),
+    "../docs/src/man/examples/my_assets/df_spx.csv"
+)
+df = CSV.read(df_spx_csv_path, DataFrame)
 ```
 
 The model we are going to estimate might be challenging for the optimizing algorithm, thus we can help it by standardizing the variables. This is especially important for the models with time-varying transition probability matrix.
