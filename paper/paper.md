@@ -118,7 +118,7 @@ plot(filtered_probs(model),
 
 Figure \autoref{fig:example} presents the output of the code above.
 
-![Filtered probabilites. \label{fig:example}](regime_probs.svg){ width=90% }
+![Filtered probabilites. \label{fig:example}](regime_probs.png){ width=90% }
 
 The package also provides a function for forecasting the dependent variable. However, for the Markov switching models, the prediction is not as intuitive as in less complex models. The reason is that the model requires also a forecast of state at time $t+1$.
 
