@@ -21,13 +21,13 @@ bibliography: paper.bib
 
 # Summary
 
-`MarSwitching.jl` package allows users of Julia programming language [@bezanson2017julia] to efficiently use Markov switching dynamic models. It provides a set of tools for estimation, simulation and forecasting of Markov switching models. This class of models is the principal tool for modelling time series with regime changes. The time-variation of model parameters is governed by the limited memory Markov process. Because of non-trivial likelihood function and the amount of model parameters, Julia is a perfect language to implement this class of models due to its performance. 
+`MarSwitching.jl` package allows users of Julia programming language [@bezanson2017julia] to efficiently use Markov switching dynamic models. It provides a set of tools for estimation, simulation, and forecasting of Markov switching models. This class of models is the principal tool for modelling time series with regime changes. The time-variation of model parameters is governed by the limited memory Markov process. Because of non-trivial likelihood function and the amount of model parameters, Julia is a perfect language to implement this class of models due to its performance. 
 
 Currently, the package provides model estimation with a combination of switching or non-switching intercept, error variance and exogenous variables. The transition matrix can be either constant or time-varying. The package also provides a set of functions for model diagnostics and forecasting. Further development of the package is considered, conditional on the interest in thereof.
 
 # Statement of need
 
-The Markov switching regression (also referred to as regime switching) was first introduced in the seminal work of [@hamilton89]. Since then, it has been extensively used in empirical research. Although the model was introduced as an application to economic data, the range of applications has expanded significantly since the first publication. These fields include finance [@buffington02], political science [@Brandt2014], hydrology [@wang23], epidemiology [@shiferaw21] and even bibliometrics [@delbianco20].
+The Markov switching regression (also referred to as regime switching) was first introduced in the seminal work of @hamilton89. Since then, it has been extensively used in empirical research. Although the model was introduced as an application to economic data, the range of applications has expanded significantly since the first publication. These fields include finance [@buffington02], political science [@Brandt2014], hydrology [@wang23], epidemiology [@shiferaw21] and even bibliometrics [@delbianco20].
 
 The popularity of these models among applied scientists and industry professionals is reflected in the availability of implementations. There are several packages in R [@Rlang] such as `MSwM` [@MSwM] or `dynr` [@dynr]. For the Python language, the Markov switching model is implemented as part of the `statsmodels` package [@statsmodels]. MATLAB users may also estimate these models with `MS_Regress` [@msregress] package. Most of the well-established closed-source statistical applications also have their own implementations of Markov switching models. These include EViews, Stata, and SAS.
 
@@ -42,8 +42,7 @@ Consider a general model:
 $$\mathbf{y}_t = \mathbf{X}_{t,i} \beta_{S, i} + \epsilon_t$$
 $$\epsilon \sim f(0,\Sigma_s)$$
 
-Where $\mathbf{y}_t$ is $N$ size vector of dependent variable indexed by time $t$. $\mathbf{X}_{t,i}$ is $N \times M$ matrix of exogenous regressors. $\beta_{S, i}$ is $K$ size vector of parameters. 
-$\epsilon_t$ is $N$ size vector of errors. The errors are distributed according to some distribution $f(0,\Sigma_s)$ with mean zero and covariance matrix $\Sigma_s$. The state $S$ is a latent (unobservable) variable that can take values from $1$ to $K$. Parameters indexed by $S$ are different for each state.
+where $\mathbf{y}_t$ is $N$-vector of dependent variable indexed by time $t$, $\mathbf{X}_{t,i}$ is $N \times M$ matrix of exogenous regressors, $\beta_{S, i}$ is $K$-vector of parameters, and $\epsilon_t$ is $N$-vector of errors. The errors are distributed according to some distribution $f(0,\Sigma_s)$ with zero mean and covariance matrix $\Sigma_s$. The state $S$ is a latent (unobservable) variable that can take values from $1$ to $K$. Parameters indexed by $S$ are different for each state.
 
 The state $S_t$ is governed by the Markov process. The probability of transition from state $i$ to state $j$ is given by the $K \times K$ left-stochastic transition matrix $\mathbf{P}$:
 
@@ -57,7 +56,7 @@ The state $S_t$ is governed by the Markov process. The probability of transition
     \end{pmatrix}
 \end{equation*}
 
-With standard constraints: $0 < p_{i,j} < 1, \forall j,i \in \{1,\dots, K\}$ and $\sum_{i}^{K} p_{i,j} \forall j \in \{1, \dots, K\}$.
+with standard constraints: $0 < p_{i,j} < 1, \forall j,i \in \{1,\dots, K\}$ and $\sum_{i}^{K} p_{i,j} \forall j \in \{1, \dots, K\}$.
 
 In a standard model, the transition matrix is assumed to be constant over time. However, it is possible to allow for time variation of the transition matrix itself, as described in [@filardo94] (and as implemented in the package). In this case, each of the transition probabilities is modeled as a function of the exogenous variables $\mathbf{Z}_{t}$:
 
@@ -65,7 +64,7 @@ In a standard model, the transition matrix is assumed to be constant over time. 
 p_{i,j,t} = \dfrac{\exp(\delta_{i,j}'\mathbf{Z}_t)}{\textstyle \sum_{j=1} \exp(\delta_{i,j}'\mathbf{Z}_t)} 
 \end{equation*}
 
-Where $\delta_{i,j}$ is a vector of coefficients. The exponentiation and sum division of the coefficients ensure that the probabilities are non-negative and sum to one. For this model, the expected duration of the state is time-varying as well.
+where $\delta_{i,j}$ is a vector of coefficients. The exponentiation and sum division of the coefficients ensure that the probabilities are non-negative and sum up to one. For this model, the expected duration of the state is time-varying as well.
 
 # Quick start
 
@@ -97,7 +96,7 @@ The model is estimated using `MSModel()` function. The user needs to specify the
 model = MSModel(y, k, intercept = "switching", exog_switching_vars = X[:,2])
 ```
 
-Thanks to Julia's multiple dispatch, the `generate_msm()` function works by either providing the parameters as in the first code chunk or using the previously estimated model. This is useful e.g. for assessing the statistical properties of the model by Monte Carlo simulation. 
+Thanks to Julia's multiple dispatch, the `generate_msm()` function works by either providing the parameters as in the first code chunk or using the previously estimated model. This is useful, e.g., for assessing the statistical properties of the model by Monte Carlo simulation. 
 
 ```Julia
 quantile(generate_msm(model, 1000)[1], 0.05)
@@ -128,7 +127,7 @@ The package also provides a function for forecasting the dependent variable. How
 \hat{y}_t = \sum_{i=1}^{k} \hat{\xi}_{i,t}X_{t}'\hat{\beta}_{i}
 \end{equation*}
 
-Or as a one step ahead forecast, where the states are predicted themselves:
+or as a one step ahead forecast, where the states are predicted themselves:
 
 \begin{equation*}
 \hat{y}_{t+1} = \sum_{i=1}^{k} (P\hat{\xi}_{i,t})X_{t+1}'\hat{\beta}_{i}
