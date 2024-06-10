@@ -105,7 +105,7 @@ quantile(generate_msm(model, 1000)[1], 0.05)
 
 There are several functions for printing statistics of the estimated model. Each of the functions has a `digits` argument specifying a rounding number. `state_coeftable()` shows model coefficients’ statistics for a given state and the expected duration of the state. For a standard model with constant transition matrix, the function `transition_mat()` prints a formatted matrix of estimated transition probabilities. For models with time-varying transition probabilities, the coefficients can be inspected with `coeftable_tvtp()`. The function `summary_mars()` prints all the relevant information about the model for each of the states. Additionally, it shows basic information about the model and fitness statistics.
 
-The package also provides a function for filtered transition probabilities ($P(S_t = i | \Psi_t)$), as well as smoothed ones ($P(S_t = i | \Psi_T)$)[@kim94]. Where the former is estimated using the data up to time $t$ and the latter using the whole dataset. The functions to get these probabilities are `filtered_probs()` and `smoothed_probs()` respectively.
+The package also provides functions for filtered transition probabilities $P(S_t = i | \Psi_t)$ and smoothed ones $P(S_t = i | \Psi_T)$ [@kim94]. The former is estimated using the data available up to time $t$, while the latter is estimated using the full sample information in a backward fashion, starting from $T$, $T-1$, $...$ and so on. The functions to obtain these probability vectors are `filtered_probs()` and `smoothed_probs()`, respectively.
 
 ```Julia
 using Plots
