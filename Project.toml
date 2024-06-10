@@ -1,7 +1,7 @@
 name = "MarSwitching"
 uuid = "b2b8a7f1-da70-4e5f-beaa-e2774ec39c2f"
 authors = ["Mateusz Dadej <m.dadej@unibs.it>"]
-version = "0.2.2"
+version = "0.2.3"
 
 [deps]
 Distributions = "31c24e10-a181-5473-b8eb-7969acd0382f"
