@@ -21,7 +21,7 @@ bibliography: paper.bib
 
 # Summary
 
-`MarSwitching.jl` package allows users of Julia programming language [@bezanson2017julia] to efficiently use Markov switching dynamic models. It provides a set of tools for estimation, simulation, and forecasting of Markov switching models. This class of models is the principal tool for modelling time series with regime changes. The time-variation of model parameters is governed by the limited memory Markov process. Because of non-trivial likelihood function and the amount of model parameters, Julia is a perfect language to implement this class of models due to its performance. 
+`MarSwitching.jl` package allows users of the Julia programming language [@bezanson2017julia] to efficiently use Markov switching dynamic models. It provides a set of tools for estimation, simulation, and forecasting of Markov switching models. This class of models is the principal tool for modelling time series with regime changes. The time-variation of model parameters is governed by the limited memory Markov process. Given the non-trivial nature of the likelihood function and the amount of model parameters, Julia is an ideal language for implementing this class of models due to its computational performance.
 
 Currently, the package provides model estimation with a combination of switching or non-switching intercept, error variance and exogenous variables. The transition matrix can be either constant or time-varying. The package also provides a set of functions for model diagnostics and forecasting. Further development of the package is considered, conditional on the interest in thereof.
 
@@ -29,9 +29,9 @@ Currently, the package provides model estimation with a combination of switching
 
 The Markov switching regression (also referred to as regime switching) was first introduced in the seminal work of @hamilton89. Since then, it has been extensively used in empirical research. Although the model was introduced as an application to economic data, the range of applications has expanded significantly since the first publication. These fields include finance [@buffington02], political science [@Brandt2014], hydrology [@wang23], epidemiology [@shiferaw21] and even bibliometrics [@delbianco20].
 
-The popularity of these models among applied scientists and industry professionals is reflected in the availability of implementations. There are several packages in R [@Rlang] such as `MSwM` [@MSwM] or `dynr` [@dynr]. For the Python language, the Markov switching model is implemented as part of the `statsmodels` package [@statsmodels]. MATLAB users may also estimate these models with `MS_Regress` [@msregress] package. Most of the well-established closed-source statistical applications also have their own implementations of Markov switching models. These include EViews, Stata, and SAS.
+The popularity of these models among applied scientists and industry professionals is reflected in the availability of implementations. There are several packages in R [@Rlang] such as `MSwM` [@MSwM] or `dynr` [@dynr]. For the Python language, the Markov switching model is implemented as part of the `statsmodels` package [@statsmodels]. MATLAB users may also estimate these models with the `MS_Regress` [@msregress] package. Most of the well-established closed-source statistical applications also have their own implementations of Markov switching models. These include EViews, Stata, and SAS.
 
-Despite the popularity of the method, `MarSwitching.jl` is, at the moment, the only package that allows for estimation of Markov switching models with Julia programming language by specifying a minimal set of regime switching parameters. At the same time, it is implemented purely in this language. For more general modeling with hidden Markov models, Julia users may find `HiddenMarkovModels.jl` [@Dalle2024] package useful as well. `HiddenMarkovModels.jl` offers more generic approach to programming hidden Markov models, albeit requiring user-side development of certain estimation algorithms for Markov switching models, as well as model inference functions.
+Despite the popularity of the method, `MarSwitching.jl` is, at the moment, the only package that allows for estimation of Markov switching models with the Julia programming language by specifying a minimal set of regime switching parameters. At the same time, it is implemented purely in this language. For more general modeling with hidden Markov models, Julia users may find the `HiddenMarkovModels.jl` [@Dalle2024] package useful as well. `HiddenMarkovModels.jl` offers a more generic approach to programming hidden Markov models, albeit requiring user-side development of certain estimation algorithms for Markov switching models, as well as model inference functions.
 
 # Background
 
@@ -42,7 +42,7 @@ Consider a general model:
 $$\mathbf{y}_t = \mathbf{X}_{t,i} \beta_{S, i} + \epsilon_t$$
 $$\epsilon \sim f(0,\Sigma_s)$$
 
-where $\mathbf{y}_t$ is $N$-vector of dependent variable indexed by time $t$, $\mathbf{X}_{t,i}$ is $N \times M$ matrix of exogenous regressors, $\beta_{S, i}$ is $K$-vector of parameters, and $\epsilon_t$ is $N$-vector of errors. The errors are distributed according to some distribution $f(0,\Sigma_s)$ with zero mean and covariance matrix $\Sigma_s$. The state $S$ is a latent (unobservable) variable that can take values from $1$ to $K$. Parameters indexed by $S$ are different for each state.
+where $\mathbf{y}_t$ is $N$-vector of the dependent variable indexed by time $t$, $\mathbf{X}_{t,i}$ is $N \times M$ matrix of exogenous regressors, $\beta_{S, i}$ is $K$-vector of parameters, and $\epsilon_t$ is $N$-vector of errors. The errors are distributed according to some distribution $f(0,\Sigma_s)$ with zero mean and covariance matrix $\Sigma_s$. The state $S$ is a latent (unobservable) variable that can take values from $1$ to $K$. Parameters indexed by $S$ are different for each state.
 
 The state $S_t$ is governed by the Markov process. The probability of transition from state $i$ to state $j$ is given by the $K \times K$ left-stochastic transition matrix $\mathbf{P}$:
 
@@ -61,7 +61,7 @@ with standard constraints: $0 < p_{i,j} < 1, \forall j,i \in \{1,\dots, K\}$ and
 In a standard model, the transition matrix is assumed to be constant over time. However, it is possible to allow for time variation of the transition matrix itself, as described in [@filardo94] (and as implemented in the package). In this case, each of the transition probabilities is modeled as a function of the exogenous variables $\mathbf{Z}_{t}$:
 
 \begin{equation*}
-p_{i,j,t} = \dfrac{\exp(\delta_{i,j}'\mathbf{Z}_t)}{\textstyle \sum_{j=1} \exp(\delta_{i,j}'\mathbf{Z}_t)} 
+p_{i,j,t} = \dfrac{\exp(\mathbf{Z}_t \delta_{i,j})}{\textstyle \sum_{j=1} \exp(\mathbf{Z}_t \delta_{i,j})} 
 \end{equation*}
 
 where $\delta_{i,j}$ is a vector of coefficients. The exponentiation and sum division of the coefficients ensure that the probabilities are non-negative and sum up to one. For this model, the expected duration of the state is time-varying as well.
@@ -89,7 +89,7 @@ Random.seed!(123)
 y, s_t, X = generate_msm(μ, σ, P, T, β = β)
 ```
 
-The model is estimated using `MSModel()` function. The user needs to specify the dependent variable `y`, the number of states `k`. The exogenous variables are passed to either `exog_vars` or `exog_switching_vars` argument, depending wether the variable is expected to have a switching parameter. In a similar vein the user may pass exogenous variable for time-varying transition matrix into `exog_tvtp`. However, in order to have an intercept the column of ones needs to be added explicitly.
+The model is estimated using `MSModel()` function. The user needs to specify the dependent variable `y`, the number of states `k`. The exogenous variables are passed to either the `exog_vars` or the `exog_switching_vars` argument, depending wether the variable is expected to have a switching parameter. In a similar vein the user may pass an exogenous variable for the time-varying transition matrix into `exog_tvtp`. However, in order to have an intercept the column of ones needs to be added explicitly.
 
 ```Julia
 # estimate the model
@@ -119,7 +119,7 @@ Figure \autoref{fig:example} presents the output of the code above.
 
 ![Filtered probabilites. \label{fig:example}](regime_probs.png){ width=90% }
 
-The package also provides a function for forecasting the dependent variable. However, for the Markov switching models, the prediction is not as intuitive as in less complex models. The reason is that the model requires also a forecast of state at time $t+1$.
+The package also provides a function for forecasting the dependent variable. However, for the Markov switching models, the prediction is not as intuitive as in less complex models. The reason is that the model also requires a forecast of state at time $t+1$.
 
 `predict()` function returns the forecasted values either calculated in the instantaneous way:
 
