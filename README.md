@@ -58,7 +58,7 @@ Satisfying standard Markovian properties. The general model is defined as follow
 
 ```math
 \begin{align*}
-\mathbf{y}_t &= \mathbf{\mu}_S + \mathbf{\beta}_{S}' \mathbf{X}_t + \mathbf{\gamma}'\mathbf{Z}_t + \mathbf{\epsilon}_t, & \mathbf{\epsilon} \sim f(0,\mathcal{\Sigma}_s)\\
+\mathbf{y}_t &= \mathbf{\mu}_S + \mathbf{X}_t \mathbf{\beta}_{S} + \mathbf{Z}_t \mathbf{\gamma} + \mathbf{\epsilon}_t, & \mathbf{\epsilon} \sim f(0,\mathcal{\Sigma}_s)\\
 \end{align*}
 ```
 
@@ -69,7 +69,7 @@ Because of the unobserved nature of the state, the model is estimated by maximum
 The package also provide time-varying transition probabilities (TVTP) (Filardo, 1994) which allows for the transition matrix to change over time, depending on exogenous variables. Each transition probability has a following form:
 
 ```math
-p_{i,j,t} = \dfrac{exp(\delta_{i,j}'\mathbf{Z}_t)}{\textstyle \sum_{j=1} exp(\delta_{i,j}'\mathbf{Z}_t)}
+p_{i,j,t} = \dfrac{exp(\mathbf{Z}_t \delta_{i,j})}{\textstyle \sum_{j=1} exp(\mathbf{Z}_t \delta_{i,j})}
 ```
 
 For more thorough introduction to the Markov switching models, see 9th chapter of Guidolin and Pedio, 2018.
