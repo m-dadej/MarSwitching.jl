@@ -356,6 +356,24 @@ Function `add_lags(y::Vector{Float64}, p::Int64)` adds `p` lags to the matrix of
 - Open an issue if the PR changes current code substanitally.
 - If unsure, check the [ColPrac](https://github.com/SciML/ColPrac) guide on collaborative practices for Packages.
 
+## Citation
+
+If you use this package in your researches, please cite it with the following bibtex code:
+
+```bibtex
+@article{Dadej2024, 
+  doi = {10.21105/joss.06441}, 
+  url = {https://doi.org/10.21105/joss.06441}, 
+  year = {2024}, 
+  publisher = {The Open Journal}, 
+  volume = {9}, 
+  number = {98}, 
+  pages = {6441}, 
+  author = {Mateusz Dadej}, 
+  title = {MarSwitching.jl: A Julia package for Markov switching dynamic models}, 
+  journal = {Journal of Open Source Software} 
+}
+```
 ## References
 
 - Hamilton, J. D. (1989). A new approach to the economic analysis of nonstationary time series and the business cycle. Econometrica: Journal of the Econometric Society, 357-384.
