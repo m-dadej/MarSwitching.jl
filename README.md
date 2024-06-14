@@ -11,25 +11,27 @@
 
 MarSwitching.jl is a package for estimating Markov switching dynamic models (also called regime switching) in Julia. 
 
-**Author**: Mateusz Dadej, m.dadej at unibs.it
+**Author**: [Mateusz Dadej](https://github.com/m-dadej), m.dadej {at} unibs.it
 
 Please check the [documentation](https://m-dadej.github.io/MarSwitching.jl/dev) for examples and information on using the package. 
 
-**citation**: I encourage to cite the [working paper](https://ssrn.com/abstract=4638279) of package when using it in your research. You can use the following BibTeX entry from the `CITATION.bib` file:
+**citation**: I encourage to cite the [JOSS paper](https://joss.theoj.org/papers/10.21105/joss.06441) of the package when using it in your research. You can use the following BibTeX entry from the `CITATION.bib` file:
 
-```
-@article{DadejMarswitching2019,
-  title       = {MarSwitching.jl: A Julia package for Markov Switching Dynamic Models},
-  author      = {Mateusz Dadej},
-  institution = {University of Brescia},
-  journal     = {Available at SSRN 4638279},
-  year        = {2023},
-  doi         = {https://dx.doi.org/10.2139/ssrn.4638279},
-  url         = {https://ssrn.com/abstract=4638279}
+```bibtex
+@article{Dadej2024, 
+  doi = {10.21105/joss.06441}, 
+  url = {https://doi.org/10.21105/joss.06441}, 
+  year = {2024}, 
+  publisher = {The Open Journal}, 
+  volume = {9}, 
+  number = {98}, 
+  pages = {6441}, 
+  author = {Mateusz Dadej}, 
+  title = {MarSwitching.jl: A Julia package for Markov switching dynamic models}, 
+  journal = {Journal of Open Source Software} 
 }
 ```
 (I won't be mad if you star the repo as well!)
-
 
 ## Installation
 MarSwitching is in general registry. To install simply use following command:
@@ -356,24 +358,6 @@ Function `add_lags(y::Vector{Float64}, p::Int64)` adds `p` lags to the matrix of
 - Open an issue if the PR changes current code substanitally.
 - If unsure, check the [ColPrac](https://github.com/SciML/ColPrac) guide on collaborative practices for Packages.
 
-## Citation
-
-If you use this package in your researches, please cite it with the following bibtex code:
-
-```bibtex
-@article{Dadej2024, 
-  doi = {10.21105/joss.06441}, 
-  url = {https://doi.org/10.21105/joss.06441}, 
-  year = {2024}, 
-  publisher = {The Open Journal}, 
-  volume = {9}, 
-  number = {98}, 
-  pages = {6441}, 
-  author = {Mateusz Dadej}, 
-  title = {MarSwitching.jl: A Julia package for Markov switching dynamic models}, 
-  journal = {Journal of Open Source Software} 
-}
-```
 ## References
 
 - Hamilton, J. D. (1989). A new approach to the economic analysis of nonstationary time series and the business cycle. Econometrica: Journal of the Econometric Society, 357-384.
