@@ -61,7 +61,7 @@ with standard constraints: $0 < p_{i,j} < 1, \forall j,i \in \{1,\dots, K\}$ and
 In a standard model, the transition matrix is assumed to be constant over time. However, it is possible to allow for time variation of the transition matrix itself, as described in [@filardo94] (and as implemented in the package). In this case, each of the transition probabilities is modeled as a function of the exogenous variables $\mathbf{Z}_{t}$:
 
 \begin{equation*}
-p_{i,j,t} = \dfrac{\exp(\mathbf{Z}_t \delta_{i,j})}{\textstyle \sum_{j=1} \exp(\mathbf{Z}_t \delta_{i,j})} 
+p_{i,j,t} = \frac{\exp(\mathbf{Z}_t \delta_{i,j})}{\textstyle \sum_{j=1} \exp(\mathbf{Z}_t \delta_{i,j})} 
 \end{equation*}
 
 where $\delta_{i,j}$ is a vector of coefficients. The exponentiation and sum division of the coefficients ensure that the probabilities are non-negative and sum up to one. For this model, the expected duration of the state is time-varying as well.
