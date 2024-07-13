@@ -1,3 +1,5 @@
+Herein example is as in the paper describing the package - [link](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4638279)
+
 # Time-varying transition probabilites - modelling stock market
 
 Stock market analysts often describes different periods as volatile or calm market conditions. 

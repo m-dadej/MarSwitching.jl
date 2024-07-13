@@ -1,3 +1,5 @@
+Herein example is as in the paper describing the package - [link](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4638279)
+
 # Regime switching Phillips curve
 
 One of the most popular macroeconomic relationships is the trade-off between inflation and unemployment. The so-called Phillips curve is discussed in both introductory macroeconomics courses and at the meetings of the most influential central banks. The curve introduced a stylized fact that the inflation falls during recessions and rises during booms.
