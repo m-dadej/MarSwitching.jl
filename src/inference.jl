@@ -275,6 +275,8 @@ function predict(model::MSM, instantaneous::Bool = false; kwargs...)
         ξ_t = filtered_probs(model; kwargs...) 
     end
 
+    @assert T != 1 "In order to infer the state probabilites, the model requires at least 2 observations."
+
     if instantaneous
         ŷ_s = (x*hcat(model.β...))
     else

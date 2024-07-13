@@ -31,6 +31,12 @@ Please check the [documentation](https://m-dadej.github.io/MarSwitching.jl/dev) 
   journal = {Journal of Open Source Software} 
 }
 ```
+Or paste the citation manually:
+
+```
+Dadej, M., (2024). MarSwitching.jl: A Julia package for Markov switching dynamic models. Journal of Open Source Software, 9(98), 6441, https://doi.org/10.21105/joss.06441
+```
+
 (I won't be mad if you star the repo as well!)
 
 ## Installation
