@@ -314,7 +314,7 @@ end
                     
                     n_int = int == "switching" ? k_i : 1
                     θ = [rand(k_i); rand(Uniform(-5, 5), n_int); rand(Uniform(-5, 5), n_β_i*k_i); rand(Uniform(-5, 5), n_β_ns_i); rand(k_i*(k_i-1))] 
-                    σ, β, P = MarSwitching.trans_θ(θ, k_i, n_β_i, n_β_ns_i, int, true, false)
+                    σ, β, P, ν = MarSwitching.trans_θ(θ, k_i, n_β_i, n_β_ns_i, int, true, false)
                     println("k: $k_i, n_β: $n_β_i, n_β_ns: $n_β_ns_i, intercept: $int")
 
                     @test size(σ)[1] == k_i
@@ -322,6 +322,16 @@ end
                     @test size(β)[1] == k_i
                     @test size(β[1])[1] == n_β_i+ 1 + n_β_ns_i
                     @test size(P)[1] == k_i
+                    @test isempty(ν)
+
+                    # Student-t parameterization includes k log(ν) parameters after σ
+                    θ_t = [rand(k_i); fill(log(5.0), k_i); rand(Uniform(-5, 5), n_int); rand(Uniform(-5, 5), n_β_i*k_i); rand(Uniform(-5, 5), n_β_ns_i); rand(k_i*(k_i-1))]
+                    σ_t, β_t, P_t, ν_t = MarSwitching.trans_θ(θ_t, k_i, n_β_i, n_β_ns_i, int, true, false, :t)
+                    @test length(ν_t) == k_i
+                    @test all(ν_t .> 0.0)
+                    @test all(isapprox.(ν_t, 5.0; rtol=1e-10))
+                    @test size(σ_t)[1] == k_i
+                    @test size(P_t)[1] == k_i
 
                 end
             end
@@ -343,10 +353,108 @@ end
 
 end
 
+@testset "Student-t error distribution" begin
+    k = 2
+    μ = [1.0, -0.5]
+    β = [-1.5, 0.0]
+    σ = [1.1, 0.8]
+    ν = [5.0, 10.0]
+    P = [0.9 0.05; 0.1 0.95]
+    T = 1500
+
+    y, s_t, X = generate_msm(μ, σ, P, T, β = β, error_dist = :t, ν = ν)
+
+    model = MSModel(y, k, intercept = "switching",
+                    error_dist = :t,
+                    exog_switching_vars = X[:,2],
+                    random_search_em = 3,
+                    random_search = 3,
+                    verbose = false)
+
+    @test model.error_dist == :t
+    @test length(model.ν) == k
+    @test all(model.ν .> 0.0)
+    @test !isnan(model.Likelihood) && (model.Likelihood != Inf)
+    @test MarSwitching.loglik(model.raw_params, model.x, k, model.n_β, model.n_β_ns,
+                              model.intercept, model.switching_var, :t)[1] == model.Likelihood
+    @test size(filtered_probs(model)) == (T, k)
+    @test size(smoothed_probs(model)) == (T, k)
+    @test size(get_std_errors(model))[1] == size(model.raw_params)[1]
+    @test isnothing(summary_msm(model))
+
+    # match states by sorted intercept (label switching)
+    ord_t = sortperm(μ)
+    ord_e = sortperm([model.β[i][1] for i in 1:k])
+    @test all(abs.([model.β[i][1] for i in ord_e] .- μ[ord_t]) .< 0.25)
+    @test all(abs.([model.β[i][2] for i in ord_e] .- β[ord_t]) .< 0.25)
+    @test all(abs.(model.σ[ord_e] .- σ[ord_t]) .< 0.25)
+    @test all(abs.(model.ν[ord_e] .- ν[ord_t]) ./ ν[ord_t] .< 0.6)
+
+    y2, s2, X2 = generate_msm(model, 500)
+    @test length(y2) == 500
+    @test sort(unique(s2)) == collect(1:k)
+
+    @test_throws AssertionError generate_msm(μ, σ, P, 100, error_dist = :t, ν = [-1.0, 5.0])
+end
+
+@testset "GED error distribution" begin
+    # GED with ν=2 must match Gaussian density
+    y = collect(-2.0:0.5:2.0)
+    μ = zeros(length(y))
+    d_n = MarSwitching.error_density(:normal, y, μ, 1.0)
+    d_g = MarSwitching.error_density(:ged, y, μ, 1.0, 2.0)
+    @test all(isapprox.(d_n, d_g; rtol=1e-8))
+
+    k = 2
+    μ = [1.0, -0.5]
+    β = [-1.5, 0.0]
+    σ = [1.0, 0.7]
+    ν = [1.2, 2.5]   # heavier than normal / thinner than normal
+    P = [0.9 0.05; 0.1 0.95]
+    T = 1200
+
+    y, s_t, X = generate_msm(μ, σ, P, T, β = β, error_dist = :ged, ν = ν)
+
+    model = MSModel(y, k, intercept = "switching",
+                    error_dist = :ged,
+                    exog_switching_vars = X[:,2],
+                    random_search_em = 3,
+                    random_search = 3,
+                    verbose = false)
+
+    @test model.error_dist == :ged
+    @test length(model.ν) == k
+    @test all(model.ν .> 0.0)
+    @test !isnan(model.Likelihood) && (model.Likelihood != Inf)
+    @test MarSwitching.loglik(model.raw_params, model.x, k, model.n_β, model.n_β_ns,
+                              model.intercept, model.switching_var, :ged)[1] == model.Likelihood
+    @test size(filtered_probs(model)) == (T, k)
+    @test size(get_std_errors(model))[1] == size(model.raw_params)[1]
+    @test isnothing(summary_msm(model))
+
+    ord_t = sortperm(μ)
+    ord_e = sortperm([model.β[i][1] for i in 1:k])
+    @test all(abs.([model.β[i][1] for i in ord_e] .- μ[ord_t]) .< 0.3)
+    @test all(abs.([model.β[i][2] for i in ord_e] .- β[ord_t]) .< 0.3)
+    @test all(abs.(model.σ[ord_e] .- σ[ord_t]) .< 0.3)
+
+    y2, s2, _ = generate_msm(model, 400)
+    @test length(y2) == 400
+    @test sort(unique(s2)) == collect(1:k)
+end
+
 @testset "Less crucial functions" begin
     @test add_lags([1.0,2.0,3.0,4.0], 1) == [2.0 1.0; 3.0 2.0; 4.0 3.0]
     A = rand(4,4)
     @test all(abs.(MarSwitching.mp_inverse(A) .- pinv(A)) .< 0.001)
+
+    # error density helpers
+    y = [0.0, 1.0]
+    μ = [0.0, 0.0]
+    @test MarSwitching.error_density(:normal, y, μ, 1.0) isa Vector
+    @test MarSwitching.error_density(:t, y, μ, 1.0, 5.0) isa Vector
+    @test MarSwitching.error_density(:ged, y, μ, 1.0, 1.5) isa Vector
+    @test_throws ArgumentError MarSwitching.error_density(:laplace, y, μ, 1.0)
 end
 
 

@@ -90,6 +90,7 @@ For more thorough introduction to the Markov switching models, see 9th chapter o
         - intercept
         - variance
         - exogenous variables
+        - shape parameter $\nu$ for Student's $t$ distribution and Generalized Error Distribution
     - Model with time-varying transition probabilities (TVTP) (à la Filardo 1994) 
     - Filtered probabilities
     - Smoothed probabilities (Kim, 1994)
@@ -99,7 +100,6 @@ For more thorough introduction to the Markov switching models, see 9th chapter o
     - Simulation of data both from estimated model and from given parameters
     - Variable and number of states selection (with random and grid search)
 - Planned functionality:
-    - Other error distributions (student-t, GED, etc.)
     - Markov Switching GARCH model
     - Markov Switching VAR model
     - Markov Switching model with lagged states. E.g. $y_t = \mu_{S_t} + \phi(y_{t-1} - \mu_{S_{t-1}})$
@@ -252,6 +252,7 @@ MSModel(y::VecOrMat{V},                    # vector of dependent variable
         exog_vars::VecOrMat{V},            # optional matrix of exogenous variables
         exog_switching_vars::VecOrMat{V},  # optional matrix of exogenous variables with regime switching
         switching_var::Bool = true,        # is variance state-dependent?
+        error_dist::Symbol = :normal,      # error distribution. :normal, :t or :ged 
         exog_tvtp::VecOrMat{V},            # optional matrix of exogenous variables for time-varying transition matrix
         x0::Vector{V},                     # optional initial values of parameters for optimization
         algorithm::Symbol = :LN_SBPLX,     # optional algorithm for NLopt.jl
@@ -272,6 +273,7 @@ struct MSM{V <: AbstractFloat}
     n_β_ns::Int64         # number of non-switching β parameters
     intercept::String     # "switching", "non-switching" or "no"
     switching_var::Bool   # is variance state dependent?
+    error_dist::Symbol    # error distribution (:normal, :t, or :ged)
     x::Matrix{V}          # data matrix
     T::Int64              # number of observations
     Likelihood::Float64   # vector of parameters for optimization
@@ -343,7 +345,9 @@ generate_msm(μ::Vector{Float64},    # vector of intercepts for each state
              β::Vector{Float64},    # vector of coefficients for each state
              β_ns::Vector{Float64}, # vector of non-switching coefficients
              δ::Vector{Float64},    # vector of coefficients for time-varying transition matrix
-             tvtp_intercept::Bool)  # should TVTP have an intercept?
+             tvtp_intercept::Bool   # should TVTP have an intercept?
+             error_dist::Symbol     # selected error distribution (normal, t or ged)
+             ν::Vector{AbstractFloat})  # shape parameters for each state when `error_dist` is `:t` (df) or `:ged` (shape; 2 = normal, 1 = Laplace).
 ```
 or thanks to multiple dispatch, simulate data from estimated model (as in example):
 

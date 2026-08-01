@@ -4,7 +4,8 @@ using FiniteDiff
 using LinearAlgebra
 using NLopt
 
-import Distributions: Normal, pdf, Chi, cdf, Uniform
+import Distributions: Normal, TDist, Gamma, pdf, Chi, cdf, Uniform
+import SpecialFunctions: loggamma
 import Random: rand
 import StatsBase: Weights, sample, std, mean
 import Printf: @printf

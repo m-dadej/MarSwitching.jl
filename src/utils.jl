@@ -30,11 +30,18 @@ end
 ##
 
 # the parameters structure is as follows:
+#
+# 1:n_var                                      - σ  (n_var = k if switching_var, else 1)
+#                                              - stored scale is raw² (positivity reparam.)
+# n_var+1:n_var+n_ν                            - log(ν) shape for :t / :ged (n_ν = k if needed)
+#                                              - transformed as ν = exp(raw)
+# next                                         - intercept / switching β / non-switching β
+# end                                          - transition probabilities (or TVTP δ)
 
-# 1:k                          - σ
-# k+1:(k+k*n_β)                - state switching β aprameters
-# (k+k*n_β+1):(k+k*n_β+n_β_ns) - non state switchign β parameters
-# (k+k*n_β+n_β_ns+1):end        - transition probabilities
+"""Return true if the error distribution has a state-specific shape parameter ν."""
+has_shape_param(error_dist::Symbol) = error_dist in (:t, :ged)
+
+const ERROR_DISTS = (:normal, :t, :ged)
 
 
 function vec2param_switch(θ::Vector{Float64}, 
@@ -113,8 +120,22 @@ function trans_θ(θ::Vector{Float64},
                  n_β_ns::Int64, 
                  intercept::String,
                  switching_var::Bool,
-                 tvtp::Bool)
+                 tvtp::Bool,
+                 error_dist::Symbol = :normal)
     
+    n_var = switching_var ? k : 1
+    n_ν   = has_shape_param(error_dist) ? k : 0
+
+    # drop ν parameters so existing vec2param_* helpers keep working
+    # raw parameter is unconstrained log-shape: ν = exp(θ) > 0
+    if n_ν > 0
+        ν_raw = θ[n_var+1:n_var+n_ν]
+        ν     = exp.(ν_raw)
+        θ     = vcat(θ[1:n_var], θ[n_var+n_ν+1:end])
+    else
+        ν = Vector{Float64}(undef, 0)
+    end
+
     # I know, it should be done in a single function. But it's faster apparently.
     if intercept == "switching"
         σ, β = vec2param_switch(θ, k, n_β, n_β_ns, switching_var)
@@ -132,7 +153,7 @@ function trans_θ(θ::Vector{Float64},
         P = P ./ sum(P, dims=1)
     end
     
-    return tvtp ? (σ, β) : (σ, β, P)
+    return tvtp ? (σ, β, ν) : (σ, β, P, ν)
 end
 
 # function to shift the vector - circshift() equivalent

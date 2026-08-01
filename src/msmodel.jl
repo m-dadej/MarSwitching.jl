@@ -13,6 +13,8 @@ struct MSM{V <: AbstractFloat}
     n_β_ns::Int64         # number of non-switching β parameters
     intercept::String     # "switching", "non-switching" or "no"
     switching_var::Bool   # is variance state dependent?
+    error_dist::Symbol    # error distribution (:normal, :t, or :ged)
+    ν::Vector{V}          # shape params for :t/:ged (empty for :normal)
     x::Matrix{V}          # data matrix
     T::Int64              # number of observations
     Likelihood::Float64  
@@ -27,6 +29,9 @@ function Base.show(io::IO, ::MIME"text/plain", model::MSM)
         print(io, "\n------------------------------\n")
     end
     print(io, "σ = ", round.(model.σ, digits=3))
+    if has_shape_param(model.error_dist)
+        print(io, "\nν = ", round.(model.ν, digits=3))
+    end
     println(io, "\n----------------------------")
     if !isempty(model.δ)
         print(io, "TVTP")
@@ -108,22 +113,22 @@ function em_algorithm(X::VecOrMat,
 end
 
 
-function obj_func(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var)  
+function obj_func(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist)  
     
     if length(fΔ) > 0
-        fΔ[1:length(θ)] .= FiniteDiff.finite_difference_gradient(θ -> -loglik(θ, x, k, n_β, n_β_ns, intercept, switching_var)[1], θ)
+        fΔ[1:length(θ)] .= FiniteDiff.finite_difference_gradient(θ -> -loglik(θ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist)[1], θ)
     end
 
-    return -loglik(θ, x, k, n_β, n_β_ns, intercept, switching_var)[1]
+    return -loglik(θ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist)[1]
 end
 
-function obj_func_tvtp(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ)  
+function obj_func_tvtp(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist)  
     
     if length(fΔ) > 0
-        fΔ[1:length(θ)] .= FiniteDiff.finite_difference_gradient(θ -> -loglik_tvtp(θ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ)[1], θ)
+        fΔ[1:length(θ)] .= FiniteDiff.finite_difference_gradient(θ -> -loglik_tvtp(θ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist)[1], θ)
     end
     
-    return -loglik_tvtp(θ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ)[1]
+    return -loglik_tvtp(θ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist)[1]
 end
 
 """
@@ -133,6 +138,7 @@ end
             exog_vars::VecOrMat{V},
             exog_switching_vars::VecOrMat{V},
             switching_var::Bool = true,
+            error_dist::Symbol = :normal,
             exog_tvtp::VecOrMat{V},
             x0::Vector{V},
             algorithm::Symbol = :LN_SBPLX,
@@ -154,6 +160,9 @@ For the same reason, it is recommended not to estimate model with many states (e
 - `exog_vars::VecOrMat{V}`: optional exogenous variables for the non-switching part of the model.
 - `exog_switching_vars::VecOrMat{V}`: optional exogenous variables for the switching part of the model.
 - `switching_var::Bool`: is variance state dependent?
+- `error_dist::Symbol`: distribution of the error term. One of `[:normal, :t, :ged]`.
+  For `:t` / `:ged`, state-specific shape parameters ``\\nu`` are estimated
+  (`:t` = degrees of freedom; `:ged` = GED shape with ``\\nu=2`` = normal, ``\\nu=1`` = Laplace).
 - `exog_tvtp::VecOrMat{V}`: optional exogenous variables for the tvtp part of the model.
 
 - `x0::Vector{V}`: initial guess for the parameters. If empty, the initial guess is generated from k-means clustering.
@@ -175,6 +184,7 @@ function MSModel(y::VecOrMat{V},
                  exog_vars::VecOrMat{V} = Matrix{Float64}(undef, 0, 0),
                  exog_switching_vars::VecOrMat{V}= Matrix{Float64}(undef, 0, 0),
                  switching_var::Bool = true,
+                 error_dist::Symbol = :normal,
                  exog_tvtp::VecOrMat{V} = Matrix{Float64}(undef, 0, 0),
                  x0::Vector{V} = Vector{Float64}(undef, 0),
                  algorithm::Symbol = :LN_SBPLX,
@@ -187,6 +197,7 @@ function MSModel(y::VecOrMat{V},
     @assert k >= 2 "k should be at least 2, otherwise use standard linear regression"
     @assert intercept in ["switching", "non-switching", "no"] "intercept should be either 'switching', 'non-switching' or 'no'"
     @assert algorithm in [:LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX] "algorithm should be either :LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX"
+    @assert error_dist in ERROR_DISTS "error_dist should be one of $ERROR_DISTS"
     @assert (random_search_em >= 0) & (random_search >= 0) "Number of random searches for EM and optimization needs to be positive"
 
     # convert to matrix if vector
@@ -201,6 +212,7 @@ function MSModel(y::VecOrMat{V},
     n_β_ns = size(exog_vars)[2]                # number of non-switching β
     n_β    = size(exog_switching_vars)[2]      # number of switching β
     n_var  = switching_var ? k : 1             # number of variance parameters
+    n_ν    = has_shape_param(error_dist) ? k : 0  # shape params (:t df or :ged shape)
     n_δ    = size(exog_tvtp)[2]                # number of tvtp terms in each state
     n_p    = n_δ > 0 ? n_δ*k*(k-1) : k*(k-1)   # number of probability parameters (either TVTP or constant)
 
@@ -230,18 +242,19 @@ function MSModel(y::VecOrMat{V},
     end
     
     ### solver settings ###
-    n_params          = n_var + n_β_ns + k*n_β + n_intercept + n_p
+    n_params          = n_var + n_ν + n_β_ns + k*n_β + n_intercept + n_p
     @assert length(x0) == n_params || length(x0) == 0 "x0 should be either empty or of length $n_params"
     # also: LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX
     opt               = Opt(algorithm, n_params) 
-    opt.lower_bounds  = [repeat([0], n_var); repeat([-Inf], k*n_β + n_β_ns + n_intercept); repeat([n_δ > 0 ? -Inf : 0.0], n_p)]
-    opt.xtol_rel      = 1e-4
+    # σ raw ≥ 0 (scale = raw²); log(ν) unconstrained; β unconstrained; P ≥ 0
+    opt.lower_bounds  = [repeat([0.0], n_var); repeat([-Inf], n_ν + k*n_β + n_β_ns + n_intercept); repeat([n_δ > 0 ? -Inf : 0.0], n_p)]
+    opt.xtol_rel      = has_shape_param(error_dist) ? 1e-6 : 1e-4
     opt.maxtime       = maxtime < 0 ? T/2 : maxtime
 
     if n_δ == 0
-        opt.min_objective = (θ, fΔ) -> obj_func(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var)
+        opt.min_objective = (θ, fΔ) -> obj_func(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist)
     else
-        opt.min_objective = (θ, fΔ) -> obj_func_tvtp(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ)
+        opt.min_objective = (θ, fΔ) -> obj_func_tvtp(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist)
     end
     
     ### initial guess ###
@@ -296,7 +309,22 @@ function MSModel(y::VecOrMat{V},
         β_s_em  = [β_hat[i][(end - n_β_ns - n_β+1):(end-n_β_ns)] for i in 1:k]
         β_s_em = vec(reduce(hcat, [β_s_em...]))
 
-        x0 = [σ_em; μ_em; β_s_em; β_ns_em; p_em]
+        # raw σ: likelihood uses scale = raw², so pass sqrt(EM std)
+        σ_raw = sqrt.(max.(σ_em, 1e-8))
+
+        # raw ν = log(ν); spread starting values across states
+        if error_dist == :t
+            ν0 = [4.0 + 4.0*(i-1) for i in 1:k]   # e.g. 4, 8, 12, ...
+            ν_em = log.(ν0)
+        elseif error_dist == :ged
+            # GED shape: 2 = normal; start near normal with mild spread
+            ν0 = [1.5 + 0.5*(i-1) for i in 1:k]   # e.g. 1.5, 2.0, 2.5, ...
+            ν_em = log.(ν0)
+        else
+            ν_em = Float64[]
+        end
+
+        x0 = [σ_raw; ν_em; μ_em; β_s_em; β_ns_em; p_em]
     end
 
     (minf_init, θ_hat_init, ret_init) = NLopt.optimize(opt, x0)
@@ -305,7 +333,12 @@ function MSModel(y::VecOrMat{V},
     param_space = [[minf_init, θ_hat_init, ret_init] for _ in 1:random_search+1]
 
     for i in 2:random_search+1
-        rand_θ = param_space[1][2] .+ rand(Uniform(-0.5, 0.5), length(θ_hat_init))
+        # wider noise on log(ν) helps escape flat regions of the df parameters
+        noise = rand(Uniform(-0.5, 0.5), length(θ_hat_init))
+        if n_ν > 0
+            noise[n_var+1:n_var+n_ν] .= rand(Uniform(-1.5, 1.5), n_ν)
+        end
+        rand_θ = param_space[1][2] .+ noise
         rand_θ = max.(opt.lower_bounds, rand_θ)
 
         param_space[i][1], param_space[i][2], param_space[i][3] = NLopt.optimize(opt, rand_θ)        
@@ -320,15 +353,15 @@ function MSModel(y::VecOrMat{V},
 
     ### transformation of variables - tvtp or not ###
     if n_δ > 0
-        σ, β = trans_θ(θ_hat, k, n_β, n_β_ns, intercept, switching_var, true)
+        σ, β, ν = trans_θ(θ_hat, k, n_β, n_β_ns, intercept, switching_var, true, error_dist)
         δ = θ_hat[(end-(n_δ*k*(k-1))+1):end]
         P = Matrix{Float64}(undef, 0, 0)
     else
-        σ, β, P = trans_θ(θ_hat, k, n_β, n_β_ns, intercept, switching_var, false)
+        σ, β, P, ν = trans_θ(θ_hat, k, n_β, n_β_ns, intercept, switching_var, false, error_dist)
         δ = Vector{Float64}(undef, 0)
     end
     
-    return MSM(β, σ, P, δ, k, n_β, n_β_ns, intercept, switching_var, x, T, -minf, θ_hat, ret)
+    return MSM(β, σ, P, δ, k, n_β, n_β_ns, intercept, switching_var, error_dist, ν, x, T, -minf, θ_hat, ret)
 end
 
 """
@@ -414,7 +447,7 @@ function grid_search_msm(y::VecOrMat{V},
                             exog_vars = x[:, findall(param_space[i][3] .== "non-switching")],
                             exog_switching_vars = x[:, findall(param_space[i][3] .== "switching")],
                             switching_var = param_space[i][4],
-                            algorithm = :LN_SBPLX,
+                            algorithm = algorithm,
                             maxtime = maxtime,
                             random_search_em = random_search_em,
                             random_search = random_search,
