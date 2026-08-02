@@ -372,8 +372,7 @@ Function `add_lags(y::Vector{Float64}, p::Int64)` adds `p` lags to the matrix of
 
 - Hamilton, J. D. (1989). A new approach to the economic analysis of nonstationary time series and the business cycle. Econometrica: Journal of the Econometric Society, 357-384.
 
-- Kim, Chang Jin (1994). Dynamic Linear Models with Markov-Switching. Journal of
-Econometrics 60, 1-22.
+- Kim, Chang Jin (1994). Dynamic Linear Models with Markov-Switching. Journal of Econometrics 60, 1-22.
 
 - Filardo, Andrew J. (1994). Business cycle phases and their transitional dynamics. Journal of Business & Economic Statistics, 12(3), 299-308.
 
