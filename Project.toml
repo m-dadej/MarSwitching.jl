@@ -1,6 +1,6 @@
 name = "MarSwitching"
 uuid = "b2b8a7f1-da70-4e5f-beaa-e2774ec39c2f"
-authors = ["Mateusz Dadej <m.dadej@unibs.it>"]
+authors = ["Mateusz Dadej <mateuszdadej@gmail.com>"]
 version = "0.2.3"
 
 [deps]
