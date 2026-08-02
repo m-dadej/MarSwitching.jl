@@ -43,6 +43,34 @@ has_shape_param(error_dist::Symbol) = error_dist in (:t, :ged)
 
 const ERROR_DISTS = (:normal, :t, :ged)
 
+# Lanczos approximation to logΓ(z) for z > 0 (avoids a SpecialFunctions dependency).
+# Used only for GED normalizing constants — O(1) per state, not per observation.
+const _LG_G = 5.0
+const _LG_C = (
+    1.000000000190015,
+    76.18009172947146,
+    -86.50532032941677,
+    24.01409824083091,
+    -1.231739572450155,
+    0.1208650973866179e-2,
+    -0.5395239384953e-5,
+)
+
+function loggamma(z::Real)
+    z = Float64(z)
+    z <= 0 && throw(DomainError(z, "loggamma requires positive argument"))
+    x = z
+    y = x
+    tmp = x + _LG_G + 0.5
+    tmp = (x + 0.5) * log(tmp) - tmp
+    ser = _LG_C[1]
+    @inbounds for i in 2:7
+        y += 1.0
+        ser += _LG_C[i] / y
+    end
+    return tmp + log(2.5066282746310005 * ser / x)
+end
+
 
 function vec2param_switch(θ::Vector{Float64}, 
                           k::Int64, 

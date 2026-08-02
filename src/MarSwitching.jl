@@ -5,7 +5,6 @@ using LinearAlgebra
 using NLopt
 
 import Distributions: Normal, TDist, Gamma, pdf, logpdf, Chi, cdf, Uniform
-import SpecialFunctions: loggamma
 import Random: rand
 import StatsBase: Weights, sample, std, mean
 import Printf: @printf
