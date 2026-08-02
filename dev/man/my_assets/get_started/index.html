@@ -33,38 +33,38 @@ quantile(generate_msm(model, 1000)[1], 0.05)
 # or more interestingly, output summary table
 summary_msm(model)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Markov Switching Model with 2 regimes
 =================================================================
-# of observations:          400 AIC:                      1115.629
-# of estimated parameters:    8 BIC:                      1147.561
-Error distribution:    Gaussian Instant. adj. R^2:          0.5955
-Loglikelihood:           -549.8 Step-ahead adj. R^2:        0.4432
+# of observations:          400 AIC:                      1115.882
+# of estimated parameters:    8 BIC:                      1147.814
+Error distribution:    Gaussian Instant. adj. R^2:          0.5949
+Loglikelihood:           -549.9 Step-ahead adj. R^2:        0.4453
 -----------------------------------------------------------------
 ------------------------------
 Summary of regime 1:
 ------------------------------
 Coefficient  |  Estimate  |  Std. Error  |  z value  |  Pr(&gt;|z|)
 -------------------------------------------------------------------
-β_0          |    -0.463  |       0.047  |   -9.828  |    &lt; 1e-3
-β_1          |     0.048  |       0.047  |    1.011  |     0.312
-σ            |     0.755  |       0.019  |   38.897  |    &lt; 1e-3
+β_0          |    -0.461  |       0.047  |   -9.768  |    &lt; 1e-3
+β_1          |     0.024  |       0.047  |    0.506  |     0.613
+σ            |     0.756  |       0.019  |   38.794  |    &lt; 1e-3
 -------------------------------------------------------------------
-Expected regime duration: 27.73 periods
+Expected regime duration: 27.77 periods
 -------------------------------------------------------------------
 ------------------------------
 Summary of regime 2:
 ------------------------------
 Coefficient  |  Estimate  |  Std. Error  |  z value  |  Pr(&gt;|z|)
 -------------------------------------------------------------------
-β_0          |     0.975  |       0.097  |   10.049  |    &lt; 1e-3
-β_1          |    -1.552  |        0.09  |  -17.326  |    &lt; 1e-3
-σ            |     1.044  |       0.034  |   30.835  |    &lt; 1e-3
+β_0          |     0.976  |       0.097  |   10.054  |    &lt; 1e-3
+β_1          |    -1.552  |        0.09  |  -17.315  |    &lt; 1e-3
+σ            |     1.044  |       0.034  |   30.808  |    &lt; 1e-3
 -------------------------------------------------------------------
 Expected regime duration: 13.94 periods
 -------------------------------------------------------------------
 left-stochastic transition matrix:
           | regime 1   | regime 2
 ---------------------------------------
- regime 1 |   96.394%  |    7.173%  |
- regime 2 |    3.606%  |   92.827%  |</code></pre><p>The estimated model has a following form:</p><p class="math-container">\[y_t = 
+ regime 1 |   96.399%  |    7.174%  |
+ regime 2 |    3.601%  |   92.826%  |</code></pre><p>The estimated model has a following form:</p><p class="math-container">\[y_t = 
 \begin{cases}
     0.82 - 1.48 \times x_t + \epsilon_{1,t} ,&amp; \epsilon_1 &amp;\sim \mathbb{N}(0,1.12), &amp; \text{for } S_t = 1\\
     -0.51 - 0.003 \times x_t + \epsilon_{2,t} ,&amp; \epsilon_2 &amp;\sim \mathbb{N}(0,0.84), &amp; \text{for } S_t = 2
@@ -83,4 +83,4 @@ plot(filtered_probs(model),
 plot(smoothed_probs(model),
      label     = [&quot;Regime 1&quot; &quot;Regime 2&quot;],
      title     = &quot;Smoothed regime probabilities&quot;, 
-     linewidth = 2)</code></pre><p><img src="../smoothed_probs.svg" alt="Plot"/></p></article><nav class="docs-footer"><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.5.0 on <span class="colophon-date" title="Thursday 1 August 2024 12:12">Thursday 1 August 2024</span>. Using Julia version 1.6.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+     linewidth = 2)</code></pre><p><img src="../smoothed_probs.svg" alt="Plot"/></p></article><nav class="docs-footer"><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Sunday 2 August 2026 14:25">Sunday 2 August 2026</span>. Using Julia version 1.6.7.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
