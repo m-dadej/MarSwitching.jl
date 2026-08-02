@@ -1,5 +1,35 @@
 
 """
+    sample_error(dist::Symbol, μ::Float64, σ::Float64, ν::Float64=Inf)
+
+Draw a single innovation from the chosen error distribution.
+"""
+function sample_error(dist::Symbol, μ::Float64, σ::Float64, ν::Float64=Inf)
+    if dist == :normal
+        return rand(Normal(μ, σ))
+    elseif dist == :t
+        return μ + σ * rand(TDist(ν))
+    elseif dist == :ged
+        return rand_ged(μ, σ, ν)
+    else
+        throw(ArgumentError("Unsupported error distribution: $dist. Use :normal, :t, or :ged"))
+    end
+end
+
+"""
+Draw from unit-variance GED with mean `μ`, std `σ`, shape `ν`.
+Uses: X = μ + α S G^{1/ν}, G ~ Gamma(1/ν, 1), S = ±1,
+α = σ √(Γ(1/ν)/Γ(3/ν)).
+"""
+function rand_ged(μ::Float64, σ::Float64, ν::Float64)
+    νs = min(max(ν, 0.1), 50.0)
+    α = σ * exp(0.5 * (loggamma(1 / νs) - loggamma(3 / νs)))
+    g = rand(Gamma(1 / νs, 1.0))
+    s = rand() < 0.5 ? -1.0 : 1.0
+    return μ + α * s * g^(1 / νs)
+end
+
+"""
 generate_msm(μ::Vector{Float64}, σ::Vector{Float64}, P::Matrix{Float64}, T::Int64; <keyword arguments>)
 
 Generate artificial data from Markov switching model from provided parameters.
@@ -9,13 +39,15 @@ Note, in order to have non-switching parameter provide it k-times.
 
 # Arguments
 - `μ::Vector{AbstractFloat}`: intercepts for each state.
-- `σ::Vector{AbstractFloat}`: standard deviations for each state.
+- `σ::Vector{AbstractFloat}`: standard deviations (scale) for each state.
 - `P::Matrix{AbstractFloat}`: transition matrix.
 - `T::Int64`: number of observations to generate.
 - `β::Vector{AbstractFloat}`: switching coefficients. (first k elements in vector are coefficeints of the first state equation).
 - `β_ns::Vector{AbstractFloat}`: non-switching coefficients.
 - `δ::Vector{AbstractFloat}`: tvtp coefficients.
 - `tvtp_intercept::Bool`: whether to include an intercept in the tvtp model.
+- `error_dist::Symbol`: error distribution (`:normal`, `:t`, or `:ged`).
+- `ν::Vector{AbstractFloat}`: shape parameters for each state when `error_dist` is `:t` (df) or `:ged` (shape; 2 = normal, 1 = Laplace).
 """
 function generate_msm(μ::Vector{V},
                         σ::Vector{V},
@@ -24,12 +56,19 @@ function generate_msm(μ::Vector{V},
                         β::Vector{V} = Vector{V}([]),
                         β_ns::Vector{V} = Vector{V}([]),
                         δ::Vector{V} = Vector{V}([]),
-                        tvtp_intercept::Bool = true) where V <: AbstractFloat
+                        tvtp_intercept::Bool = true,
+                        error_dist::Symbol = :normal,
+                        ν::Vector{V} = Vector{V}([])) where V <: AbstractFloat
                         
     isempty(δ) && @assert size(μ)[1] == size(σ)[1] == size(P)[2] "size of μ, σ and P implies different number of states"
     !isempty(δ) && @assert size(μ)[1] == size(σ)[1] "size of μ and σ implies different number of states"
     @assert T > 0 "T should be a positive integer"
     !isempty(β) && @assert length(β) % size(μ)[1] == 0 "β should be a multiple of k"
+    @assert error_dist in ERROR_DISTS "error_dist should be one of $ERROR_DISTS"
+    if has_shape_param(error_dist)
+        @assert length(ν) == length(μ) "ν must have one element per state when error_dist = $error_dist"
+        @assert all(ν .> 0) "shape parameters ν must be positive"
+    end
 
     # for transition matrix without last row, add it and normalize
     if size(P)[2] != size(P)[1]
@@ -41,6 +80,7 @@ function generate_msm(μ::Vector{V},
     n_β    = Int(size(β)[1]/k)
     n_β_ns = size(β_ns)[1]
     s_t    = [1]
+    ν_s    = has_shape_param(error_dist) ? ν : fill(Inf, k)
 
     # generate random states either from tvtp or from P
     if !isempty(δ)
@@ -71,7 +111,7 @@ function generate_msm(μ::Vector{V},
     # generate target variable for each state
     for t in 1:T
         for s in 1:k
-            y_s[t, s] = rand(Normal((X*params[s])[t], σ[s])) 
+            y_s[t, s] = sample_error(error_dist, (X*params[s])[t], σ[s], ν_s[s])
         end       
     end
 
@@ -106,5 +146,7 @@ function generate_msm(model::MSM, T::Int64 = 0)
     exog_tvtp = model.x[:, end-n_δ+1:end]  
     tvtp_intercept = isempty(δ) ? false : all(exog_tvtp[:,1] .== exog_tvtp[1,1])
 
-    return generate_msm(μ, model.σ, model.P, T, β = β, β_ns = β_ns, δ = δ, tvtp_intercept = tvtp_intercept)
+    return generate_msm(μ, model.σ, model.P, T, β = β, β_ns = β_ns, δ = δ,
+                        tvtp_intercept = tvtp_intercept,
+                        error_dist = model.error_dist, ν = model.ν)
 end

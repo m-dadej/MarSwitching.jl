@@ -4,16 +4,16 @@ using FiniteDiff
 using LinearAlgebra
 using NLopt
 
-import Distributions: Normal, pdf, Chi, cdf, Uniform
+import Distributions: Normal, TDist, Gamma, pdf, logpdf, Chi, cdf, Uniform
 import Random: rand
 import StatsBase: Weights, sample, std, mean
 import Printf: @printf
 
-include("msmodel.jl")
+include("utils.jl")
 include("likelihood.jl")
+include("msmodel.jl")
 include("generate.jl")
 include("inference.jl")
-include("utils.jl")
 include("results.jl")
 
 export generate_msm, MSModel, filtered_probs, smoothed_probs

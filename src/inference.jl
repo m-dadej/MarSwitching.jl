@@ -160,7 +160,8 @@ function filtered_probs(model::MSM; kwargs...)
                     model.n_β, 
                     model.n_β_ns, 
                     model.intercept,
-                    model.switching_var)[2]
+                    model.switching_var,
+                    model.error_dist)[2]
     else
         ξ = loglik_tvtp(model.raw_params, 
                         x, 
@@ -169,7 +170,8 @@ function filtered_probs(model::MSM; kwargs...)
                         model.n_β_ns, 
                         model.intercept, 
                         model.switching_var, 
-                        Int(length(model.δ)/(model.k*(model.k-1))))[2]
+                        Int(length(model.δ)/(model.k*(model.k-1))),
+                        model.error_dist)[2]
     end
     
 
