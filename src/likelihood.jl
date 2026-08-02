@@ -1,17 +1,5 @@
 
-"""
-    error_density(dist, y, μ, σ, ν)
-
-Evaluate the conditional density of the dependent variable given state parameters
-for the chosen error distribution.
-
-# Arguments
-- `dist::Symbol`: error distribution (`:normal`, `:t`, or `:ged`)
-- `y`: observed dependent variable
-- `μ`: conditional mean
-- `σ`: scale / standard deviation
-- `ν`: shape parameter (degrees of freedom for `:t`, shape for `:ged`)
-"""
+# Conditional density f(y | μ, σ, ν) for error_dist ∈ {:normal, :t, :ged}
 function error_density(dist::Symbol, y, μ, σ::Float64, ν::Float64=Inf)
     σs = max(σ, 1e-10)  # numerical floor during optimization
     if dist == :normal
@@ -30,9 +18,7 @@ function error_density(dist::Symbol, y, μ, σ::Float64, ν::Float64=Inf)
     end
 end
 
-"""
-Unit-variance GED density for observations `y` with mean `μ`, std `σ`, shape `ν`.
-"""
+# Unit-variance GED density (σ = std; ν = 2 ⇒ normal, ν = 1 ⇒ Laplace)
 function ged_density(y, μ, σ::Float64, ν::Float64)
     νs = min(max(ν, 0.1), 50.0)
     # α = σ * sqrt(Γ(1/ν) / Γ(3/ν))  makes σ the standard deviation

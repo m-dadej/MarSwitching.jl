@@ -38,7 +38,7 @@ end
 # next                                         - intercept / switching β / non-switching β
 # end                                          - transition probabilities (or TVTP δ)
 
-"""Return true if the error distribution has a state-specific shape parameter ν."""
+# true if error distribution has a state-specific shape parameter ν
 has_shape_param(error_dist::Symbol) = error_dist in (:t, :ged)
 
 const ERROR_DISTS = (:normal, :t, :ged)

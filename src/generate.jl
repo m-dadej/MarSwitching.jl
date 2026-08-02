@@ -1,9 +1,5 @@
 
-"""
-    sample_error(dist::Symbol, μ::Float64, σ::Float64, ν::Float64=Inf)
-
-Draw a single innovation from the chosen error distribution.
-"""
+# Draw one innovation from the chosen error distribution
 function sample_error(dist::Symbol, μ::Float64, σ::Float64, ν::Float64=Inf)
     if dist == :normal
         return rand(Normal(μ, σ))
@@ -16,11 +12,7 @@ function sample_error(dist::Symbol, μ::Float64, σ::Float64, ν::Float64=Inf)
     end
 end
 
-"""
-Draw from unit-variance GED with mean `μ`, std `σ`, shape `ν`.
-Uses: X = μ + α S G^{1/ν}, G ~ Gamma(1/ν, 1), S = ±1,
-α = σ √(Γ(1/ν)/Γ(3/ν)).
-"""
+# X = μ + α S G^{1/ν}, G ~ Gamma(1/ν,1), S = ±1, α = σ √(Γ(1/ν)/Γ(3/ν))
 function rand_ged(μ::Float64, σ::Float64, ν::Float64)
     νs = min(max(ν, 0.1), 50.0)
     α = σ * exp(0.5 * (loggamma(1 / νs) - loggamma(3 / νs)))

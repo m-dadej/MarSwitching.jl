@@ -48,9 +48,7 @@ function Base.show(io::IO, ::MIME"text/plain", model::MSM)
 end    
 
 
-"""
-1-D grid MLE for shape ν given residuals and observation weights.
-"""
+# 1-D grid MLE for shape ν given residuals and observation weights
 function mle_shape_1d(error_dist::Symbol, e::AbstractVector, σ::Float64, w::AbstractVector)
     σs = max(σ, 1e-8)
     sw = sum(w)
@@ -71,9 +69,7 @@ function mle_shape_1d(error_dist::Symbol, e::AbstractVector, σ::Float64, w::Abs
     return best_ν
 end
 
-"""
-Moment-based starting value for ν from weighted excess kurtosis of residuals.
-"""
+# Moment-based starting value for ν from weighted excess kurtosis of residuals
 function ν_from_kurtosis(error_dist::Symbol, e::AbstractVector, w::AbstractVector)
     sw = sum(w)
     sw <= 0 && return error_dist == :ged ? 2.0 : 5.0

@@ -16,6 +16,7 @@ makedocs(;
     doctest = false,
     clean = false,
     modules = [MarSwitching],
+    checkdocs = :exports,
     pages = ["Home" => "index.md",
              "man/get_started.md",
              "Examples" => Any["man/examples/example.md",
