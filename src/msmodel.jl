@@ -48,24 +48,85 @@ function Base.show(io::IO, ::MIME"text/plain", model::MSM)
 end    
 
 
+"""
+1-D grid MLE for shape ν given residuals and observation weights.
+"""
+function mle_shape_1d(error_dist::Symbol, e::AbstractVector, σ::Float64, w::AbstractVector)
+    σs = max(σ, 1e-8)
+    sw = sum(w)
+    sw <= 0 && return error_dist == :ged ? 2.0 : 5.0
+
+    grid = error_dist == :t ? exp.(range(log(2.2), log(40.0), length=40)) :
+                              exp.(range(log(0.7), log(5.0), length=40))
+
+    best_ν, best_ll = grid[1], -Inf
+    for ν in grid
+        dens = error_density(error_dist, e, 0.0, σs, ν)
+        ll = sum(@. w * log(max(dens, 1e-300)))
+        if ll > best_ll
+            best_ll = ll
+            best_ν = ν
+        end
+    end
+    return best_ν
+end
+
+"""
+Moment-based starting value for ν from weighted excess kurtosis of residuals.
+"""
+function ν_from_kurtosis(error_dist::Symbol, e::AbstractVector, w::AbstractVector)
+    sw = sum(w)
+    sw <= 0 && return error_dist == :ged ? 2.0 : 5.0
+    wn = w ./ sw
+    m  = sum(wn .* e)
+    e0 = e .- m
+    m2 = sum(wn .* e0.^2)
+    m4 = sum(wn .* e0.^4)
+    m2 <= 1e-14 && return error_dist == :ged ? 2.0 : 5.0
+    κ = m4 / m2^2 - 3.0   # excess kurtosis
+
+    if error_dist == :t
+        # excess kurtosis of t is 6/(ν-4) for ν>4
+        if κ <= 0.05
+            return 30.0
+        else
+            return clamp(4.0 + 6.0 / κ, 2.5, 40.0)
+        end
+    else
+        # match GED excess kurtosis on a small grid
+        best_ν, best_err = 2.0, Inf
+        for ν in range(0.8, 4.5, length=40)
+            # unit-GED kurtosis: Γ(5/ν)Γ(1/ν)/Γ(3/ν)^2 - 3
+            g1 = exp(loggamma(1/ν))
+            g3 = exp(loggamma(3/ν))
+            g5 = exp(loggamma(5/ν))
+            κ_g = g5 * g1 / g3^2 - 3.0
+            err = abs(κ_g - κ)
+            if err < best_err
+                best_err = err
+                best_ν = ν
+            end
+        end
+        return best_ν
+    end
+end
+
 # Expectation-maximization algorithm for initial guess
 function em_algorithm(X::VecOrMat, 
                       k::Int64,
                       n_β_ns::Int64,
                       n_δ::Int64,
                       n_intercept::Int64,
-                      switching_var::Bool;
-                      tol::Float64 = 1e-6)
+                      switching_var::Bool,
+                      error_dist::Symbol = :normal;
+                      tol::Float64 = 1e-6,
+                      maxiter::Int = 200)
 
     Q = [0.0, 1.0, 2.0, 3.0]
     y = X[:,1]
     x = X[:, 2:(end-n_δ)]
     x = n_intercept == 0 ? x[:, 2:end] : x
     T = size(y)[1]
-    w = zeros(size(y)[1], k)
-
-    # init_x = x \ y
-    # β_hat = [init_x .+ (rand(Normal(0, 1)) .* random_factor) for _ in 1:k]
 
     β_hat = [rand(Normal(0, 1), size(x)[2]) for _ in 1:k]
 
@@ -75,12 +136,31 @@ function em_algorithm(X::VecOrMat,
     [β_hat[i][(end-n_β_ns+1):end] .= 0.0 for i in 1:k]
 
     σ_hat = [std(y) * (i/(k/2)) for i in 1:k]
+    ν_hat = has_shape_param(error_dist) ? fill(error_dist == :ged ? 2.0 : 6.0, k) : Float64[]
     π_em = rand(k) 
     π_em = π_em ./ sum(π_em)
-    
-    while (Q[end] / Q[1] - 1) > tol
-        ## Expectation step
-        ϕ = hcat([pdf.(Normal.(x*β_hat[j], σ_hat[j]), y) for j in 1:k]...)
+
+    iter = 0
+    while (Q[end] / Q[1] - 1) > tol && iter < maxiter
+        iter += 1
+        ## Expectation step — density matches the target error distribution
+        ϕ = zeros(T, k)
+        u = ones(T, k)   # latent scale weights (Student-t mixture); 1 for others
+        for j in 1:k
+            μj = x * β_hat[j]
+            if error_dist == :normal
+                ϕ[:, j] .= pdf.(Normal.(μj, σ_hat[j]), y)
+            elseif error_dist == :t
+                ej = y .- μj
+                σj = max(σ_hat[j], 1e-8)
+                νj = ν_hat[j]
+                ϕ[:, j] .= error_density(:t, y, μj, σj, νj)
+                # E[u | y, s=j] for t scale-mixture representation
+                @. u[:, j] = (νj + 1.0) / (νj + (ej / σj)^2)
+            else
+                ϕ[:, j] .= error_density(:ged, y, μj, max(σ_hat[j], 1e-8), ν_hat[j])
+            end
+        end
         ϕ .+= 1e-12
         w = (ϕ .* π_em') ./ sum(ϕ .* π_em', dims = 2)
         Q = my_circshift(Q, -1)
@@ -89,17 +169,38 @@ function em_algorithm(X::VecOrMat,
         ## maximization step
         π_em  = (sum(w, dims=1) / T)'
 
-        # weighted OLS
         β_hat = Vector{Vector{Float64}}(undef, k)
         for j in 1:k
-            wj = w[:,j]
+            # t: IRLS weights w * E[u]; normal/GED: state weights only
+            wj = error_dist == :t ? (w[:, j] .* u[:, j]) : w[:, j]
             β_hat[j] = MarSwitching.mp_inverse((x'*(wj.*x))) * (x'*(wj.*y))
         end
         # averaging non-switching β
         β_ns_avrg = mean(reduce(hcat, β_hat)'[:, (end-n_β_ns+1):end], dims=1)
         [β_hat[i][(end-n_β_ns+1):end] = β_ns_avrg for i in 1:k]
         
-        σ_hat = [sqrt(sum(w[:,j] .* (y .- x*β_hat[j]).^2) / sum(w[:,j])) for j in 1:k]
+        for j in 1:k
+            ej = y .- x * β_hat[j]
+            if error_dist == :t
+                wj = w[:, j] .* u[:, j]
+                swj = sum(w[:, j])
+                σ_hat[j] = swj > 0 ? sqrt(max(sum(wj .* ej.^2) / swj, 1e-12)) : σ_hat[j]
+            else
+                swj = sum(w[:, j])
+                σ_hat[j] = swj > 0 ? sqrt(max(sum(w[:, j] .* ej.^2) / swj, 1e-12)) : σ_hat[j]
+            end
+        end
+
+        # shape parameters from residuals (moments warm-start + 1-D MLE polish)
+        if has_shape_param(error_dist)
+            for j in 1:k
+                ej = y .- x * β_hat[j]
+                ν_m = ν_from_kurtosis(error_dist, ej, w[:, j])
+                ν_hat[j] = mle_shape_1d(error_dist, ej, σ_hat[j], w[:, j])
+                # blend moment and MLE for stability early on
+                ν_hat[j] = 0.5 * ν_hat[j] + 0.5 * ν_m
+            end
+        end
     end
 
     if n_intercept == 1
@@ -108,8 +209,11 @@ function em_algorithm(X::VecOrMat,
     end
 
     σ_hat = switching_var ? σ_hat : (σ_hat'π_em)[:]
+    if has_shape_param(error_dist) && !switching_var
+        # single shared scale already; keep state-specific ν
+    end
 
-    return  π_em, β_hat, σ_hat, Q[end] 
+    return π_em, β_hat, σ_hat, ν_hat, Q[end] 
 end
 
 
@@ -259,19 +363,20 @@ function MSModel(y::VecOrMat{V},
     
     ### initial guess ###
     if isempty(x0)
-        p_em_init, β_hat_init, σ_em_init, Q_init = em_algorithm(x, k, n_β_ns, n_δ, n_intercept, switching_var)
+        p_em_init, β_hat_init, σ_em_init, ν_em_init, Q_init =
+            em_algorithm(x, k, n_β_ns, n_δ, n_intercept, switching_var, error_dist)
 
         ### random search for EM algorithm
-        param_space = [[p_em_init, β_hat_init, σ_em_init, Q_init] for _ in 1:random_search_em+1]
+        param_space = [[p_em_init, β_hat_init, σ_em_init, ν_em_init, Q_init] for _ in 1:random_search_em+1]
 
         for i in 2:random_search_em+1
-            param_space[i] .= em_algorithm(x, k, n_β_ns, n_δ, n_intercept, switching_var)
+            param_space[i] .= em_algorithm(x, k, n_β_ns, n_δ, n_intercept, switching_var, error_dist)
             verbose && println("EM algorithm random search: $(i-1) out of $random_search_em | Q = $(round.(param_space[i][end])) vs. Q_0 = $(round.(param_space[1][end]))")
         end
 
         param_space = sort(param_space, by = last, rev = false)
         (random_search_em > 0) & verbose && println("Q improvement with random search: $(round.(Q_init)) -> $(round.(last(param_space[end]))))")
-        p_em, β_hat, σ_em = param_space[end]
+        p_em, β_hat, σ_em, ν_em_hat = param_space[end][1:4]
 
         ### transformation of ergodic probabilities to probabilites input to the optimization
         # this is bad code 
@@ -286,14 +391,6 @@ function MSModel(y::VecOrMat{V},
             pmat_em       = pmat_em ./ sum(pmat_em, dims=1)
             pmat_em       = pmat_em[1:k-1, :] .* sum(pmat_em[1:k-1, :] .+ 1, dims=1) 
             p_em          = vec(pmat_em)  
-            
-            ## alternatively:
-            # pmat_em = fill(0.05, k-1, k)
-            # for d in 1:k-1
-            #     pmat_em[d,d] += p_em[d] * 7
-            # end
-            # pmat_em .+= 0.05
-            # p_em = vec(pmat_em)
         end
 
         ### converting initial values from EM to vector of parameters ###
@@ -309,17 +406,12 @@ function MSModel(y::VecOrMat{V},
         β_s_em  = [β_hat[i][(end - n_β_ns - n_β+1):(end-n_β_ns)] for i in 1:k]
         β_s_em = vec(reduce(hcat, [β_s_em...]))
 
-        # raw σ: likelihood uses scale = raw², so pass sqrt(EM std)
+        # raw σ: likelihood uses scale = raw², so pass sqrt(EM scale)
         σ_raw = sqrt.(max.(σ_em, 1e-8))
 
-        # raw ν = log(ν); spread starting values across states
-        if error_dist == :t
-            ν0 = [4.0 + 4.0*(i-1) for i in 1:k]   # e.g. 4, 8, 12, ...
-            ν_em = log.(ν0)
-        elseif error_dist == :ged
-            # GED shape: 2 = normal; start near normal with mild spread
-            ν0 = [1.5 + 0.5*(i-1) for i in 1:k]   # e.g. 1.5, 2.0, 2.5, ...
-            ν_em = log.(ν0)
+        # raw ν = log(ν) from distribution-aware EM
+        if has_shape_param(error_dist)
+            ν_em = log.(max.(ν_em_hat, 1e-6))
         else
             ν_em = Float64[]
         end
@@ -330,9 +422,19 @@ function MSModel(y::VecOrMat{V},
     (minf_init, θ_hat_init, ret_init) = NLopt.optimize(opt, x0)
 
     ### Optimization random search ###
-    param_space = [[minf_init, θ_hat_init, ret_init] for _ in 1:random_search+1]
+    n_starts = random_search + 1
+    # for shape distributions add structured multi-starts over ν (local maxima are common)
+    ν_grid = if error_dist == :t
+        [3.0, 5.0, 8.0, 12.0, 20.0]
+    elseif error_dist == :ged
+        [1.0, 1.3, 1.6, 2.0, 2.5, 3.5]
+    else
+        Float64[]
+    end
+    n_ν_starts = isempty(ν_grid) ? 0 : length(ν_grid)
+    param_space = [[minf_init, θ_hat_init, ret_init] for _ in 1:(n_starts + n_ν_starts)]
 
-    for i in 2:random_search+1
+    for i in 2:n_starts
         # wider noise on log(ν) helps escape flat regions of the df parameters
         noise = rand(Uniform(-0.5, 0.5), length(θ_hat_init))
         if n_ν > 0
@@ -345,11 +447,26 @@ function MSModel(y::VecOrMat{V},
         verbose && println("Optimization random search: $(i-1) out of $random_search | LL = $(-round.(param_space[i][1]))")
     end
 
+    # structured ν multi-start: keep best β,σ,P and try distinct shape vectors
+    if n_ν > 0 && n_ν_starts > 0
+        base_θ = param_space[1][2]
+        for (g, νg) in enumerate(ν_grid)
+            θ_try = copy(base_θ)
+            # spread shape across states around grid node
+            ν_vec = [νg * (0.7 + 0.3*(j-1)/(max(k-1,1))) for j in 1:k]
+            θ_try[n_var+1:n_var+n_ν] .= log.(ν_vec)
+            idx = n_starts + g
+            param_space[idx][1], param_space[idx][2], param_space[idx][3] = NLopt.optimize(opt, θ_try)
+            verbose && println("Shape multi-start ν≈$νg | LL = $(-round.(param_space[idx][1]))")
+        end
+    end
+
     param_space = sort(param_space, by = x -> x[1], rev = true)
     minf        = param_space[end][1]
     θ_hat       = param_space[end][2]
     ret         = param_space[end][3]
-    (random_search > 0) & verbose && println("loglikelihood improvement with random search: $(-round.(minf_init)) -> $(-round.(param_space[end][1]))")
+    (random_search > 0 || n_ν_starts > 0) & verbose &&
+        println("loglikelihood improvement with random search: $(-round.(minf_init)) -> $(-round.(param_space[end][1]))")
 
     ### transformation of variables - tvtp or not ###
     if n_δ > 0
