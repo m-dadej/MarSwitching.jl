@@ -7,7 +7,7 @@
 
 MarSwitching.jl is a package for estimating Markov switching dynamic models (also called regime switching) for Julia. This is a class of models with time-varying coefficients depending on an unobservable state/regime that follows a Markov process. The package provides tools for estimation, inference and simulation of the models. 
 
-**Author**: Mateusz Dadej, m.dadej at unibs.it
+**Author**: Mateusz Dadej, <a href="mailto:mateuszdadej@gmail.com">mateuszdadej {at} gmail.com</a>
 
 !!! info "Star it on GitHub!"
     If you have found this package useful, please consider starring it on [GitHub](https://github.com/m-dadej/MarSwitching.jl).
@@ -23,20 +23,22 @@ MarSwitching.jl is a package for estimating Markov switching dynamic models (als
     Star</a>
     ```
 
-**citation**: I encourage to cite the [working paper](https://ssrn.com/abstract=4638279) of package when using it in your research. You can use the following BibTeX entry from the `CITATION.bib` file:
+**citation**: I encourage to cite the [JOSS paper](https://joss.theoj.org/papers/10.21105/joss.06441) of the package when using it in your research. You can use the following BibTeX entry from the `CITATION.bib` file:
 
-```
-@article{DadejMarswitching2019,
-  title       = {MarSwitching.jl: A Julia package for Markov Switching Dynamic Models},
-  author      = {Mateusz Dadej},
-  institution = {University of Brescia},
-  journal     = {Available at SSRN 4638279},
-  year        = {2023},
-  doi         = {https://dx.doi.org/10.2139/ssrn.4638279},
-  url         = {https://ssrn.com/abstract=4638279}
+```bibtex
+@article{Dadej2024, 
+  doi = {10.21105/joss.06441}, 
+  url = {https://doi.org/10.21105/joss.06441}, 
+  year = {2024}, 
+  publisher = {The Open Journal}, 
+  volume = {9}, 
+  number = {98}, 
+  pages = {6441}, 
+  author = {Mateusz Dadej}, 
+  title = {MarSwitching.jl: A Julia package for Markov switching dynamic models}, 
+  journal = {Journal of Open Source Software} 
 }
 ```
-
 
 
 ## Installation
@@ -54,6 +56,7 @@ Assuming that you already have at least Julia 1.6 (stable version) installed.
         - intercept
         - variance
         - exogenous variables
+        - Shape parameter for Student's t-distribution or Generalized Error Distribution
     - model with time-varying transition probabilities (TVTP) (à la Filardo 1994) 
     - Filtered probabilities
     - Smoothed probabilities (Kim, 1994)
@@ -63,7 +66,6 @@ Assuming that you already have at least Julia 1.6 (stable version) installed.
     - Simulation of data both from estimated model and from given parameters
     - variable and number of states selection (with random and grid search)
 - Planned functionality:
-    - other error distributions (student-t, GED, etc.)
     - Markov Switching GARCH model
     - Markov Switching VAR model
     - Markov Switching model with lagged states. E.g. $y_t = \mu_{S_t} + \phi(y_{t-1} - \mu_{S_{t-1}})$
