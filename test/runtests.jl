@@ -367,8 +367,8 @@ end
     model = MSModel(y, k, intercept = "switching",
                     error_dist = :t,
                     exog_switching_vars = X[:,2],
-                    random_search_em = 3,
-                    random_search = 3,
+                    random_search_em = 6,
+                    random_search = 6,
                     verbose = false)
 
     @test model.error_dist == :t
