@@ -88,7 +88,8 @@ For more thorough introduction to the Markov switching models, see 9th chapter o
         - intercept
         - variance
         - exogenous variables
-        - shape parameter $\nu$ for Student's $t$ distribution and Generalized Error Distribution
+        - shape of error distribution
+    - Alternative error distributions (Normal, Student's $t$-distribution and Generalized Error Distribution) with regime-switching shape parameter 
     - Model with time-varying transition probabilities (TVTP) (à la Filardo 1994) 
     - Filtered probabilities
     - Smoothed probabilities (Kim, 1994)
