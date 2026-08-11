@@ -89,8 +89,9 @@ For more thorough introduction to the Markov switching models, see 9th chapter o
         - variance
         - exogenous variables
         - shape of error distribution
-    - Alternative error distributions (Normal, Student's $t$-distribution and Generalized Error Distribution) with regime-switching shape parameter 
+    - Markov Switching ARCH model (`MSARCHModel()`), with regime-specific ARCH($q$) coefficients (Haas, Mittnik & Paolella, 2004)
     - Model with time-varying transition probabilities (TVTP) (à la Filardo 1994) 
+    - Alternative error distributions (Normal, Student's $t$-distribution and Generalized Error Distribution) with regime-switching shape parameter 
     - Filtered probabilities
     - Smoothed probabilities (Kim, 1994)
     - Summary statistics of coefficients
@@ -98,7 +99,6 @@ For more thorough introduction to the Markov switching models, see 9th chapter o
     - Expected regime duration
     - Simulation of data both from estimated model and from given parameters
     - Variable and number of states selection (with random and grid search)
-    - Markov Switching ARCH model (`MSARCHModel()`), with regime-specific ARCH($q$) coefficients (Haas, Mittnik & Paolella, 2004)
 - Planned functionality:
     - Markov Switching GARCH model
     - Markov Switching VAR model
@@ -389,6 +389,8 @@ Function `add_lags(y::Vector{Float64}, p::Int64)` adds `p` lags to the matrix of
 - Hamilton, J. D. (1989). A new approach to the economic analysis of nonstationary time series and the business cycle. Econometrica: Journal of the Econometric Society, 357-384.
 
 - Kim, Chang Jin (1994). Dynamic Linear Models with Markov-Switching. Journal of Econometrics 60, 1-22.
+
+- Haas, Mittnik, Paolella (2004), A New Approach to Markov-Switching GARCH Models, Journal of Financial Econometrics, Volume 2, Issue 4.
 
 - Filardo, Andrew J. (1994). Business cycle phases and their transitional dynamics. Journal of Business & Economic Statistics, 12(3), 299-308.
 
