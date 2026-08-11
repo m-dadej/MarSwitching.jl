@@ -5,19 +5,22 @@ Is returned by the function `MSModel`.
 """
 struct MSM{V <: AbstractFloat}
     β::Vector{Vector{V}}  # β[state][i] vector of β for each state
-    σ::Vector{V}          
+    σ::Vector{V}          # constant models: std dev; MS-ARCH: sqrt of mean conditional variance
     P::Matrix{V}          # transition matrix
     δ::Vector{V}          # tvtp parameters
-    k::Int64                   
+    k::Int64
     n_β::Int64            # number of β parameters
     n_β_ns::Int64         # number of non-switching β parameters
     intercept::String     # "switching", "non-switching" or "no"
     switching_var::Bool   # is variance state dependent?
+    q::Int64              # MS-ARCH order (0 = constant variance, i.e. a plain MSM)
+    ω::Vector{V}          # MS-ARCH intercepts (variance units); empty when q == 0
+    α::Vector{Vector{V}}  # α[state][lag], MS-ARCH coefficients; empty when q == 0
     error_dist::Symbol    # error distribution (:normal, :t, or :ged)
     ν::Vector{V}          # shape params for :t/:ged (empty for :normal)
     x::Matrix{V}          # data matrix
     T::Int64              # number of observations
-    Likelihood::Float64  
+    Likelihood::Float64
     raw_params::Vector{V} # raw parameters used directly in the Likelihood function
     nlopt_msg::Symbol
 end
@@ -25,10 +28,18 @@ end
 function Base.show(io::IO, ::MIME"text/plain", model::MSM)
     for s in 1:model.k
         print(io, "β_i,", s, ": ")
-        [print(io, round(model.β[s][i], digits=3), " ") for i in 1:(model.n_β + model.n_β_ns + 1) ] 
+        [print(io, round(model.β[s][i], digits=3), " ") for i in 1:(model.n_β + model.n_β_ns + 1) ]
         print(io, "\n------------------------------\n")
     end
-    print(io, "σ = ", round.(model.σ, digits=3))
+    if model.q > 0
+        print(io, "ω = ", round.(model.ω, digits=3))
+        for j in 1:model.q
+            print(io, "\nα_$j = ", round.([model.α[s][j] for s in 1:model.k], digits=3))
+        end
+        print(io, "\nσ (uncond.) = ", round.(model.σ, digits=3))
+    else
+        print(io, "σ = ", round.(model.σ, digits=3))
+    end
     if has_shape_param(model.error_dist)
         print(io, "\nν = ", round.(model.ν, digits=3))
     end
@@ -213,31 +224,56 @@ function em_algorithm(X::VecOrMat,
 end
 
 
-function obj_func(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist)  
-    
+# Each of the four objective variants below calls its _const/_arch loglik body
+# directly (bypassing the loglik()/loglik_tvtp() q>0 dispatch). MSModel() picks which
+# variant to hand to NLopt ONCE, at setup time (see opt.min_objective below) — so the
+# q=0 case, used on every optimizer iteration, has zero per-call dispatch overhead and
+# matches the pre-MS-ARCH call depth exactly (obj_func_const -> _loglik_const, same as
+# the original obj_func -> loglik).
+function obj_func_const(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist)
+
     if length(fΔ) > 0
-        fΔ[1:length(θ)] .= FiniteDiff.finite_difference_gradient(θ -> -loglik(θ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist)[1], θ)
+        fΔ[1:length(θ)] .= FiniteDiff.finite_difference_gradient(θ -> -_loglik_const(θ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist, true)[1], θ)
     end
 
-    return -loglik(θ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist)[1]
+    return -_loglik_const(θ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist, true)[1]
 end
 
-function obj_func_tvtp(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist)  
-    
+function obj_func_arch(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist, q)
+
     if length(fΔ) > 0
-        fΔ[1:length(θ)] .= FiniteDiff.finite_difference_gradient(θ -> -loglik_tvtp(θ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist)[1], θ)
+        fΔ[1:length(θ)] .= FiniteDiff.finite_difference_gradient(θ -> -_loglik_arch(θ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist, q, true)[1], θ)
     end
-    
-    return -loglik_tvtp(θ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist)[1]
+
+    return -_loglik_arch(θ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist, q, true)[1]
+end
+
+function obj_func_tvtp_const(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist)
+
+    if length(fΔ) > 0
+        fΔ[1:length(θ)] .= FiniteDiff.finite_difference_gradient(θ -> -_loglik_tvtp_const(θ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist, true)[1], θ)
+    end
+
+    return -_loglik_tvtp_const(θ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist, true)[1]
+end
+
+function obj_func_tvtp_arch(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist, q)
+
+    if length(fΔ) > 0
+        fΔ[1:length(θ)] .= FiniteDiff.finite_difference_gradient(θ -> -_loglik_tvtp_arch(θ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist, q, true)[1], θ)
+    end
+
+    return -_loglik_tvtp_arch(θ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist, q, true)[1]
 end
 
 """
     MSModel(y::VecOrMat{V},
-            k::Int64, 
+            k::Int64,
             ;intercept::String = "switching",
             exog_vars::VecOrMat{V},
             exog_switching_vars::VecOrMat{V},
             switching_var::Bool = true,
+            q::Int64 = 0,
             error_dist::Symbol = :normal,
             exog_tvtp::VecOrMat{V},
             x0::Vector{V},
@@ -245,7 +281,7 @@ end
             maxtime::Int64 = -1,
             random_search::Int64 = 0,
             random_search_em::Int64,
-            verbose::Bool) where V <: AbstractFloat   
+            verbose::Bool) where V <: AbstractFloat
 
 Function to estimate the Markov Switching Model. Returns an instance of MSM struct.
 
@@ -260,6 +296,8 @@ For the same reason, it is recommended not to estimate model with many states (e
 - `exog_vars::VecOrMat{V}`: optional exogenous variables for the non-switching part of the model.
 - `exog_switching_vars::VecOrMat{V}`: optional exogenous variables for the switching part of the model.
 - `switching_var::Bool`: is variance state dependent?
+- `q::Int64`: order of the Markov-switching ARCH process (0 = constant variance, the default).
+  See [`MSARCHModel`](@ref) for a convenience wrapper that sets this to a sensible non-zero default.
 - `error_dist::Symbol`: distribution of the error term. One of `[:normal, :t, :ged]`.
   For `:t` / `:ged`, state-specific shape parameters ``\\nu`` are estimated
   (`:t` = degrees of freedom; `:ged` = GED shape with ``\\nu=2`` = normal, ``\\nu=1`` = Laplace).
@@ -269,14 +307,14 @@ For the same reason, it is recommended not to estimate model with many states (e
 - `algorithm::Symbol`: optimization algorithm to use. One of [`:LD_VAR2`, `:LD_VAR1`, `:LD_LBFGS`, `:LN_SBPLX`]
 - `maxtime::Int64`: maximum time in seconds to run the optimization. If negative, the maximum time is equal T/2.
 - `random_search_em::Int64`: number of random searches to perform for the EM algorithm. If 0, no random search is performed.
-- `random_search::Int64`: number of random searches to perform. 
+- `random_search::Int64`: number of random searches to perform.
 - `verbose::Bool`: if true, prints out the progress of the random searches.
 
 References:
 - Hamilton, J. D. (1989). A new approach to the economic analysis of nonstationary time series and the business cycle. Econometrica: Journal of the Econometric Society, 357-384.
 - Filardo, Andrew J. (1994). Business cycle phases and their transitional dynamics. Journal of Business & Economic Statistics, 12(3), 299-308.
 
-See also [`grid_search_msm`](@ref).
+See also [`grid_search_msm`](@ref), [`MSARCHModel`](@ref).
 """
 function MSModel(y::VecOrMat{V},
                  k::Int64;
@@ -284,6 +322,7 @@ function MSModel(y::VecOrMat{V},
                  exog_vars::VecOrMat{V} = Matrix{Float64}(undef, 0, 0),
                  exog_switching_vars::VecOrMat{V}= Matrix{Float64}(undef, 0, 0),
                  switching_var::Bool = true,
+                 q::Int64 = 0,
                  error_dist::Symbol = :normal,
                  exog_tvtp::VecOrMat{V} = Matrix{Float64}(undef, 0, 0),
                  x0::Vector{V} = Vector{Float64}(undef, 0),
@@ -291,10 +330,11 @@ function MSModel(y::VecOrMat{V},
                  maxtime::Int64 = -1,
                  random_search_em::Int64 = 0,
                  random_search::Int64 = 0,
-                 verbose::Bool = true) where V <: AbstractFloat              
+                 verbose::Bool = true) where V <: AbstractFloat
 
     @assert size(y)[1] > 0 "y should be a vector or matrix with at least one observation"
     @assert k >= 2 "k should be at least 2, otherwise use standard linear regression"
+    @assert q >= 0 "q should be non-negative"
     @assert intercept in ["switching", "non-switching", "no"] "intercept should be either 'switching', 'non-switching' or 'no'"
     @assert algorithm in [:LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX] "algorithm should be either :LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX"
     @assert error_dist in ERROR_DISTS "error_dist should be one of $ERROR_DISTS"
@@ -313,6 +353,7 @@ function MSModel(y::VecOrMat{V},
     n_β    = size(exog_switching_vars)[2]      # number of switching β
     n_var  = switching_var ? k : 1             # number of variance parameters
     n_ν    = has_shape_param(error_dist) ? k : 0  # shape params (:t df or :ged shape)
+    n_α    = switching_var ? k*q : q           # MS-ARCH coefficients (0 when q == 0)
     n_δ    = size(exog_tvtp)[2]                # number of tvtp terms in each state
     n_p    = n_δ > 0 ? n_δ*k*(k-1) : k*(k-1)   # number of probability parameters (either TVTP or constant)
 
@@ -342,19 +383,22 @@ function MSModel(y::VecOrMat{V},
     end
     
     ### solver settings ###
-    n_params          = n_var + n_ν + n_β_ns + k*n_β + n_intercept + n_p
+    n_params          = n_var + n_ν + n_α + n_β_ns + k*n_β + n_intercept + n_p
     @assert length(x0) == n_params || length(x0) == 0 "x0 should be either empty or of length $n_params"
     # also: LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX
-    opt               = Opt(algorithm, n_params) 
-    # σ raw ≥ 0 (scale = raw²); log(ν) unconstrained; β unconstrained; P ≥ 0
-    opt.lower_bounds  = [repeat([0.0], n_var); repeat([-Inf], n_ν + k*n_β + n_β_ns + n_intercept); repeat([n_δ > 0 ? -Inf : 0.0], n_p)]
-    opt.xtol_rel      = has_shape_param(error_dist) ? 1e-6 : 1e-4
+    opt               = Opt(algorithm, n_params)
+    # σ/ω raw ≥ 0 (scale/variance = raw²); log(ν) unconstrained; α raw ≥ 0 (unbounded above); β unconstrained; P ≥ 0
+    opt.lower_bounds  = [repeat([0.0], n_var); repeat([-Inf], n_ν); repeat([0.0], n_α);
+                         repeat([-Inf], k*n_β + n_β_ns + n_intercept); repeat([n_δ > 0 ? -Inf : 0.0], n_p)]
+    opt.xtol_rel      = (has_shape_param(error_dist) || q > 0) ? 1e-6 : 1e-4
     opt.maxtime       = maxtime < 0 ? T/2 : maxtime
 
     if n_δ == 0
-        opt.min_objective = (θ, fΔ) -> obj_func(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist)
+        opt.min_objective = q > 0 ? (θ, fΔ) -> obj_func_arch(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist, q) :
+                                    (θ, fΔ) -> obj_func_const(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist)
     else
-        opt.min_objective = (θ, fΔ) -> obj_func_tvtp(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist)
+        opt.min_objective = q > 0 ? (θ, fΔ) -> obj_func_tvtp_arch(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist, q) :
+                                    (θ, fΔ) -> obj_func_tvtp_const(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist)
     end
     
     ### initial guess ###
@@ -402,9 +446,6 @@ function MSModel(y::VecOrMat{V},
         β_s_em  = [β_hat[i][(end - n_β_ns - n_β+1):(end-n_β_ns)] for i in 1:k]
         β_s_em = vec(reduce(hcat, [β_s_em...]))
 
-        # raw σ: likelihood uses scale = raw², so pass sqrt(EM scale)
-        σ_raw = sqrt.(max.(σ_em, 1e-8))
-
         # raw ν = log(ν) from distribution-aware EM
         if has_shape_param(error_dist)
             ν_em = log.(max.(ν_em_hat, 1e-6))
@@ -412,7 +453,19 @@ function MSModel(y::VecOrMat{V},
             ν_em = Float64[]
         end
 
-        x0 = [σ_raw; ν_em; μ_em; β_s_em; β_ns_em; p_em]
+        if q > 0
+            # ω = raw² is a VARIANCE (unlike σ_raw² below, which is a std dev for the
+            # constant-variance model): ω_s = (1-Σα)·σ_EM,s² gives an unconditional
+            # variance ≈ σ_EM,s², matching the scale of the EM starting point.
+            a0    = 0.3                                       # initial total ARCH persistence
+            ω_raw = sqrt.((1 - a0) .* max.(σ_em, 1e-8).^2)
+            α_raw = fill(sqrt(a0 / q), n_α)
+            x0    = [ω_raw; ν_em; α_raw; μ_em; β_s_em; β_ns_em; p_em]
+        else
+            # raw σ: likelihood uses scale = raw², so pass sqrt(EM scale)
+            σ_raw = sqrt.(max.(σ_em, 1e-8))
+            x0    = [σ_raw; ν_em; μ_em; β_s_em; β_ns_em; p_em]
+        end
     end
 
     (minf_init, θ_hat_init, ret_init) = NLopt.optimize(opt, x0)
@@ -428,7 +481,11 @@ function MSModel(y::VecOrMat{V},
         Float64[]
     end
     n_ν_starts = isempty(ν_grid) ? 0 : length(ν_grid)
-    param_space = [[minf_init, θ_hat_init, ret_init] for _ in 1:(n_starts + n_ν_starts)]
+    # structured multi-starts over total ARCH persistence Σα (MS-ARCH likelihoods are
+    # classically bimodal: a high-variance regime can be explained by large ω or large α)
+    α_grid      = q > 0 ? [0.05, 0.15, 0.35, 0.6] : Float64[]
+    n_α_starts  = isempty(α_grid) ? 0 : length(α_grid)
+    param_space = [[minf_init, θ_hat_init, ret_init] for _ in 1:(n_starts + n_ν_starts + n_α_starts)]
 
     for i in 2:n_starts
         # wider noise on log(ν) helps escape flat regions of the df parameters
@@ -436,10 +493,15 @@ function MSModel(y::VecOrMat{V},
         if n_ν > 0
             noise[n_var+1:n_var+n_ν] .= rand(Uniform(-1.5, 1.5), n_ν)
         end
+        if n_α > 0
+            # narrower than the default noise: α_raw ≈ sqrt(0.3/q), so ±0.5 would sweep
+            # Σα across an implausibly wide range
+            noise[n_var+n_ν+1:n_var+n_ν+n_α] .= rand(Uniform(-0.2, 0.2), n_α)
+        end
         rand_θ = param_space[1][2] .+ noise
         rand_θ = max.(opt.lower_bounds, rand_θ)
 
-        param_space[i][1], param_space[i][2], param_space[i][3] = NLopt.optimize(opt, rand_θ)        
+        param_space[i][1], param_space[i][2], param_space[i][3] = NLopt.optimize(opt, rand_θ)
         verbose && println("Optimization random search: $(i-1) out of $random_search | LL = $(-round.(param_space[i][1]))")
     end
 
@@ -457,24 +519,112 @@ function MSModel(y::VecOrMat{V},
         end
     end
 
+    # structured α multi-start: keep best ω,β,P (and ν) and try distinct total-persistence levels
+    if n_α > 0 && n_α_starts > 0
+        base_θ = param_space[1][2]
+        for (g, αg) in enumerate(α_grid)
+            θ_try = copy(base_θ)
+            θ_try[n_var+n_ν+1:n_var+n_ν+n_α] .= sqrt(αg / q)
+            idx = n_starts + n_ν_starts + g
+            param_space[idx][1], param_space[idx][2], param_space[idx][3] = NLopt.optimize(opt, θ_try)
+            verbose && println("ARCH multi-start Σα≈$αg | LL = $(-round.(param_space[idx][1]))")
+        end
+    end
+
     param_space = sort(param_space, by = x -> x[1], rev = true)
     minf        = param_space[end][1]
     θ_hat       = param_space[end][2]
     ret         = param_space[end][3]
-    (random_search > 0 || n_ν_starts > 0) & verbose &&
+    (random_search > 0 || n_ν_starts > 0 || n_α_starts > 0) & verbose &&
         println("loglikelihood improvement with random search: $(-round.(minf_init)) -> $(-round.(param_space[end][1]))")
 
     ### transformation of variables - tvtp or not ###
     if n_δ > 0
-        σ, β, ν = trans_θ(θ_hat, k, n_β, n_β_ns, intercept, switching_var, true, error_dist)
+        if q > 0
+            ω, α, β, ν = trans_θ_arch(θ_hat, k, n_β, n_β_ns, intercept, switching_var, true, error_dist, q)
+        else
+            σ, β, ν = trans_θ(θ_hat, k, n_β, n_β_ns, intercept, switching_var, true, error_dist)
+        end
         δ = θ_hat[(end-(n_δ*k*(k-1))+1):end]
         P = Matrix{Float64}(undef, 0, 0)
     else
-        σ, β, P, ν = trans_θ(θ_hat, k, n_β, n_β_ns, intercept, switching_var, false, error_dist)
+        if q > 0
+            ω, α, β, P, ν = trans_θ_arch(θ_hat, k, n_β, n_β_ns, intercept, switching_var, false, error_dist, q)
+        else
+            σ, β, P, ν = trans_θ(θ_hat, k, n_β, n_β_ns, intercept, switching_var, false, error_dist)
+        end
         δ = Vector{Float64}(undef, 0)
     end
-    
-    return MSM(β, σ, P, δ, k, n_β, n_β_ns, intercept, switching_var, error_dist, ν, x, T, -minf, θ_hat, ret)
+
+    if q > 0
+        # sqrt(mean conditional variance): a single definition that is always finite and
+        # nests the constant-variance model exactly (α = 0 ⇒ σ[s] = sqrt(ω_s))
+        x_lik = n_δ > 0 ? x[:, 1:end-n_δ] : x   # mirrors the X-slicing in likelihood.jl
+        μ_hat = [view(x_lik, :, 2:n_β+n_β_ns+2) * β[i] for i in 1:k]
+        h_hat = arch_var(view(x_lik, :, 1), μ_hat, ω, α, k, q)
+        σ     = [sqrt(sum(view(h_hat, :, s)) / T) for s in 1:k]
+    else
+        ω = Vector{Float64}(undef, 0)
+        α = Vector{Vector{Float64}}(undef, 0)
+    end
+
+    return MSM(β, σ, P, δ, k, n_β, n_β_ns, intercept, switching_var, q, ω, α, error_dist, ν, x, T, -minf, θ_hat, ret)
+end
+
+"""
+    MSARCHModel(y::VecOrMat{V},
+               k::Int64,
+               q::Int64 = 1;
+               <same keyword arguments as MSModel>) where V <: AbstractFloat
+
+Convenience wrapper around [`MSModel`](@ref) that estimates a Markov-Switching ARCH(q) model:
+each of the `k` regimes carries its own ARCH(q) conditional-variance process
+(Haas, Mittnik & Paolella, 2004), instead of a constant regime-specific variance.
+
+```math
+y_t = x_t'\\beta_{S_t} + e_t, \\qquad e_t = \\sqrt{h_{t,S_t}} \\, z_t, \\qquad z_t \\sim D(0,1)
+```
+```math
+h_{t,s} = \\omega_s + \\sum_{j=1}^{q} \\alpha_{s,j} \\, \\varepsilon_{t-j,s}^2, \\qquad
+\\varepsilon_{t,s} = y_t - x_t'\\beta_s
+```
+
+Each regime's conditional variance depends only on lags of that regime's own residual
+`ε_{t,s}`, computed at every `t` for every state `s`, not just the realised one. This makes
+the model path-independent (unlike Hamilton & Susmel's SWARCH, which requires expanding the
+state space to `k^(q+1)`): `h` is a single `T×k` matrix computed once, and the Hamilton filter
+is otherwise identical to [`MSModel`](@ref). It reduces exactly to [`MSModel`](@ref) when `α = 0`,
+and with `intercept = "no"` and no exogenous variables it reduces to textbook Markov-switching
+ARCH on `y` directly.
+
+Note:
+Pre-sample squared residuals (`t - j <= 0`) are backcast with the regime's full-sample mean
+squared residual, rather than dropping the first `q` observations — this keeps `T`, and hence
+AIC/BIC, comparable across different values of `q`.
+
+For `error_dist = :t`, the Student-t is parameterised by scale, not standard deviation, so `h`
+is a squared scale rather than a variance; the in-regime stationarity condition is
+`Σⱼ α_{s,j}·ν_s/(ν_s-2) < 1`.
+
+Standard errors for `α` degenerate towards the boundary `α = 0` (the score is identically zero
+there), the same way `MSModel`'s finite-difference standard errors do at any other boundary.
+
+# Arguments
+- `y::VecOrMat{V}`: dependent variable.
+- `k::Int64`: number of states.
+- `q::Int64`: order of the ARCH process (same for every state). Must be at least 1.
+- all other keyword arguments are identical to [`MSModel`](@ref), including `switching_var`
+  (`true`: `ω` and `α` are state-specific; `false`: shared across states).
+
+References:
+- Haas, M., Mittnik, S., & Paolella, M. S. (2004). A new approach to Markov-switching GARCH models. Journal of Financial Econometrics, 2(4), 493-530.
+- Hamilton, J. D., & Susmel, R. (1994). Autoregressive conditional heteroskedasticity and changes in regime. Journal of Econometrics, 64(1-2), 307-333.
+
+See also [`MSModel`](@ref), [`conditional_variance`](@ref).
+"""
+function MSARCHModel(y::VecOrMat{V}, k::Int64, q::Int64 = 1; kwargs...) where V <: AbstractFloat
+    @assert q >= 1 "q should be at least 1; use MSModel() for a constant-variance model"
+    return MSModel(y, k; q = q, kwargs...)
 end
 
 """

@@ -16,9 +16,9 @@ include("generate.jl")
 include("inference.jl")
 include("results.jl")
 
-export generate_msm, MSModel, filtered_probs, smoothed_probs
+export generate_msm, MSModel, MSARCHModel, filtered_probs, smoothed_probs
 export get_std_errors, expected_duration, state_coeftable, transition_mat, summary_msm
 export MSM, add_lags, ergodic_probs
-export predict, coeftable_tvtp, grid_search_msm
+export predict, coeftable_tvtp, grid_search_msm, conditional_variance
 
 end

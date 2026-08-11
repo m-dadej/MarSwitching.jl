@@ -98,6 +98,7 @@ For more thorough introduction to the Markov switching models, see 9th chapter o
     - Expected regime duration
     - Simulation of data both from estimated model and from given parameters
     - Variable and number of states selection (with random and grid search)
+    - Markov Switching ARCH model (`MSARCHModel()`), with regime-specific ARCH($q$) coefficients (Haas, Mittnik & Paolella, 2004)
 - Planned functionality:
     - Markov Switching GARCH model
     - Markov Switching VAR model
@@ -251,6 +252,7 @@ MSModel(y::VecOrMat{V},                    # vector of dependent variable
         exog_vars::VecOrMat{V},            # optional matrix of exogenous variables
         exog_switching_vars::VecOrMat{V},  # optional matrix of exogenous variables with regime switching
         switching_var::Bool = true,        # is variance state-dependent?
+        q::Int64 = 0,                      # order of the Markov-Switching ARCH process (0 = constant variance)
         error_dist::Symbol = :normal,      # error distribution. :normal, :t or :ged 
         exog_tvtp::VecOrMat{V},            # optional matrix of exogenous variables for time-varying transition matrix
         x0::Vector{V},                     # optional initial values of parameters for optimization
@@ -259,12 +261,23 @@ MSModel(y::VecOrMat{V},                    # vector of dependent variable
         random_search::Int64 = 0           # Number of random search iterations (model estimations with random disturbance to the x0)
         ) where V <: AbstractFloat  
 ```
-The function returns `MSM` type object:
+
+For a Markov-Switching ARCH model, i.e. each regime carrying its own ARCH($q$) conditional-variance process (Haas, Mittnik & Paolella, 2004), use the `MSARCHModel()` convenience wrapper, which accepts the same keyword arguments as `MSModel()`:
+
+```Julia
+MSARCHModel(y::VecOrMat{V},                # vector of dependent variable
+            k::Int64,                      # number of regimes
+            q::Int64 = 1;                  # order of the ARCH process
+            <same keyword arguments as MSModel>
+            ) where V <: AbstractFloat
+```
+
+Both functions return an `MSM` type object:
 
 ```Julia
 struct MSM{V <: AbstractFloat}
     β::Vector{Vector{V}}  # β[state][i] vector of β for each state
-    σ::Vector{V}          # error variance
+    σ::Vector{V}          # constant models: error std. dev.; MS-ARCH: sqrt of mean conditional variance
     P::Matrix{V}          # transition matrix
     δ::Vector{V}          # tvtp parameters
     k::Int64              # number of regimes 
@@ -272,7 +285,11 @@ struct MSM{V <: AbstractFloat}
     n_β_ns::Int64         # number of non-switching β parameters
     intercept::String     # "switching", "non-switching" or "no"
     switching_var::Bool   # is variance state dependent?
+    q::Int64              # MS-ARCH order (0 = constant variance, i.e. a plain MSModel)
+    ω::Vector{V}          # MS-ARCH intercepts (variance units); empty when q == 0
+    α::Vector{Vector{V}}  # α[state][lag], MS-ARCH coefficients; empty when q == 0
     error_dist::Symbol    # error distribution (:normal, :t, or :ged)
+    ν::Vector{V}          # shape params for :t/:ged (empty for :normal)
     x::Matrix{V}          # data matrix
     T::Int64              # number of observations
     Likelihood::Float64   # vector of parameters for optimization

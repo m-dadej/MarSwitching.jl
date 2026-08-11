@@ -65,6 +65,7 @@ Assuming that you already have at least Julia 1.6 (stable version) installed.
     - Expected regime duration
     - Simulation of data both from estimated model and from given parameters
     - variable and number of states selection (with random and grid search)
+    - Markov Switching ARCH model (`MSARCHModel()`), with regime-specific ARCH($q$) coefficients (Haas, Mittnik & Paolella, 2004)
 - Planned functionality:
     - Markov Switching GARCH model
     - Markov Switching VAR model

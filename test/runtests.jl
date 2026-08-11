@@ -443,6 +443,158 @@ end
     @test sort(unique(s2)) == collect(1:k)
 end
 
+@testset "MS-ARCH: arch_var" begin
+    y  = [1.0, 2.0, -1.0, 0.5]
+    μ  = [zeros(4), zeros(4)]
+    h  = MarSwitching.arch_var(y, μ, [0.5, 1.0], [[0.4], [0.0]], 2, 1)
+    e2 = y.^2
+    b  = sum(e2) / 4
+
+    @test h[1,1] ≈ 0.5 + 0.4*b        # pre-sample backcast
+    @test h[2,1] ≈ 0.5 + 0.4*e2[1]
+    @test h[4,1] ≈ 0.5 + 0.4*e2[3]
+    @test all(h[:,2] .≈ 1.0)          # α = 0 -> constant variance
+    @test size(h) == (4, 2)
+end
+
+@testset "MS-ARCH: trans_θ_arch parameter transformation" begin
+    k, q, n_β, n_β_ns = 3, 2, 1, 1
+    ω_raw = [0.5, 1.0, 1.5]
+    α_raw = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]   # state-major: s1=[.1,.2], s2=[.3,.4], s3=[.5,.6]
+    rest  = [randn(k); randn(n_β*k); randn(n_β_ns); rand(k*(k-1))]
+
+    ω, α, β, P, ν = MarSwitching.trans_θ_arch([ω_raw; α_raw; rest], k, n_β, n_β_ns,
+                                              "switching", true, false, :normal, q)
+
+    @test ω ≈ ω_raw.^2
+    @test α[1] ≈ [0.01, 0.04]
+    @test α[3] ≈ [0.25, 0.36]
+    @test length(β) == k && length(β[1]) == n_β + n_β_ns + 1
+    @test size(P) == (k, k)
+    @test isempty(ν)
+
+    # β and P blocks must parse identically to the constant-variance model on the same tail
+    _, β2, P2, _ = MarSwitching.trans_θ([ω_raw; rest], k, n_β, n_β_ns, "switching", true, false)
+    @test β == β2
+    @test P == P2
+
+    # shared ω / α under switching_var = false
+    ωn, αn, _, _, _ = MarSwitching.trans_θ_arch([[0.5]; [0.1, 0.2]; rest], k, n_β, n_β_ns,
+                                                "switching", false, false, :normal, q)
+    @test all(ωn .== 0.25)
+    @test all(αn[s] ≈ [0.01, 0.04] for s in 1:k)
+
+    # regression: α sits AFTER ν in the raw layout so that the ν noise/multi-start logic
+    # in MSModel() doesn't collide with it. Check ν is still read from the right offset
+    # (and unaffected by the presence of the α block), and α is unaffected by ν's presence.
+    θ_t = [ω_raw; fill(log(6.0), k); α_raw; rest]
+    _, αt, _, _, νt = MarSwitching.trans_θ_arch(θ_t, k, n_β, n_β_ns, "switching", true, false, :t, q)
+    @test all(isapprox.(νt, 6.0; rtol=1e-10))
+    @test αt[1] ≈ [0.01, 0.04]
+end
+
+@testset "MS-ARCH nests the constant-variance model at α = 0" begin
+    k, T = 2, 400
+    y, _, _ = generate_msm([1.0, -0.5], [0.5, 1.2], [0.9 0.1; 0.1 0.9], T)
+    x     = [y ones(T)]
+    σ_raw = [0.7, 1.1]
+    tail  = [1.0, -0.5, 0.6, 0.6]   # intercepts; P raw
+
+    ll0 = MarSwitching.loglik([σ_raw; tail], x, k, 0, 0, "switching", true)[1]
+    lla = MarSwitching.loglik([σ_raw.^2; zeros(k); tail], x, k, 0, 0,
+                              "switching", true, :normal, 1)[1]
+    @test isapprox(ll0, lla; rtol = 1e-10)
+end
+
+@testset "MSARCHModel estimation" begin
+    k, T = 2, 1200
+    μ = [0.0, 0.0]                 # regimes identified through variance only
+    ω = [0.10, 1.00]
+    α = [[0.25], [0.55]]
+    P = [0.97 0.03; 0.03 0.97]
+    y, s_t, X = generate_msm(μ, ω, α, P, T)
+
+    model = MSARCHModel(y, k, 1, intercept = "no", random_search_em = 2,
+                        maxtime = 45, verbose = false)
+
+    @test model isa MSM
+    @test model.q == 1
+    @test length(model.ω) == k && length(model.α) == k && length(model.α[1]) == 1
+    @test all(model.ω .> 0) && all(model.α[s][1] >= 0 for s in 1:k)
+    @test !isnan(model.Likelihood) && (model.Likelihood != Inf)
+
+    @test MarSwitching.loglik(model.raw_params, model.x, k, model.n_β, model.n_β_ns,
+                              model.intercept, model.switching_var, :normal, model.q)[1] == model.Likelihood
+
+    @test size(filtered_probs(model)) == (T, k)
+    @test size(smoothed_probs(model)) == (T, k)
+    @test size(get_std_errors(model))[1] == size(model.raw_params)[1]
+    @test isnothing(summary_msm(model))
+    @test isnothing(display(model))
+
+    # low-vol vs high-vol regime should be identifiable even under a fresh random seed
+    ord = sortperm(model.ω)
+    @test model.ω[ord][1] < model.ω[ord][2]
+    @test maximum(cor([smoothed_probs(model) (s_t .== 2)])[1:k, end]) > 0.4
+
+    # conditional_variance(): right shape, positive, and its time-average matches
+    # model.σ.^2 (σ is defined as sqrt(mean(h)), see MSModel())
+    cv = conditional_variance(model)
+    @test size(cv) == (T, k)
+    @test all(cv .> 0)
+    @test all(isapprox.([sum(view(cv, :, s))/T for s in 1:k], model.σ.^2; rtol = 1e-8))
+
+    # an ARCH-aware model should not fit ARCH-generated data worse than a constant-variance one
+    m0 = MSModel(y, k, intercept = "no", random_search_em = 2, maxtime = 20, verbose = false)
+    @test model.Likelihood > m0.Likelihood - 2.0
+
+    y2, s2, _ = generate_msm(model, 500)
+    @test length(y2) == 500 && sort(unique(s2)) == collect(1:k)
+
+    @test_throws AssertionError generate_msm(μ, ω, [[0.2], [0.3, 0.1]], P, 100)
+    @test_throws AssertionError MSARCHModel(y, k, 0)
+end
+
+@testset "MS-ARCH: switching_var = false and q = 0 regression" begin
+    k, T = 2, 800
+    y, _, _ = generate_msm([0.0, 0.0], [0.3, 0.3], [0.9 0.1; 0.1 0.9], T)
+
+    m = MSARCHModel(y, k, 1, switching_var = false, intercept = "no", maxtime = 20, verbose = false)
+    @test all(m.ω .== m.ω[1])
+    @test all(m.α[s] == m.α[1] for s in 1:k)
+    @test length(m.raw_params) == 4   # ω(1) + α(1) + P raw(2); no ν, no β, no intercept
+
+    m0 = MSModel(y, k, intercept = "no", verbose = false)
+    @test m0.q == 0
+    @test isempty(m0.ω)
+    @test isempty(m0.α)
+end
+
+@testset "MS-ARCH with TVTP" begin
+    k, T = 2, 400
+    μ = [0.0, 0.0]
+    ω = [0.15, 0.9]
+    α = [[0.2], [0.4]]
+    P = [0.9 0.1; 0.1 0.9]
+    δ = [2.0, 0.5]
+
+    y, s_t, X = generate_msm(μ, ω, α, P, T, δ = δ, tvtp_intercept = false)
+    x_tvtp = reshape(X[:,2], T, 1)
+
+    model = MSARCHModel(y, k, 1, intercept = "no", exog_tvtp = x_tvtp,
+                        maxtime = 30, random_search_em = 1, verbose = false)
+
+    @test model isa MSM
+    @test model.q == 1
+    @test isempty(model.P)
+    @test !isempty(model.δ)
+    @test size(filtered_probs(model)) == (T, k)
+    @test size(get_std_errors(model))[1] == size(model.raw_params)[1]
+    @test isnothing(summary_msm(model))
+    @test MarSwitching.loglik_tvtp(model.raw_params, model.x, k, model.n_β, model.n_β_ns,
+                                   model.intercept, model.switching_var, 1, :normal, model.q)[1] == model.Likelihood
+end
+
 @testset "Less crucial functions" begin
     @test add_lags([1.0,2.0,3.0,4.0], 1) == [2.0 1.0; 3.0 2.0; 4.0 3.0]
     A = rand(4,4)

@@ -24,23 +24,25 @@ function get_std_errors(model::MSM)
 
     if !isempty(model.P)
         H = FiniteDiff.finite_difference_hessian(θ -> loglik(θ,
-                                                         model.x, 
+                                                         model.x,
                                                          model.k,
                                                          model.n_β,
                                                          model.n_β_ns,
                                                          model.intercept,
                                                          model.switching_var,
-                                                         model.error_dist)[1], model.raw_params) # hessian
+                                                         model.error_dist,
+                                                         model.q)[1], model.raw_params) # hessian
     else
         n_δ = Int(length(model.δ)/(model.k*(model.k-1)))
         H = FiniteDiff.finite_difference_hessian(θ -> loglik_tvtp(θ,
-                                                            model.x, 
+                                                            model.x,
                                                             model.k,
                                                             model.n_β,
                                                             model.n_β_ns,
                                                             model.intercept,
                                                             model.switching_var, n_δ,
-                                                            model.error_dist)[1], model.raw_params) # hessian
+                                                            model.error_dist,
+                                                            model.q)[1], model.raw_params) # hessian
     end
 
     return sqrt.(abs.(diag(mp_inverse(-H))))
@@ -84,17 +86,22 @@ function state_coeftable(model::MSM, state::Int64; digits::Int64=3)
     se = get_std_errors(model)
     n_var = model.switching_var ? model.k : 1
     n_ν   = has_shape_param(model.error_dist) ? model.k : 0
+    n_α   = model.switching_var ? model.k*model.q : model.q
 
     # drop ν SEs so vec2param_* keep the same layout as for the normal model
     se_no_ν = n_ν > 0 ? vcat(se[1:n_var], se[n_var+n_ν+1:end]) : se
     V_ν = n_ν > 0 ? se[n_var+1:n_var+n_ν] : Float64[]
 
+    # drop MS-ARCH α SEs (they sit right after ν in the raw layout) for the same reason
+    se_no_α = n_α > 0 ? vcat(se_no_ν[1:n_var], se_no_ν[n_var+n_α+1:end]) : se_no_ν
+    V_α_raw = n_α > 0 ? se_no_ν[n_var+1:n_var+n_α] : Float64[]
+
     if model.intercept == "switching"
-        V_σ, V_β = vec2param_switch(se_no_ν, model.k, model.n_β, model.n_β_ns, model.switching_var)
+        V_σ, V_β = vec2param_switch(se_no_α, model.k, model.n_β, model.n_β_ns, model.switching_var)
     elseif model.intercept == "non-switching"
-        V_σ, V_β = vec2param_nonswitch(se_no_ν, model.k, model.n_β, model.n_β_ns, model.switching_var)
+        V_σ, V_β = vec2param_nonswitch(se_no_α, model.k, model.n_β, model.n_β_ns, model.switching_var)
     elseif model.intercept == "no"
-        V_σ, V_β = vec2param_nointercept(se_no_ν, model.k, model.n_β, model.n_β_ns, model.switching_var)
+        V_σ, V_β = vec2param_nointercept(se_no_α, model.k, model.n_β, model.n_β_ns, model.switching_var)
     end
 
     # β statistics
@@ -103,13 +110,29 @@ function state_coeftable(model::MSM, state::Int64; digits::Int64=3)
         std_err = std_err > 1e6 ? "> 10e6" : std_err
         @printf "%0s%11s%13s%15s%12s%12s\n" "β_$(i-1)" "|" "$estimate  |" "$std_err  |" "$z  |" "$pr  "
     end
-    
-    # σ statistics
-    estimate_σ, σ_std_err, σ_z, σ_pr = coef_clean(model.σ[state], V_σ[state])
-    σ_std_err = σ_std_err > 1e6 ? "> 10e6" : σ_std_err
 
     exp_duration = isempty(model.P) ? trim_mean(expected_duration(model)[:, state], 0.01) : expected_duration(model)[state]
-    @printf "%0s%13s%13s%15s%12s%12s\n" "σ" "|" "$estimate_σ  |" "$σ_std_err  |" "$σ_z  |" "$σ_pr  "
+
+    if model.q > 0
+        # ω = raw² is a variance; se(ω) = 2|raw|·se(raw) (delta method). Same for α.
+        ω_raw = sqrt(model.ω[state])
+        estimate_ω, ω_std_err, ω_z, ω_pr = coef_clean(model.ω[state], 2*ω_raw*V_σ[state], digits)
+        ω_std_err = ω_std_err > 1e6 ? "> 10e6" : ω_std_err
+        @printf "%0s%13s%13s%15s%12s%12s\n" "ω" "|" "$estimate_ω  |" "$ω_std_err  |" "$ω_z  |" "$ω_pr  "
+
+        for j in 1:model.q
+            idx = model.switching_var ? (state-1)*model.q + j : j
+            α_raw = sqrt(model.α[state][j])
+            estimate_α, α_std_err, α_z, α_pr = coef_clean(model.α[state][j], 2*α_raw*V_α_raw[idx], digits)
+            α_std_err = α_std_err > 1e6 ? "> 10e6" : α_std_err
+            @printf "%0s%11s%13s%15s%12s%12s\n" "α_$j" "|" "$estimate_α  |" "$α_std_err  |" "$α_z  |" "$α_pr  "
+        end
+    else
+        # σ statistics
+        estimate_σ, σ_std_err, σ_z, σ_pr = coef_clean(model.σ[state], V_σ[state])
+        σ_std_err = σ_std_err > 1e6 ? "> 10e6" : σ_std_err
+        @printf "%0s%13s%13s%15s%12s%12s\n" "σ" "|" "$estimate_σ  |" "$σ_std_err  |" "$σ_z  |" "$σ_pr  "
+    end
 
     # ν statistics (:t df or :ged shape); SE via delta method: se(ν)=ν*se(log ν)
     if has_shape_param(model.error_dist)
@@ -234,7 +257,8 @@ function summary_msm(model::MSM; digits::Int64=3)
     dist_name = model.error_dist == :t ? "Student-t" :
                 model.error_dist == :ged ? "GED" : "Gaussian"
 
-    println("Markov Switching Model with $(model.k) regimes")
+    model_name = model.q > 0 ? "Markov Switching ARCH($(model.q)) Model" : "Markov Switching Model"
+    println("$model_name with $(model.k) regimes")
     @printf "=================================================================\n"
     @printf "%0s%13s%5s%30s\n" "# of observations:" "$(model.T)" "AIC:" "$aic"
     @printf "%0s%5s%5s%30s\n" "# of estimated parameters:" "$n_params" "BIC:" "$bic"

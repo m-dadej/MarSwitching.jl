@@ -37,6 +37,18 @@ end
 #                                              - transformed as ν = exp(raw)
 # next                                         - intercept / switching β / non-switching β
 # end                                          - transition probabilities (or TVTP δ)
+#
+# MS-ARCH(q) models (see trans_θ_arch below) insert one extra block *after* the
+# ν block and before the intercept/β block:
+#
+# n_var+n_ν+1:n_var+n_ν+n_α                    - α raw (n_α = k*q if switching_var, else q)
+#                                              - state-major; α = raw² (positivity reparam.)
+#                                              - here "σ"/n_var above is instead "ω", a variance
+#
+# α is placed after ν (not before) so that every existing ν index expression
+# (msmodel.jl random-search noise/multi-start, results.jl SE splice) keeps
+# working unmodified when q == 0, and continues to address the correct ν
+# entries even when q > 0.
 
 # true if error distribution has a state-specific shape parameter ν
 has_shape_param(error_dist::Symbol) = error_dist in (:t, :ged)
@@ -182,6 +194,49 @@ function trans_θ(θ::Vector{Float64},
     end
     
     return tvtp ? (σ, β, ν) : (σ, β, P, ν)
+end
+
+# MS-ARCH(q) parameter vector transform (Haas, Mittnik & Paolella 2004).
+# Splices the α block out of θ, leaving a vector in exactly the layout that
+# trans_θ() already knows how to parse, and delegates to it for everything
+# else. This keeps trans_θ() and the vec2param_* helpers completely untouched.
+#
+# Returns (ω, α, β, ν) when tvtp, else (ω, α, β, P, ν).
+# ω is a variance (raw², like σ² in trans_θ). α[state] is a length-q vector of
+# ARCH coefficients (raw², state-major in the raw vector, unbounded above).
+function trans_θ_arch(θ::Vector{Float64},
+                      k::Int64,
+                      n_β::Int64,
+                      n_β_ns::Int64,
+                      intercept::String,
+                      switching_var::Bool,
+                      tvtp::Bool,
+                      error_dist::Symbol,
+                      q::Int64)
+
+    n_var = switching_var ? k : 1
+    n_ν   = has_shape_param(error_dist) ? k : 0
+    n_α   = switching_var ? k*q : q
+    off   = n_var + n_ν
+
+    α_raw = θ[off+1:off+n_α]
+    θ_c   = vcat(θ[1:off], θ[off+n_α+1:end])
+
+    α = Vector{Vector{Float64}}(undef, k)
+    if switching_var
+        [α[s] = α_raw[(s-1)*q+1:s*q].^2 for s in 1:k]
+    else
+        a = α_raw.^2
+        [α[s] = copy(a) for s in 1:k]   # copy: each element stored independently on the struct
+    end
+
+    if tvtp
+        ω, β, ν = trans_θ(θ_c, k, n_β, n_β_ns, intercept, switching_var, true, error_dist)
+        return ω, α, β, ν
+    else
+        ω, β, P, ν = trans_θ(θ_c, k, n_β, n_β_ns, intercept, switching_var, false, error_dist)
+        return ω, α, β, P, ν
+    end
 end
 
 # function to shift the vector - circshift() equivalent

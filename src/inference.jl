@@ -154,28 +154,85 @@ function filtered_probs(model::MSM; kwargs...)
     end
 
     if !isempty(model.P)
-        ξ = loglik(model.raw_params, 
-                    x, 
-                    model.k, 
-                    model.n_β, 
-                    model.n_β_ns, 
+        ξ = loglik(model.raw_params,
+                    x,
+                    model.k,
+                    model.n_β,
+                    model.n_β_ns,
                     model.intercept,
                     model.switching_var,
-                    model.error_dist)[2]
+                    model.error_dist,
+                    model.q)[2]
     else
-        ξ = loglik_tvtp(model.raw_params, 
-                        x, 
-                        model.k, 
+        ξ = loglik_tvtp(model.raw_params,
+                        x,
+                        model.k,
                         model.n_β,
-                        model.n_β_ns, 
-                        model.intercept, 
-                        model.switching_var, 
+                        model.n_β_ns,
+                        model.intercept,
+                        model.switching_var,
                         Int(length(model.δ)/(model.k*(model.k-1))),
-                        model.error_dist)[2]
+                        model.error_dist,
+                        model.q)[2]
     end
-    
+
 
     return ξ
+end
+
+@doc raw"""
+    conditional_variance(model::MSM; kwargs...)
+
+Returns the ``T \times k`` matrix of regime-conditional variances ``h_{t,s}`` implied by an
+estimated MS-ARCH model (see [`MSARCHModel`](@ref)). If only `model` is provided, in-sample
+data is used.
+
+Note:
+- For `error_dist = :t`, `h` is a squared *scale*, not the variance of the error term:
+  ``\mathrm{Var}(e_t \mid S_t = s) = h_{t,s} \cdot \nu_s / (\nu_s - 2)`` for ``\nu_s > 2``.
+- The state-marginal variance of `y_t` is **not** ``\sum_s \xi_{t,s} h_{t,s}``; because regimes
+  also differ in conditional mean, it is
+  ``\sum_s \xi_{t,s}(h_{t,s} + \mu_{t,s}^2) - (\sum_s \xi_{t,s}\mu_{t,s})^2``.
+
+# Arguments
+- `model::MSM`: estimated MS-ARCH model (requires `model.q > 0`).
+- `y`: optional data for dependent variabla.
+- `exog_vars`: optional exogenous variables for the non-switching part of the model.
+- `exog_switching_vars`: optional exogenous variables for the switching part of the model.
+- `exog_tvtp`: optional exogenous variables for the tvtp part of the model.
+
+See also [`MSARCHModel`](@ref), [`filtered_probs`](@ref).
+"""
+function conditional_variance(model::MSM; kwargs...)
+
+    @assert model.q > 0 "conditional_variance() is only defined for MS-ARCH models (model.q > 0)"
+
+    check_args(model; kwargs...)
+
+    if isempty(kwargs)
+        x = model.x
+    else
+        T = length(kwargs[:y])
+        x = model.intercept == "no" ? [kwargs[:y] zeros(T)] : [kwargs[:y] ones(T)]
+        x = haskey(kwargs, :exog_switching_vars) ? [x kwargs[:exog_switching_vars]] : x
+        x = haskey(kwargs, :exog_vars) ? [x kwargs[:exog_vars]] : x
+        x = haskey(kwargs, :exog_tvtp) ? [x kwargs[:exog_tvtp]] : x
+    end
+
+    n_δ   = Int(length(model.δ)/(model.k*(model.k-1)))
+    x_lik = n_δ > 0 ? x[:, 1:end-n_δ] : x
+
+    if isempty(model.P)
+        ω, α, β, ν = trans_θ_arch(model.raw_params, model.k, model.n_β, model.n_β_ns,
+                                  model.intercept, model.switching_var, true, model.error_dist, model.q)
+    else
+        ω, α, β, P, ν = trans_θ_arch(model.raw_params, model.k, model.n_β, model.n_β_ns,
+                                     model.intercept, model.switching_var, false, model.error_dist, model.q)
+    end
+
+    μ = [view(x_lik, :, 2:model.n_β+model.n_β_ns+2) * β[i] for i in 1:model.k]
+
+    return arch_var(view(x_lik, :, 1), μ, ω, α, model.k, model.q)
 end
 
 """

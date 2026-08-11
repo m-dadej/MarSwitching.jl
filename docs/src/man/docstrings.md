@@ -10,6 +10,7 @@ MarSwitching.jl exports following list of functions (and a struct):
 ```@docs
 MarSwitching.MSM
 MarSwitching.MSModel
+MarSwitching.MSARCHModel
 MarSwitching.grid_search_msm
 ```
 
@@ -33,6 +34,7 @@ MarSwitching.smoothed_probs
 MarSwitching.predict
 MarSwitching.expected_duration
 MarSwitching.ergodic_probs
+MarSwitching.conditional_variance
 ```
 ## Other
 ```@docs
