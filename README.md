@@ -262,7 +262,20 @@ MSModel(y::VecOrMat{V},                    # vector of dependent variable
         ) where V <: AbstractFloat  
 ```
 
-For a Markov-Switching ARCH model, i.e. each regime carrying its own ARCH($q$) conditional-variance process (Haas, Mittnik & Paolella, 2004), use the `MSARCHModel()` convenience wrapper, which accepts the same keyword arguments as `MSModel()`:
+### Markov-Switching ARCH in a nutshell
+
+Instead of a constant, regime-specific variance, each regime can carry its own ARCH($q$) conditional-variance process (Haas, Mittnik & Paolella, 2004), letting volatility cluster *within* a regime while the regime itself still switches according to the Markov chain above:
+
+```math
+\begin{align*}
+y_t &= \mathbf{x}_t' \mathbf{\beta}_{S_t} + e_t, & e_t = \sqrt{h_{t,S_t}} \, z_t, \; z_t \sim f(0,1)\\
+h_{t,s} &= \omega_s + \sum_{j=1}^{q} \alpha_{s,j} \, \varepsilon_{t-j,s}^2, & \varepsilon_{t,s} = y_t - \mathbf{x}_t' \mathbf{\beta}_s
+\end{align*}
+```
+
+Each state $s$ runs its own ARCH recursion off its own regime-$s$ residual $\varepsilon_{t,s}$, computed for *every* $t$ regardless of which state was actually realized. This makes $h_{t,s}$ independent of the realized state path, so it can be computed in one pass before the Hamilton filter, exactly like the constant-variance model, which the ARCH model nests at $\alpha_s = 0$. Set `q = 0` (the `MSModel()` default) for the constant-variance model, or use the `MSARCHModel()` wrapper below for `q`$\geq$`1`.
+
+For a Markov-Switching ARCH model, use the `MSARCHModel()` convenience wrapper, which accepts the same keyword arguments as `MSModel()`:
 
 ```Julia
 MSARCHModel(y::VecOrMat{V},                # vector of dependent variable
