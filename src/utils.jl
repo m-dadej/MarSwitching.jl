@@ -1,8 +1,10 @@
 
 function P_tvtp(x, δ, k, n_δ)
 
-    P = reshape(exp.(reshape(δ, (k*(k-1)), n_δ)*x), k-1,k)
-    P = [P; ones(1,k)]
+    z = reshape(reshape(δ, (k*(k-1)), n_δ) * x, k-1, k)
+    m = max.(maximum(z, dims=1), 0.0)   # include implicit 0 from the "ones" row
+    P = exp.(z .- m)
+    P = [P; exp.(-m)]
     P = P ./ sum(P, dims=1)
 
     return P
@@ -254,10 +256,16 @@ end
 # anyway it's slightly but significantly faster than pinv() in benchmarks
 function mp_inverse(A)
     U, S, V = svd(A)
+    S_inv = if isempty(S)
+        S
+    else
+        tol = maximum(size(A)) * eps(maximum(S))   # singular values below this are treated as 0, not Inf
+        [s > tol ? 1/s : 0.0 for s in S]
+    end
     Σ = zeros(size(A'))
-    Σ[1:size(S)[1], 1:size(S)[1]] = Diagonal(1 ./ S)
+    Σ[1:size(S)[1], 1:size(S)[1]] = Diagonal(S_inv)
     return V * Σ * U'
-end   
+end
 
 # function below combines vec2param_nonswitch and vec2param_switch
 # apparently, it's slower than the two separate functions. Even though it's more concise.
