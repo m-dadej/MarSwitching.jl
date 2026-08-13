@@ -80,3 +80,52 @@ row-stochastic (`P_1_1` = P(stay in 1)); `MSARCHModel`'s `model.P` is
 left-stochastic (`P[i,j]` = P(state i at t | state j at t-1), columns sum
 to 1 — see the `MSM` docstring). The two conventions agree on the
 diagonal (persistence probabilities), which is what's compared above.
+
+## Speed comparison
+
+`speed_msarch.jl` / `speed_msgarch.R` time repeated single-optimization
+fits of the same model (`MSARCHModel`'s defaults: one EM initialization +
+one NLopt run, to match `FitML()`'s default of one run from one starting
+point).
+
+| | mean | median | min | max |
+|---|---|---|---|---|
+| MSGARCH `FitML` (R) | 1.07s | 1.02s | 0.83s | 1.85s |
+| `MSARCHModel`, defaults (`:LN_SBPLX`, random EM start) | 14.31s | 12.07s | 3.75s | 50.99s |
+| `MSARCHModel`, `:LD_LBFGS` (random EM start) | 4.56s | 4.53s | 1.51s | 9.46s |
+| `MSARCHModel`, `:LD_LBFGS`, fixed start | 0.92s | 0.88s | — | — |
+
+At the literal defaults, MSGARCH is ~13x faster — but that gap is not a
+Julia-vs-R difference, it's an optimizer-choice difference, and it
+collapses once the comparison controls for it:
+
+- `MSARCHModel` defaults to NLopt's derivative-free `:LN_SBPLX` with a
+  tightened `xtol_rel = 1e-6` for ARCH models (vs `1e-4` for the
+  constant-variance model) — a deliberate robustness choice, since MS
+  likelihoods are prone to local optima (see `MSModel`'s docstring). A
+  gradient-based algorithm generally needs far fewer function evaluations
+  to reach the same tolerance.
+- The default EM-based starting point is redrawn (unseeded) on every
+  call, so back-to-back fits aren't repeated runs from the same point —
+  this alone explains most of the variance (3.75s-51.0s spread with
+  `:LN_SBPLX` vs. 5.6s mean from a *fixed* start).
+- Switching to `algorithm = :LD_LBFGS` (gradient-based, built into
+  `MSModel`/`MSARCHModel`, gradients via `FiniteDiff`) alone cuts the mean
+  from 14.3s to 4.6s. Combined with a fixed starting point (removing the
+  EM-randomness noise), `:LD_LBFGS` fits in ~0.9s — matching or slightly
+  *beating* MSGARCH's default, landing on the identical log-likelihood
+  (4277.104559336357 vs 4277.104559336371, i.e. the same optimum to
+  10 significant figures).
+
+Julia additionally pays a one-time JIT compilation cost on the first call
+of a session (~48s for `:LN_SBPLX`, ~24s for `:LD_LBFGS` here) that R does
+not have an equivalent of; irrelevant once warmed up (e.g. inside a
+longer-running process fitting many models), but worth knowing for
+single-shot script runs.
+
+**Practical takeaway:** the package's default (`:LN_SBPLX` + randomized EM
+start) trades speed for robustness against the multimodality of MS
+likelihoods, which is a reasonable default especially when paired with
+`random_search`/`random_search_em` multi-start. For a single well-chosen
+starting point where robustness is less of a concern, `algorithm =
+:LD_LBFGS` is on par with MSGARCH's default speed.
