@@ -1,6 +1,11 @@
-Herein example is as in the paper describing the package - [link](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4638279)
+```@meta
+Description = "Applied example: modelling stock market regimes in Julia with time-varying transition probabilities (TVTP), using weekly S&P 500 returns and the VIX to drive the transition matrix."
+```
 
-# Time-varying transition probabilites - modelling stock market
+# Time-varying transition probabilities - modelling the stock market
+
+This example follows the [working paper describing the package](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4638279).
+
 
 Stock market analysts often describes different periods as volatile or calm market conditions. 
 Each of these states of market are characterized by different dynamics of stock prices. 
@@ -132,7 +137,7 @@ plot(smoothed_probs(model)[end-300:end,:],
                     linewidth = 2,
                     legend = :bottomleft)
 ```
-![Plot](my_assets/spx_probs.svg)
+![Smoothed probabilities of the volatile stock market regime for the S&P 500](my_assets/spx_probs.svg)
 
 We can see by the last 300 weeks, that the regimes are switching quite frequently. However, there are also around 20-30 week-long periods of a single dominant regime. What might look promising for an investor (and less so for trader) is that the calm market conditions are more frequent than the volatile ones.
 
@@ -141,7 +146,7 @@ plot(expected_duration(model)[expected_duration(model)[:,2] .< 100,:],
         label = ["Calm market conditions" "Volatile market conditions"],
         title = "Time-varying expected duration of regimes") 
 ```
-![Plot](my_assets/spx_exp_dur.svg)
+![Expected duration of stock market regimes implied by time-varying transition probabilities](my_assets/spx_exp_dur.svg)
 
 Since the transition matrix is time-varying, its expected duration is as well. Similarly, the plot shows that predominantly, markets are expected to stay in the calm regime. This is despite the trimmed mean of expected duration shown in the model summary, which is skewed by the outliers. It is useful to plot the time series of expected duration, as the values can often reach extreme values due to logistic transformation (e.g. a 100% diagonal probability of transition implies an infinite expected duration).
 

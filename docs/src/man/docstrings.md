@@ -1,4 +1,8 @@
-# Docstrings
+```@meta
+Description = "API reference for MarSwitching.jl: docstrings for MSModel, MSARCHModel, generate_msm, filtered_probs, smoothed_probs, expected_duration, predict, transition_mat and every exported function."
+```
+
+# API reference
 !!! tip "You may also use help mode `?`"
     You can access the docstring of every function listed here by typing `?` in Julia's REPL followed by the function name. For example, `?MSModel` will show the docstring for the `MSModel` function.
 

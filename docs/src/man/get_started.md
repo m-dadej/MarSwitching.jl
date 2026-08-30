@@ -1,4 +1,8 @@
-# Getting started
+```@meta
+Description = "Step-by-step tutorial: estimate a Markov switching regression in Julia with MSModel — simulate data, fit k regimes with switching intercept and variance, and read the transition matrix."
+```
+
+# Getting started with Markov switching models in Julia
 
 Following example will estimate a simple Markov switching model with regime dependent intercept, exogenous variable and variance. The model is defined as follows:
 
@@ -74,7 +78,7 @@ plot(filtered_probs(model),
      title     = "Regime probabilities", 
      linewidth = 2)
 ```     
-![Plot](my_assets/filtered_probs.svg)
+![Filtered regime probabilities from a two-regime Markov switching model](my_assets/filtered_probs.svg)
 
 ```julia
 using Plots
@@ -84,4 +88,4 @@ plot(smoothed_probs(model),
      title     = "Smoothed regime probabilities", 
      linewidth = 2)
 ```     
-![Plot](my_assets/smoothed_probs.svg)
+![Smoothed regime probabilities from a two-regime Markov switching model](my_assets/smoothed_probs.svg)

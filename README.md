@@ -1,19 +1,18 @@
-## MarSwitching.jl: Markov Switching Dynamic Models in Julia
+# MarSwitching.jl: Markov Switching Dynamic Models in Julia
 
-[![docs](https://img.shields.io/badge/docs-dev-blue.svg)](https://m-dadej.github.io/MarSwitching.jl/dev)
-[![Build Status](https://github.com/m-dadej/MARS.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/m-dadej/MARS.jl/actions/workflows/CI.yml?query=branch%3Amain)
-[![Build status](https://ci.appveyor.com/api/projects/status/ff0w59c7vlm0600t?svg=true)](https://ci.appveyor.com/project/m-dadej/marswitching-jl)
+[![docs](https://img.shields.io/badge/docs-stable-blue.svg)](https://m-dadej.github.io/MarSwitching.jl/stable)
+[![Build Status](https://github.com/m-dadej/MarSwitching.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/m-dadej/MarSwitching.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![codecov](https://codecov.io/gh/m-dadej/MarSwitching.jl/graph/badge.svg?token=AANR7304QU)](https://codecov.io/gh/m-dadej/MarSwitching.jl)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
 [![status](https://joss.theoj.org/papers/f0b33a8a4b30b3d9f0184dec014eb388/status.svg)](https://joss.theoj.org/papers/f0b33a8a4b30b3d9f0184dec014eb388)
 
 
-MarSwitching.jl is a package for estimating Markov switching dynamic models (also called regime switching) in Julia. 
+MarSwitching.jl is a Julia package for estimating **Markov switching dynamic models** (also called **regime switching** or hidden Markov regression models). This is a class of time series models whose coefficients change over time with an unobservable state, or regime, that follows a Markov process. Such models are widely used in econometrics and quantitative finance — for business cycle and recession dating, volatility regime detection and forecasting — as well as in political science, hydrology and epidemiology. The package provides tools for estimation, inference and simulation of the models.
 
 **Author**: [Mateusz Dadej](https://m-dadej.github.io), mateuszdadej {at} gmail.com
 
-Please check the [documentation](https://m-dadej.github.io/MarSwitching.jl/dev) for examples and information on using the package. 
+Please check the [documentation](https://m-dadej.github.io/MarSwitching.jl/stable) for examples and information on using the package. 
 
 **citation**: I encourage to cite the [JOSS paper](https://joss.theoj.org/papers/10.21105/joss.06441) of the package when using it in your research. You can use the following BibTeX entry from the `CITATION.bib` file:
 
@@ -129,7 +128,7 @@ Future development is closely related to the package's popularity.
 Software versions: MarSwitching.jl v0.2.2, Statsmodels v0.14.1, MSwM v1.5, MS_Regress v1.11. The programming languages versions were: Julia v1.10.1, Python v3.12.2, R v4.2.1 and MATLAB vR2024a. Calculations were run on: Windows 11 x64 Intel(R) Core(TM) i7-9850H CPU @ 2.60GHz, 2592 Mhz, 6 Core(s), 12 Logical Processor(s).
 
 
-Code of the benchmarks can be found in `benchmark` folder.
+Code of the benchmarks can be found in `benchmark` folder. See also [Comparison with other Markov switching software](https://m-dadej.github.io/MarSwitching.jl/stable/man/comparison/) for how the package compares with `MSwM`, `MSGARCH`, `statsmodels`, `MS_Regress`, `HiddenMarkovModels.jl` and the commercial alternatives.
 
 ## Example
 
@@ -229,7 +228,7 @@ plot(filtered_probs(model),
      title     = "Regime probabilities", 
      linewidth = 2)
 ```     
-![Plot](img/filtered_probs.svg)
+![Filtered regime probabilities estimated by MarSwitching.jl](img/filtered_probs.svg)
 
 ```julia
 plot(smoothed_probs(model),
@@ -237,7 +236,7 @@ plot(smoothed_probs(model),
      title     = "Smoothed regime probabilities",
      linewidth = 2)  
 ```
- ![Plot](img/smoothed_probs.svg)
+ ![Smoothed regime probabilities (Kim smoother) estimated by MarSwitching.jl](img/smoothed_probs.svg)
 
 ## Functions
 
@@ -394,8 +393,8 @@ Function `add_lags(y::Vector{Float64}, p::Int64)` adds `p` lags to the matrix of
 ## Contributing
 
 - PRs with fixed bugs or new methods are highly appreciated. Especially the ones described in [functionality](https://github.com/m-dadej/MarSwitching.jl?tab=readme-ov-file#functionality) section.
-- Open an issue if the PR changes current code substanitally.
-- If unsure, check the [ColPrac](https://github.com/SciML/ColPrac) guide on collaborative practices for Packages.
+- Open an issue if the PR changes current code substantially.
+- See [CONTRIBUTING.md](CONTRIBUTING.md), and if unsure, check the [ColPrac](https://github.com/SciML/ColPrac) guide on collaborative practices for Packages.
 
 ## References
 

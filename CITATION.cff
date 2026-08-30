@@ -1,0 +1,46 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite the JOSS article below."
+title: "MarSwitching.jl: Markov switching dynamic models in Julia"
+abstract: >-
+  MarSwitching.jl is a Julia package for estimating Markov switching dynamic
+  models, also known as regime switching models. It supports k regimes with
+  independently switching or non-switching intercept, variance and covariates,
+  time-varying transition probabilities, Markov switching ARCH, non-Gaussian
+  error distributions, and filtered and smoothed regime probabilities.
+type: software
+authors:
+  - family-names: Dadej
+    given-names: Mateusz
+    orcid: "https://orcid.org/0000-0002-1791-7611"
+    email: mateuszdadej@gmail.com
+    affiliation: "University of Brescia"
+repository-code: "https://github.com/m-dadej/MarSwitching.jl"
+url: "https://m-dadej.github.io/MarSwitching.jl/stable"
+license: MIT
+keywords:
+  - Julia
+  - Markov switching
+  - regime switching
+  - hidden Markov model
+  - time series
+  - econometrics
+  - Markov processes
+  - nonlinear models
+  - maximum likelihood
+  - ARCH
+preferred-citation:
+  type: article
+  title: "MarSwitching.jl: A Julia package for Markov switching dynamic models"
+  authors:
+    - family-names: Dadej
+      given-names: Mateusz
+      orcid: "https://orcid.org/0000-0002-1791-7611"
+  journal: "Journal of Open Source Software"
+  publisher:
+    name: "The Open Journal"
+  year: 2024
+  volume: 9
+  issue: 98
+  start: 6441
+  doi: "10.21105/joss.06441"
+  url: "https://doi.org/10.21105/joss.06441"

@@ -1,11 +1,17 @@
+```@meta
+Description = "MarSwitching.jl estimates Markov switching (regime switching) dynamic regression models in Julia: k regimes, time-varying transition probabilities, MS-ARCH, filtered and smoothed probabilities, by maximum likelihood."
+```
+
 # MarSwitching.jl: Markov Switching dynamic models in Julia
 
-[![Build Status](https://github.com/m-dadej/MARS.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/m-dadej/MARS.jl/actions/workflows/CI.yml?query=branch%3Amain)
-[![Build status](https://ci.appveyor.com/api/projects/status/ff0w59c7vlm0600t?svg=true)](https://ci.appveyor.com/project/m-dadej/marswitching-jl)
+[![docs](https://img.shields.io/badge/docs-stable-blue.svg)](https://m-dadej.github.io/MarSwitching.jl/stable)
+[![Build Status](https://github.com/m-dadej/MarSwitching.jl/actions/workflows/CI.yml/badge.svg?branch=main)](https://github.com/m-dadej/MarSwitching.jl/actions/workflows/CI.yml?query=branch%3Amain)
 [![codecov](https://codecov.io/gh/m-dadej/MarSwitching.jl/graph/badge.svg?token=AANR7304QU)](https://codecov.io/gh/m-dadej/MarSwitching.jl)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Project Status: Active – The project has reached a stable, usable state and is being actively developed.](https://www.repostatus.org/badges/latest/active.svg)](https://www.repostatus.org/#active)
+[![status](https://joss.theoj.org/papers/f0b33a8a4b30b3d9f0184dec014eb388/status.svg)](https://joss.theoj.org/papers/f0b33a8a4b30b3d9f0184dec014eb388)
 
-MarSwitching.jl is a package for estimating Markov switching dynamic models (also called regime switching) for Julia. This is a class of models with time-varying coefficients depending on an unobservable state/regime that follows a Markov process. The package provides tools for estimation, inference and simulation of the models. 
+MarSwitching.jl is a Julia package for estimating **Markov switching dynamic models** (also called **regime switching** or hidden Markov regression models). This is a class of time series models whose coefficients change over time with an unobservable state, or regime, that follows a Markov process. Such models are widely used in econometrics and quantitative finance — for business cycle and recession dating, volatility regime detection and forecasting — as well as in political science, hydrology and epidemiology. The package provides tools for estimation, inference and simulation of the models.
 
 **Author**: [Mateusz Dadej](https://m-dadej.github.io/), mateuszdadej {at} gmail.com
 
@@ -19,7 +25,7 @@ MarSwitching.jl is a package for estimating Markov switching dynamic models (als
     data-icon="octicon-star" 
     data-size="large" 
     data-show-count="true" 
-    aria-label="Star alan-turing-institute/MLJ.jl on GitHub">
+    aria-label="Star m-dadej/MarSwitching.jl on GitHub">
     Star</a>
     ```
 
@@ -56,16 +62,17 @@ Assuming that you already have at least Julia 1.6 (stable version) installed.
         - intercept
         - variance
         - exogenous variables
-        - Shape parameter for Student's t-distribution or Generalized Error Distribution
-    - model with time-varying transition probabilities (TVTP) (à la Filardo 1994) 
+        - shape of error distribution
+    - Markov Switching ARCH model (`MSARCHModel()`), with regime-specific ARCH($q$) coefficients (Haas, Mittnik & Paolella, 2004)
+    - Model with time-varying transition probabilities (TVTP) (à la Filardo 1994) 
+    - Alternative error distributions (Normal, Student's $t$-distribution and Generalized Error Distribution) with regime-switching shape parameter
     - Filtered probabilities
     - Smoothed probabilities (Kim, 1994)
     - Summary statistics of coefficients
-    - instantaneous and one step ahead `predict()`
+    - Instantaneous and one step ahead `predict()`
     - Expected regime duration
     - Simulation of data both from estimated model and from given parameters
-    - variable and number of states selection (with random and grid search)
-    - Markov Switching ARCH model (`MSARCHModel()`), with regime-specific ARCH($q$) coefficients (Haas, Mittnik & Paolella, 2004)
+    - Variable and number of states selection (with random and grid search)
 - Planned functionality:
     - Markov Switching GARCH model
     - Markov Switching VAR model
@@ -73,35 +80,18 @@ Assuming that you already have at least Julia 1.6 (stable version) installed.
 
 Future development is closely related to the package's popularity.
 
-## Performance comparison    
+## Performance    
 
-`MarSwitching.jl` is the fastest open source implementation of the model. The benchmark was done on artificially generated data with 400 observations, from the model with 3 regimes, 1 switching and 1 non switching exogenous variable. Table below shows mean absolute error of estimated parameters with respect to the actual parameters from `generate_msm()` function.
+`MarSwitching.jl` is the fastest open source implementation of the model — 6.7 times faster than `statsmodels` in Python, 8.2 times faster than `MSwM` in R and 42 times faster than `MS_Regress` in MATLAB, at virtually the same estimation error.
 
-|                |MarSwitching.jl| statsmodels  | MSwM     | MS_Regress     |
-|:---------------|-------------:|--------------:|---------:|---------------:|
-| implementation | Julia        | Python/Cython | R        | MATLAB/MEX/C++ |
-| error:         |              |               |          |                |
-| mu             | 0.0363       | 0.0363        | 0.036    | 0.0367         |
-| beta_s         | 0.0237       | 0.0237        | 0.0245   | 0.0241         |
-| beta_ns        | 0.0150       | 0.01508       | 0.0211   | 0.0157         |
-| sigma          | 0.0083       | 0.0083        | 0.0108   | 0.0084         |
-| p              | 0.0138       | 0.0138        | 0.0157   | 0.0139         |
-|                |              |               |          |                |
-| runtime (s)    | 0.471        | 3.162         | 3.867    | 19.959         |
-| relative       | 1            | 6.713         | 8.21     |    42.376      |
-
-
-`MarSwitching.jl` is 6,7 times faster than `statsmodels` implementation in `Python`/`Cython`, 8,2 times faster than `MSwM` in `R` and 42 times faster than `MS_Regress` in `MATLAB`/`MEX`, although MATLAB package is also calculating standard errors during function call. Every implementation had virtually the same error of estimated parameters.
-
-Software versions: MarSwitching.jl v0.2.2, Statsmodels v0.14.1, MSwM v1.5, MS_Regress v1.11. The programming languages versions were: Julia v1.10.1, Python v3.12.2, R v4.2.1 and MATLAB vR2024a. Calculations were run on: Windows 11 x64 Intel(R) Core(TM) i7-9850H CPU @ 2.60GHz, 2592 Mhz, 6 Core(s), 12 Logical Processor(s).
-
-Code of the benchmarks can be found in `benchmark` folder.
+See [Comparison with other Markov switching software](man/comparison.md) for the full benchmark and for how the package compares with `MSwM`, `MSGARCH`, `statsmodels`, `HiddenMarkovModels.jl` and the commercial alternatives.
 
 ## Contributing
 
-- PRs with fixed bugs or new methods are highly appreciated. Especially the ones described in [functionality](https://github.com/m-dadej/MarSwitching.jl?tab=readme-ov-file#functionality) section.
-- Open an issue if the PR changes current code substanitally.
-- If unsure, check the [ColPrac](https://github.com/SciML/ColPrac) guide on collaborative practices for Packages.
+- PRs with fixed bugs or new methods are highly appreciated. Especially the ones described in the [Functionality](#Functionality) section.
+- Open an issue if the PR changes current code substantially.
+- See [CONTRIBUTING.md](https://github.com/m-dadej/MarSwitching.jl/blob/main/CONTRIBUTING.md), and if unsure, check the [ColPrac](https://github.com/SciML/ColPrac) guide on collaborative practices for Packages.
+
 
 ## Markov regime switching model in a nutshell
 

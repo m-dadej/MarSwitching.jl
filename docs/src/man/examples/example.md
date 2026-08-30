@@ -1,6 +1,11 @@
-Herein example is as in the paper describing the package - [link](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4638279)
+```@meta
+Description = "Applied example: estimating a regime switching Phillips curve in Julia with MarSwitching.jl, using quarterly FRED inflation and unemployment data to test whether the curve has flattened."
+```
 
 # Regime switching Phillips curve
+
+This example follows the [working paper describing the package](https://papers.ssrn.com/sol3/papers.cfm?abstract_id=4638279).
+
 
 One of the most popular macroeconomic relationships is the trade-off between inflation and unemployment. The so-called Phillips curve is discussed in both introductory macroeconomics courses and at the meetings of the most influential central banks. The curve introduced a stylized fact that the inflation falls during recessions and rises during booms.
 
@@ -39,7 +44,7 @@ phil_plot = plot(plot_df.unemp, plot_df.cpi,
                 title = "Phillips curve",
                 xlabel = "Unemployment rate gap", ylabel = "CPI change")
 ```
-![Plot](my_assets/philips.svg)
+![US quarterly inflation and unemployment used to estimate the Phillips curve](my_assets/philips.svg)
 
 Overall, the relationship is far from being clear. The slope of plotted data is just slightly negative. At least for these 
 
@@ -136,7 +141,7 @@ plot(df.date[9:end],
     linewidth = 2,
     legend = :bottomleft)
 ```
-![Plot](my_assets/probs_phil.svg)
+![Smoothed regime probabilities of the regime switching Phillips curve](my_assets/probs_phil.svg)
 
 The plot above shows the probability of being in particular regime. The model confirms some of the concerns among economists regarding the "flattening" of the Phillips curve. Indeed, the period when Phillips curve behave as expected by the theory has changed at the beginning of 1990. Since then, the ability of policymakers to influence the inflation has been substantially reduced. 
 
