@@ -16,6 +16,8 @@ struct MSM{V <: AbstractFloat}
     q::Int64              # MS-ARCH order (0 = constant variance, i.e. a plain MSM)
     ω::Vector{V}          # MS-ARCH intercepts (variance units); empty when q == 0
     α::Vector{Vector{V}}  # α[state][lag], MS-ARCH coefficients; empty when q == 0
+    p::Int64              # MS-GARCH order (0 = no lagged-variance terms, i.e. MS-ARCH or plain MSM)
+    γ::Vector{Vector{V}}  # γ[state][lag], MS-GARCH coefficients on h_{t-j}; empty when p == 0
     error_dist::Symbol    # error distribution (:normal, :t, or :ged)
     ν::Vector{V}          # shape params for :t/:ged (empty for :normal)
     x::Matrix{V}          # data matrix
@@ -35,6 +37,9 @@ function Base.show(io::IO, ::MIME"text/plain", model::MSM)
         print(io, "ω = ", round.(model.ω, digits=3))
         for j in 1:model.q
             print(io, "\nα_$j = ", round.([model.α[s][j] for s in 1:model.k], digits=3))
+        end
+        for j in 1:model.p
+            print(io, "\nγ_$j = ", round.([model.γ[s][j] for s in 1:model.k], digits=3))
         end
         print(io, "\nσ (uncond.) = ", round.(model.σ, digits=3))
     else
@@ -266,6 +271,24 @@ function obj_func_tvtp_arch(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_v
     return -_loglik_tvtp_arch(θ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist, q, true)[1]
 end
 
+function obj_func_garch(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist, q, p)
+
+    if length(fΔ) > 0
+        fΔ[1:length(θ)] .= FiniteDiff.finite_difference_gradient(θ -> -_loglik_garch(θ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist, q, p, true)[1], θ)
+    end
+
+    return -_loglik_garch(θ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist, q, p, true)[1]
+end
+
+function obj_func_tvtp_garch(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist, q, p)
+
+    if length(fΔ) > 0
+        fΔ[1:length(θ)] .= FiniteDiff.finite_difference_gradient(θ -> -_loglik_tvtp_garch(θ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist, q, p, true)[1], θ)
+    end
+
+    return -_loglik_tvtp_garch(θ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist, q, p, true)[1]
+end
+
 """
     MSModel(y::VecOrMat{V},
             k::Int64,
@@ -274,6 +297,7 @@ end
             exog_switching_vars::VecOrMat{V},
             switching_var::Bool = true,
             q::Int64 = 0,
+            p::Int64 = 0,
             error_dist::Symbol = :normal,
             exog_tvtp::VecOrMat{V},
             x0::Vector{V},
@@ -298,6 +322,8 @@ For the same reason, it is recommended not to estimate model with many states (e
 - `switching_var::Bool`: is variance state dependent?
 - `q::Int64`: order of the Markov-switching ARCH process (0 = constant variance, the default).
   See [`MSARCHModel`](@ref) for a convenience wrapper that sets this to a sensible non-zero default.
+- `p::Int64`: order of the Markov-switching GARCH terms, i.e. lags of the conditional variance
+  (0 = none, the default). Requires `q >= 1`. See [`MSGARCHModel`](@ref).
 - `error_dist::Symbol`: distribution of the error term. One of `[:normal, :t, :ged]`.
   For `:t` / `:ged`, state-specific shape parameters ``\\nu`` are estimated
   (`:t` = degrees of freedom; `:ged` = GED shape with ``\\nu=2`` = normal, ``\\nu=1`` = Laplace).
@@ -314,7 +340,7 @@ References:
 - Hamilton, J. D. (1989). A new approach to the economic analysis of nonstationary time series and the business cycle. Econometrica: Journal of the Econometric Society, 357-384.
 - Filardo, Andrew J. (1994). Business cycle phases and their transitional dynamics. Journal of Business & Economic Statistics, 12(3), 299-308.
 
-See also [`grid_search_msm`](@ref), [`MSARCHModel`](@ref).
+See also [`grid_search_msm`](@ref), [`MSARCHModel`](@ref), [`MSGARCHModel`](@ref).
 """
 function MSModel(y::VecOrMat{V},
                  k::Int64;
@@ -323,6 +349,7 @@ function MSModel(y::VecOrMat{V},
                  exog_switching_vars::VecOrMat{V}= Matrix{Float64}(undef, 0, 0),
                  switching_var::Bool = true,
                  q::Int64 = 0,
+                 p::Int64 = 0,
                  error_dist::Symbol = :normal,
                  exog_tvtp::VecOrMat{V} = Matrix{Float64}(undef, 0, 0),
                  x0::Vector{V} = Vector{Float64}(undef, 0),
@@ -335,6 +362,8 @@ function MSModel(y::VecOrMat{V},
     @assert size(y)[1] > 0 "y should be a vector or matrix with at least one observation"
     @assert k >= 2 "k should be at least 2, otherwise use standard linear regression"
     @assert q >= 0 "q should be non-negative"
+    @assert p >= 0 "p should be non-negative"
+    @assert p == 0 || q >= 1 "GARCH terms (p > 0) require at least one ARCH term (q >= 1); without it γ is not identified"
     @assert intercept in ["switching", "non-switching", "no"] "intercept should be either 'switching', 'non-switching' or 'no'"
     @assert algorithm in [:LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX] "algorithm should be either :LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX"
     @assert error_dist in ERROR_DISTS "error_dist should be one of $ERROR_DISTS"
@@ -354,6 +383,7 @@ function MSModel(y::VecOrMat{V},
     n_var  = switching_var ? k : 1             # number of variance parameters
     n_ν    = has_shape_param(error_dist) ? k : 0  # shape params (:t df or :ged shape)
     n_α    = switching_var ? k*q : q           # MS-ARCH coefficients (0 when q == 0)
+    n_γ    = switching_var ? k*p : p           # MS-GARCH coefficients (0 when p == 0)
     n_δ    = size(exog_tvtp)[2]                # number of tvtp terms in each state
     n_p    = n_δ > 0 ? n_δ*k*(k-1) : k*(k-1)   # number of probability parameters (either TVTP or constant)
 
@@ -383,21 +413,24 @@ function MSModel(y::VecOrMat{V},
     end
     
     ### solver settings ###
-    n_params          = n_var + n_ν + n_α + n_β_ns + k*n_β + n_intercept + n_p
+    n_params          = n_var + n_ν + n_α + n_γ + n_β_ns + k*n_β + n_intercept + n_p
     @assert length(x0) == n_params || length(x0) == 0 "x0 should be either empty or of length $n_params"
     # also: LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX
     opt               = Opt(algorithm, n_params)
-    # σ/ω raw ≥ 0 (scale/variance = raw²); log(ν) unconstrained; α raw ≥ 0 (unbounded above); β unconstrained; P ≥ 0
-    opt.lower_bounds  = [repeat([0.0], n_var); repeat([-Inf], n_ν); repeat([0.0], n_α);
+    # σ/ω raw ≥ 0 (scale/variance = raw²); log(ν) unconstrained; α, γ raw ≥ 0; β unconstrained; P ≥ 0
+    # (α raw is unbounded above on the ARCH path; on the GARCH path Σα+Σγ < 1 via garch_coefs())
+    opt.lower_bounds  = [repeat([0.0], n_var); repeat([-Inf], n_ν); repeat([0.0], n_α); repeat([0.0], n_γ);
                          repeat([-Inf], k*n_β + n_β_ns + n_intercept); repeat([n_δ > 0 ? -Inf : 0.0], n_p)]
     opt.xtol_rel      = (has_shape_param(error_dist) || q > 0) ? 1e-6 : 1e-4
     opt.maxtime       = maxtime < 0 ? T/2 : maxtime
 
     if n_δ == 0
-        opt.min_objective = q > 0 ? (θ, fΔ) -> obj_func_arch(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist, q) :
+        opt.min_objective = p > 0 ? (θ, fΔ) -> obj_func_garch(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist, q, p) :
+                            q > 0 ? (θ, fΔ) -> obj_func_arch(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist, q) :
                                     (θ, fΔ) -> obj_func_const(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist)
     else
-        opt.min_objective = q > 0 ? (θ, fΔ) -> obj_func_tvtp_arch(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist, q) :
+        opt.min_objective = p > 0 ? (θ, fΔ) -> obj_func_tvtp_garch(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist, q, p) :
+                            q > 0 ? (θ, fΔ) -> obj_func_tvtp_arch(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist, q) :
                                     (θ, fΔ) -> obj_func_tvtp_const(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist)
     end
     
@@ -453,7 +486,16 @@ function MSModel(y::VecOrMat{V},
             ν_em = Float64[]
         end
 
-        if q > 0
+        if p > 0
+            # GARCH: start from a typical persistence (Σα + Σγ = 0.9) and, as for ARCH,
+            # ω_s = (1 - persistence)·σ_EM,s² so the unconditional variance ≈ σ_EM,s².
+            a0, g0 = 0.10, 0.80
+            ω_raw  = sqrt.((1 - a0 - g0) .* max.(σ_em, 1e-8).^2)
+            r0     = garch_raw([fill(a0 / q, q); fill(g0 / p, p)])
+            α_raw  = repeat(r0[1:q], n_var)         # n_var = number of regimes with own α/γ
+            γ_raw  = repeat(r0[q+1:end], n_var)
+            x0     = [ω_raw; ν_em; α_raw; γ_raw; μ_em; β_s_em; β_ns_em; p_em]
+        elseif q > 0
             # ω = raw² is a VARIANCE (unlike σ_raw² below, which is a std dev for the
             # constant-variance model): ω_s = (1-Σα)·σ_EM,s² gives an unconditional
             # variance ≈ σ_EM,s², matching the scale of the EM starting point.
@@ -483,9 +525,14 @@ function MSModel(y::VecOrMat{V},
     n_ν_starts = isempty(ν_grid) ? 0 : length(ν_grid)
     # structured multi-starts over total ARCH persistence Σα (MS-ARCH likelihoods are
     # classically bimodal: a high-variance regime can be explained by large ω or large α)
-    α_grid      = q > 0 ? [0.05, 0.15, 0.35, 0.6] : Float64[]
+    # (ARCH path only: these raw values assume α = raw², which the GARCH path does not use)
+    α_grid      = (q > 0 && p == 0) ? [0.05, 0.15, 0.35, 0.6] : Float64[]
     n_α_starts  = isempty(α_grid) ? 0 : length(α_grid)
-    param_space = [[minf_init, θ_hat_init, ret_init] for _ in 1:(n_starts + n_ν_starts + n_α_starts)]
+    # GARCH path: structured multi-starts over (Σα, Σγ). Low-persistence and ARCH-like
+    # starts matter because regime switching itself absorbs part of the volatility persistence.
+    garch_grid  = p > 0 ? [(0.05, 0.90), (0.10, 0.80), (0.20, 0.50), (0.30, 0.10)] : Tuple{Float64, Float64}[]
+    n_g_starts  = length(garch_grid)
+    param_space = [[minf_init, θ_hat_init, ret_init] for _ in 1:(n_starts + n_ν_starts + n_α_starts + n_g_starts)]
 
     for i in 2:n_starts
         # wider noise on log(ν) helps escape flat regions of the df parameters
@@ -493,10 +540,10 @@ function MSModel(y::VecOrMat{V},
         if n_ν > 0
             noise[n_var+1:n_var+n_ν] .= rand(Uniform(-1.5, 1.5), n_ν)
         end
-        if n_α > 0
+        if n_α + n_γ > 0
             # narrower than the default noise: α_raw ≈ sqrt(0.3/q), so ±0.5 would sweep
-            # Σα across an implausibly wide range
-            noise[n_var+n_ν+1:n_var+n_ν+n_α] .= rand(Uniform(-0.2, 0.2), n_α)
+            # Σα across an implausibly wide range (same for the GARCH γ block)
+            noise[n_var+n_ν+1:n_var+n_ν+n_α+n_γ] .= rand(Uniform(-0.2, 0.2), n_α + n_γ)
         end
         rand_θ = param_space[1][2] .+ noise
         rand_θ = max.(opt.lower_bounds, rand_θ)
@@ -531,16 +578,43 @@ function MSModel(y::VecOrMat{V},
         end
     end
 
+    # structured GARCH multi-start: from the STARTING point x0 (not the first fit, as the ARCH
+    # multi-start does: when the first fit lands in a poor basin its P is poor too, and every
+    # restart inherited it in simulations), set (Σα, Σγ) to each grid node and rescale ω so
+    # every regime keeps x0's unconditional variance ω/(1 - Σα - Σγ)
+    if n_γ > 0 && n_g_starts > 0
+        base_θ = x0
+        off    = n_var + n_ν
+        for (g, (αg, γg)) in enumerate(garch_grid)
+            θ_try = copy(base_θ)
+            r_new = garch_raw([fill(αg / q, q); fill(γg / p, p)])
+            for s in 1:n_var                    # n_var = number of regimes with own ω/α/γ
+                ia = off + (s-1)*q .+ (1:q)
+                ig = off + n_α + (s-1)*p .+ (1:p)
+                π_base   = sum(garch_coefs(vcat(base_θ[ia], base_θ[ig])))
+                θ_try[s] = base_θ[s] * sqrt((1 - αg - γg) / (1 - π_base))
+                θ_try[ia] .= r_new[1:q]
+                θ_try[ig] .= r_new[q+1:end]
+            end
+            idx = n_starts + n_ν_starts + n_α_starts + g
+            param_space[idx][1], param_space[idx][2], param_space[idx][3] = NLopt.optimize(opt, θ_try)
+            verbose && println("GARCH multi-start (Σα, Σγ)≈($αg, $γg) | LL = $(-round.(param_space[idx][1]))")
+        end
+    end
+
     param_space = sort(param_space, by = x -> x[1], rev = true)
     minf        = param_space[end][1]
     θ_hat       = param_space[end][2]
     ret         = param_space[end][3]
-    (random_search > 0 || n_ν_starts > 0 || n_α_starts > 0) & verbose &&
+    (random_search > 0 || n_ν_starts > 0 || n_α_starts > 0 || n_g_starts > 0) & verbose &&
         println("loglikelihood improvement with random search: $(-round.(minf_init)) -> $(-round.(param_space[end][1]))")
 
     ### transformation of variables - tvtp or not ###
+    γ = Vector{Vector{Float64}}(undef, 0)
     if n_δ > 0
-        if q > 0
+        if p > 0
+            ω, α, γ, β, ν = trans_θ_garch(θ_hat, k, n_β, n_β_ns, intercept, switching_var, true, error_dist, q, p)
+        elseif q > 0
             ω, α, β, ν = trans_θ_arch(θ_hat, k, n_β, n_β_ns, intercept, switching_var, true, error_dist, q)
         else
             σ, β, ν = trans_θ(θ_hat, k, n_β, n_β_ns, intercept, switching_var, true, error_dist)
@@ -548,7 +622,9 @@ function MSModel(y::VecOrMat{V},
         δ = θ_hat[(end-(n_δ*k*(k-1))+1):end]
         P = Matrix{Float64}(undef, 0, 0)
     else
-        if q > 0
+        if p > 0
+            ω, α, γ, β, P, ν = trans_θ_garch(θ_hat, k, n_β, n_β_ns, intercept, switching_var, false, error_dist, q, p)
+        elseif q > 0
             ω, α, β, P, ν = trans_θ_arch(θ_hat, k, n_β, n_β_ns, intercept, switching_var, false, error_dist, q)
         else
             σ, β, P, ν = trans_θ(θ_hat, k, n_β, n_β_ns, intercept, switching_var, false, error_dist)
@@ -561,14 +637,15 @@ function MSModel(y::VecOrMat{V},
         # nests the constant-variance model exactly (α = 0 ⇒ σ[s] = sqrt(ω_s))
         x_lik = n_δ > 0 ? x[:, 1:end-n_δ] : x   # mirrors the X-slicing in likelihood.jl
         μ_hat = [view(x_lik, :, 2:n_β+n_β_ns+2) * β[i] for i in 1:k]
-        h_hat = arch_var(view(x_lik, :, 1), μ_hat, ω, α, k, q)
+        h_hat = p > 0 ? garch_var(view(x_lik, :, 1), μ_hat, ω, α, γ, k, q, p) :
+                        arch_var(view(x_lik, :, 1), μ_hat, ω, α, k, q)
         σ     = [sqrt(sum(view(h_hat, :, s)) / T) for s in 1:k]
     else
         ω = Vector{Float64}(undef, 0)
         α = Vector{Vector{Float64}}(undef, 0)
     end
 
-    return MSM(β, σ, P, δ, k, n_β, n_β_ns, intercept, switching_var, q, ω, α, error_dist, ν, x, T, -minf, θ_hat, ret)
+    return MSM(β, σ, P, δ, k, n_β, n_β_ns, intercept, switching_var, q, ω, α, p, γ, error_dist, ν, x, T, -minf, θ_hat, ret)
 end
 
 """
@@ -625,6 +702,73 @@ See also [`MSModel`](@ref), [`conditional_variance`](@ref).
 function MSARCHModel(y::VecOrMat{V}, k::Int64, q::Int64 = 1; kwargs...) where V <: AbstractFloat
     @assert q >= 1 "q should be at least 1; use MSModel() for a constant-variance model"
     return MSModel(y, k; q = q, kwargs...)
+end
+
+"""
+    MSGARCHModel(y::VecOrMat{V},
+                 k::Int64,
+                 p::Int64 = 1,
+                 q::Int64 = 1;
+                 <same keyword arguments as MSModel>) where V <: AbstractFloat
+
+Convenience wrapper around [`MSModel`](@ref) that estimates a Markov-Switching GARCH(p,q) model:
+each of the `k` regimes carries its own GARCH(p,q) conditional-variance process
+(Haas, Mittnik & Paolella, 2004). Orders follow Bollerslev's GARCH(p,q) convention:
+`p` lags of the conditional variance, `q` lags of the squared residual (the ARCH order,
+as in [`MSARCHModel`](@ref)).
+
+```math
+y_t = x_t'\\beta_{S_t} + e_t, \\qquad e_t = \\sqrt{h_{t,S_t}} \\, z_t, \\qquad z_t \\sim D(0,1)
+```
+```math
+h_{t,s} = \\omega_s + \\sum_{j=1}^{q} \\alpha_{s,j} \\, \\varepsilon_{t-j,s}^2
+                    + \\sum_{j=1}^{p} \\gamma_{s,j} \\, h_{t-j,s}, \\qquad
+\\varepsilon_{t,s} = y_t - x_t'\\beta_s
+```
+
+The GARCH coefficients are called `γ` (stored in `model.γ`), because `β` already holds the
+regression coefficients; in the GARCH literature they are usually written ``\\beta``.
+
+Each regime's variance depends only on that regime's own lagged residuals and its own lagged
+variance, never on the realised state path. So, as for MS-ARCH, `h` is a single `T×k` matrix
+computed before the Hamilton filter and the model needs no path-collapsing approximation
+(unlike Gray, 1996, or Klaassen, 2002). With `intercept = "no"` and no exogenous variables this
+is the model estimated by R's `MSGARCH` package with `model = "sGARCH"`.
+
+Note:
+Every regime is constrained to ``\\sum_j \\alpha_{s,j} + \\sum_j \\gamma_{s,j} < 1`` through a
+smooth reparametrisation, so each regime's own variance process is covariance-stationary.
+This is stricter than necessary: Haas et al. (2004) show the overall process can be stationary
+even with one non-stationary regime. For `error_dist = :t`, `h` is a squared scale, so the
+in-regime variance condition is ``\\sum_j \\alpha_{s,j}\\nu_s/(\\nu_s-2) + \\sum_j \\gamma_{s,j} < 1``,
+which the constraint above does not guarantee.
+
+Pre-sample squared residuals and variances (`t - j <= 0`) are backcast with the regime's
+full-sample mean squared residual, as in [`MSARCHModel`](@ref).
+
+When a regime's ARCH coefficients are close to zero its `γ` is weakly identified (the variance
+then just settles at ``\\omega_s/(1-\\sum_j\\gamma_{s,j})``), and its standard errors will be large.
+MS-GARCH likelihoods are also more multimodal than MS-ARCH ones; consider increasing
+`random_search_em` and `random_search`.
+
+# Arguments
+- `y::VecOrMat{V}`: dependent variable.
+- `k::Int64`: number of states.
+- `p::Int64`: number of lagged conditional variances (GARCH order). Must be at least 1.
+- `q::Int64`: number of lagged squared residuals (ARCH order). Must be at least 1.
+- all other keyword arguments are identical to [`MSModel`](@ref), including `switching_var`
+  (`true`: `ω`, `α` and `γ` are state-specific; `false`: shared across states).
+
+References:
+- Haas, M., Mittnik, S., & Paolella, M. S. (2004). A new approach to Markov-switching GARCH models. Journal of Financial Econometrics, 2(4), 493-530.
+- Bollerslev, T. (1986). Generalized autoregressive conditional heteroskedasticity. Journal of Econometrics, 31(3), 307-327.
+
+See also [`MSModel`](@ref), [`MSARCHModel`](@ref), [`conditional_variance`](@ref).
+"""
+function MSGARCHModel(y::VecOrMat{V}, k::Int64, p::Int64 = 1, q::Int64 = 1; kwargs...) where V <: AbstractFloat
+    @assert p >= 1 "p should be at least 1; use MSARCHModel() for a model without lagged variances"
+    @assert q >= 1 "q should be at least 1; GARCH terms are not identified without an ARCH term"
+    return MSModel(y, k; q = q, p = p, kwargs...)
 end
 
 """

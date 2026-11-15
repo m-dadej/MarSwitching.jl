@@ -102,6 +102,54 @@ function arch_var(y::AbstractVector{Float64},
     return h
 end
 
+# T×k matrix of MS-GARCH(p,q) conditional variances (Haas, Mittnik & Paolella 2004):
+#   h_{t,s} = ω_s + Σ_{j=1}^q α_{s,j} ε²_{t-j,s} + Σ_{j=1}^p γ_{s,j} h_{t-j,s}
+# Each state's recursion feeds back only its OWN lagged variance h_{t-j,s}, never the
+# variance of the realised state, so h is still path-independent and computed in one
+# pass before the Hamilton filter — exactly as in arch_var(). Pre-sample ε² AND h
+# (t-j <= 0) are backcast with the state's full-sample mean squared residual.
+function garch_var(y::AbstractVector{Float64},
+                   μ::Vector{<:AbstractVector{Float64}},
+                   ω::Vector{Float64},
+                   α::Vector{Vector{Float64}},
+                   γ::Vector{Vector{Float64}},
+                   k::Int64,
+                   q::Int64,
+                   p::Int64)
+
+    T  = length(y)
+    e2 = Matrix{Float64}(undef, T, k)
+    h  = Matrix{Float64}(undef, T, k)
+
+    @inbounds for s in 1:k
+        μs = μ[s]
+        for t in 1:T
+            e2[t, s] = (y[t] - μs[t])^2
+        end
+    end
+
+    @inbounds for s in 1:k
+        b = 0.0
+        for t in 1:T
+            b += e2[t, s]
+        end
+        b /= T                                  # backcast for t-j <= 0
+        ωs, αs, γs = ω[s], α[s], γ[s]
+        for t in 1:T
+            v = ωs
+            for j in 1:q
+                v += αs[j] * (t - j >= 1 ? e2[t-j, s] : b)
+            end
+            for j in 1:p
+                v += γs[j] * (t - j >= 1 ? h[t-j, s] : b)
+            end
+            h[t, s] = min(max(v, 1e-12), 1e12)
+        end
+    end
+
+    return h
+end
+
 # Thin dispatcher only: q=0 and q>0 are handled by two fully self-contained functions
 # below (a "function barrier"), rather than an if/else sharing β/σ/ω/P/ν bindings in
 # one function body. trans_θ() and trans_θ_arch() each have their own internal runtime
@@ -127,9 +175,11 @@ end
                 switching_var::Bool,
                 error_dist::Symbol=:normal,
                 q::Int64=0,
+                p::Int64=0,
                 logsum::Bool=true)
 
-    return q > 0 ? _loglik_arch(θ, X, k, n_β, n_β_ns, intercept, switching_var, error_dist, q, logsum) :
+    return p > 0 ? _loglik_garch(θ, X, k, n_β, n_β_ns, intercept, switching_var, error_dist, q, p, logsum) :
+           q > 0 ? _loglik_arch(θ, X, k, n_β, n_β_ns, intercept, switching_var, error_dist, q, logsum) :
                    _loglik_const(θ, X, k, n_β, n_β_ns, intercept, switching_var, error_dist, logsum)
 end
 
@@ -214,6 +264,47 @@ function _loglik_arch(θ::Vector{Float64},
     return (logsum ? sum(log.(L)) : L ), ξ
 end
 
+# MS-GARCH path (p > 0): kept as its own self-contained function (rather than a p-branch
+# inside _loglik_arch) for the same type-stability reason as the q = 0 / q > 0 split above.
+function _loglik_garch(θ::Vector{Float64},
+                       X::Matrix{Float64},
+                       k::Int64,
+                       n_β::Int64,
+                       n_β_ns::Int64,
+                       intercept::String,
+                       switching_var::Bool,
+                       error_dist::Symbol,
+                       q::Int64,
+                       p::Int64,
+                       logsum::Bool)
+
+    T      = size(X)[1]
+    ξ      = zeros(T, k)
+    L      = zeros(T)
+    ξ_next = zeros(k)
+
+    ω, α, γ, β, P, ν = trans_θ_garch(θ, k, n_β, n_β_ns, intercept, switching_var, false, error_dist, q, p)
+
+    # ergodic_probs() throws when the optimizer drives P to a reducible matrix (e.g. a
+    # regime with P[s,s] == 1.0 exactly), where no unique ergodic distribution exists
+    ξ_0 = try ergodic_probs(P, k) catch e; e isa SingularException ? ones(k) ./ k : rethrow() end
+    ξ_0 = any(ξ_0 .< 0) ? ones(k) ./ k : ξ_0 # numerical stability check
+
+    y = view(X, :, 1)
+    μ = [view(X, :, 2:n_β+n_β_ns+2) * β[i] for i in 1:k]
+    h = garch_var(y, μ, ω, α, γ, k, q, p)
+    η = reduce(hcat, [error_density(error_dist, y, μ[i], sqrt.(view(h, :, i)), isempty(ν) ? Inf : ν[i]) for i in 1:k])
+
+    @inbounds for t in 1:T
+        ξ[t,:] = t == 1 ? ξ_0 : view(ξ, t-1, :)
+        mul!(ξ_next, P, view(ξ, t, :))
+        L[t] = max(view(η, t, :)'ξ_next, 1e-300)
+        @views @. ξ[t,:] = (1/L[t]) * ξ_next * η[t, :]
+    end
+
+    return (logsum ? sum(log.(L)) : L ), ξ
+end
+
 # Thin dispatcher only — see the comment above loglik() for why this must not merge
 # β/σ/ω/ν from trans_θ() and trans_θ_arch() into shared bindings in one function body.
 @inline function loglik_tvtp(θ::Vector{Float64},
@@ -226,9 +317,11 @@ end
                     n_δ::Int64,
                     error_dist::Symbol=:normal,
                     q::Int64=0,
+                    p::Int64=0,
                     logsum::Bool=true)
 
-    return q > 0 ? _loglik_tvtp_arch(θ, X, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist, q, logsum) :
+    return p > 0 ? _loglik_tvtp_garch(θ, X, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist, q, p, logsum) :
+           q > 0 ? _loglik_tvtp_arch(θ, X, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist, q, logsum) :
                    _loglik_tvtp_const(θ, X, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist, logsum)
 end
 
@@ -304,6 +397,48 @@ function _loglik_tvtp_arch(θ::Vector{Float64},
     y = view(X, :, 1)
     μ = [view(X, :, 2:n_β+n_β_ns+2) * β[i] for i in 1:k]
     h = arch_var(y, μ, ω, α, k, q)
+    η = reduce(hcat, [error_density(error_dist, y, μ[i], sqrt.(view(h, :, i)), isempty(ν) ? Inf : ν[i]) for i in 1:k])
+
+    @inbounds for t in 1:T
+        ξ[t,:] = t == 1 ? ξ_0 : view(ξ, t-1, :)
+        P = P_tvtp(x_tvtp[t, :], δ, k, n_δ)
+        mul!(ξ_next, P, view(ξ, t, :))
+        L[t] = max(view(η, t, :)'ξ_next, 1e-300)
+        @views @. ξ[t,:] = (1/L[t]) * ξ_next * η[t, :]
+    end
+
+    return (logsum ? sum(log.(L)) : L ), ξ
+end
+
+# MS-GARCH path (p > 0). See _loglik_garch() for the non-TVTP analogue.
+function _loglik_tvtp_garch(θ::Vector{Float64},
+                            X::Matrix{Float64},
+                            k::Int64,
+                            n_β::Int64,
+                            n_β_ns::Int64,
+                            intercept::String,
+                            switching_var::Bool,
+                            n_δ::Int64,
+                            error_dist::Symbol,
+                            q::Int64,
+                            p::Int64,
+                            logsum::Bool)
+
+    T      = size(X)[1]
+    ξ      = zeros(T, k)
+    L      = zeros(T)
+    ξ_next = zeros(k)
+    x_tvtp = X[:, end-n_δ+1:end]
+    X      = X[:, 1:(end-n_δ)]
+
+    δ = θ[(end-(n_δ*k*(k-1))+1):end]
+    ω, α, γ, β, ν = trans_θ_garch(θ, k, n_β, n_β_ns, intercept, switching_var, true, error_dist, q, p)
+
+    ξ_0 = ones(k) ./ k
+
+    y = view(X, :, 1)
+    μ = [view(X, :, 2:n_β+n_β_ns+2) * β[i] for i in 1:k]
+    h = garch_var(y, μ, ω, α, γ, k, q, p)
     η = reduce(hcat, [error_density(error_dist, y, μ[i], sqrt.(view(h, :, i)), isempty(ν) ? Inf : ν[i]) for i in 1:k])
 
     @inbounds for t in 1:T

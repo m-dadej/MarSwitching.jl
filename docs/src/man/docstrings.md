@@ -1,5 +1,5 @@
 ```@meta
-Description = "API reference for MarSwitching.jl: docstrings for MSModel, MSARCHModel, generate_msm, filtered_probs, smoothed_probs, expected_duration, predict, transition_mat and every exported function."
+Description = "API reference for MarSwitching.jl: docstrings for MSModel, MSARCHModel, MSGARCHModel, generate_msm, filtered_probs, smoothed_probs, expected_duration, predict, transition_mat and every exported function."
 ```
 
 # API reference
@@ -15,6 +15,7 @@ MarSwitching.jl exports following list of functions (and a struct):
 MarSwitching.MSM
 MarSwitching.MSModel
 MarSwitching.MSARCHModel
+MarSwitching.MSGARCHModel
 MarSwitching.grid_search_msm
 ```
 

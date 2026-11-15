@@ -65,21 +65,146 @@ run from its own internal starting values).
 Core parameters (omega, alpha, transition probabilities) agree to
 3-4 significant figures.
 
-**On the log-likelihood gap (~2.8 nats):** `MSARCHModel` found the
-slightly *better* optimum here, most likely because it was run with
-aggressive multi-start while MSGARCH's default `FitML` is a single run.
-MS-ARCH likelihoods are known to be multimodal (see the note in
-`MSModel`'s docstring), and are especially flat near `alpha = 0` — which
-is exactly the calm regime's estimate here, so both packages landing on
-slightly different points along a near-flat ridge is expected, not a
-correctness concern. Re-running MSGARCH with more restarts (or
-`MSARCHModel` with `random_search = 0`) narrows the gap further.
+**On the log-likelihood gap (~2.8 nats):** this is a reporting convention,
+not a different optimum. MSGARCH leaves the first observation's density
+out of the log-likelihood it reports (and starts each regime's variance at
+its unconditional level, where `MSARCHModel` backcasts with the mean
+squared residual). Evaluating `MarSwitching.loglik` at MSGARCH's exact
+estimates gives 4277.10, the same as `MSARCHModel`'s own optimum, and
+4274.39 once the first observation is dropped, against MSGARCH's 4274.34.
+So both packages found the same optimum.
+
+## MSGARCHModel vs. MSGARCH `sGARCH`
+
+`fit_msgarch11.jl` and `fit_msgarch11.R` repeat the comparison for the
+2-regime, zero-mean GARCH(1,1) model on the same data:
+
+```
+y_t = e_t,   e_t = sqrt(h_{t,S_t}) * z_t,   z_t ~ N(0,1)
+h_{t,s} = omega_s + alpha_s * y_{t-1}^2 + gamma_s * h_{t-1,s}
+```
+
+MSGARCH calls the lagged-variance coefficient `beta`; MarSwitching.jl
+calls it `gamma` because `β` already holds regression coefficients.
+
+```bash
+julia benchmark/msarch_vs_msgarch/fit_msgarch11.jl
+Rscript benchmark/msarch_vs_msgarch/fit_msgarch11.R
+```
+
+Obtained 2026-11-14, MarSwitching.jl on `garch` branch, MSGARCH 2.51.
+`MSGARCHModel` was run with `random_search_em = 8, random_search = 8`
+(about 90 s); MSGARCH's `FitML` used its defaults (a few seconds).
+
+| Parameter | MSGARCH (R) | MSGARCHModel (Julia) |
+|---|---|---|
+| omega, regime 1 (calm, persistent) | 6.097e-06 | 5.343e-06 |
+| alpha, regime 1 | 0.0658 | 0.0649 |
+| beta / gamma, regime 1 | 0.8980 | 0.8997 |
+| omega, regime 2 (short volatility bursts) | 6.807e-04 | 5.772e-04 |
+| alpha, regime 2 | 0.4334 | 0.4404 |
+| beta / gamma, regime 2 | 0.5244 | 0.5596 |
+| P(stay in regime 1) | 0.9504 | 0.9448 |
+| P(stay in regime 2) | 0.3581 | 0.3463 |
+| expected duration, regime 1 (weeks) | 20.2 | 18.1 |
+| expected duration, regime 2 (weeks) | 1.56 | 1.53 |
+| log-likelihood (as reported) | 4309.22 | 4312.78 |
+
+For the persistent regime, alpha and gamma agree to 2-3 significant
+figures; omega, which is tiny and trades off against the persistence,
+agrees to within ~15%. The burst regime is less precisely determined. It lives 1.5 weeks on average, so only
+about 7% of the sample informs it. `MSGARCHModel` puts it at the
+stationarity bound (`alpha + gamma = 1`, which is why `summary_msm` reports
+no standard errors for that regime's `alpha` and `gamma`), while MSGARCH stops at 0.958.
+
+**On the log-likelihood gap (~3.6 nats):** as for ARCH, ~3.4 nats are the
+reporting convention. `MarSwitching.loglik` at MSGARCH's exact estimates
+gives 4312.60. MSGARCH instead starts each regime's variance at its
+unconditional level, uses `y_1` only inside the variance recursion, and
+starts the filter at `t = 2` from the ergodic probabilities; recomputed that
+way, the same parameters give 4309.2195, MSGARCH's reported value to every
+printed digit. The remaining 0.18 nats are a genuinely better point, found by
+moving along the flat ridge towards the stationarity bound of regime 2.
 
 **Transition-matrix convention:** MSGARCH reports its 2x2 matrix
 row-stochastic (`P_1_1` = P(stay in 1)); `MSARCHModel`'s `model.P` is
 left-stochastic (`P[i,j]` = P(state i at t | state j at t-1), columns sum
 to 1 — see the `MSM` docstring). The two conventions agree on the
 diagonal (persistence probabilities), which is what's compared above.
+
+## MS-GARCH(1,1) on simulated data with known parameters
+
+The S&P 500 comparison above is hard to judge: on the weekly-return scale
+`omega` is tiny (it prints as 0.0 in `summary_msm`), and the burst regime
+sits at the stationarity bound. Here both packages fit simulated data
+instead, so their estimates can be compared with each other *and* with the
+true parameters, all of which are clearly non-zero and interior.
+
+**Data.** `sim_msgarch11_data.csv` holds T = 10,000 draws from a 2-regime,
+zero-mean MS-GARCH(1,1) (plus the true regime path), simulated by
+`sim_msgarch11_generate.jl` with `generate_msm()`. The true parameters are
+in `sim_msgarch11_params.csv`, named as in MSGARCH. Regime 1 is calm
+(unconditional variance 1.0), regime 2 turbulent (6.67); each lasts 100
+periods on average. The design was picked so that the standard errors are
+about 3-11% of the true `alpha` and `beta`, and 15-17% of `omega` (GARCH
+intercepts are imprecise even at this sample size).
+
+```bash
+julia   benchmark/msarch_vs_msgarch/sim_msgarch11_fit.jl
+Rscript benchmark/msarch_vs_msgarch/sim_msgarch11_fit.R
+Rscript benchmark/msarch_vs_msgarch/sim_msgarch11_mc.R    # optional, ~7 min
+```
+
+Both fit scripts sort the regimes by unconditional variance (the regime
+labels are arbitrary) and print the same table. Obtained 2026-11-14,
+MarSwitching.jl on `garch` branch, MSGARCH 2.51. `MSGARCHModel` was run with
+`random_search_em = 2, random_search = 2` (335 s); MSGARCH's `FitML` used
+its defaults (about 10 s). Standard errors in parentheses.
+
+| Parameter | True | MSGARCH (R) | MSGARCHModel (Julia) |
+|---|---|---|---|
+| omega, regime 1 (`alpha0_1`) | 0.10 | 0.0927 (0.0143) | 0.0931 (0.0143) |
+| alpha, regime 1 (`alpha1_1`) | 0.15 | 0.1313 (0.0257) | 0.1311 (0.0198) |
+| beta / gamma, regime 1 (`beta_1`) | 0.75 | 0.7659 (0.0169) | 0.7650 (0.0229) |
+| omega, regime 2 (`alpha0_2`) | 1.00 | 1.0811 (0.1213) | 1.0782 (0.1210) |
+| alpha, regime 2 (`alpha1_2`) | 0.25 | 0.2658 (0.0349) | 0.2656 (0.0189) |
+| beta / gamma, regime 2 (`beta_2`) | 0.60 | 0.5671 (0.0217) | 0.5676 (0.0288) |
+| P(stay in regime 1) (`P_1_1`) | 0.99 | 0.9865 (0.0017) | 0.9864 (0.0025) |
+| P(regime 2 to 1) (`P_2_1`) | 0.01 | 0.0093 (0.0025) | 0.0093 (0.0017) |
+| log-likelihood, MSGARCH convention | -19479.30 at the truth | -19475.9795 | -19475.9853 |
+| regimes correctly classified (smoothed) | | 90.7% | 90.7% |
+
+**Estimates.** The two packages agree to 2-3 significant figures on every
+parameter (the largest relative gap is 0.4%, for regime 1's `omega`), and
+both are within about 2 standard errors of the truth. Under MSGARCH's
+likelihood convention (see the S&P section) the two optima differ by 0.006
+nats: each package maximises its own convention, so each is marginally
+ahead on its own objective. They are the same optimum, and both are 3.3
+nats above the likelihood at the true parameters, as expected of a
+maximum. Both classify 90.7% of periods into the right regime.
+
+**Standard errors.** These differ by up to 2x between the packages, so
+`sim_msgarch11_mc.R` checks them against the actual sampling spread of the
+estimator: 40 fresh samples from the same process, each fitted with
+MSGARCH. Since both packages reach the same optimum, that spread is the
+benchmark for both.
+
+| Parameter | Monte Carlo SD | MSGARCH SE (median over 40 fits) | MSGARCHModel SE (the one sample above) |
+|---|---|---|---|
+| `alpha0_1` | 0.0106 | 0.0146 (+38%) | 0.0143 (+35%) |
+| `alpha1_1` | 0.0177 | 0.0268 (+51%) | 0.0198 (+12%) |
+| `beta_1`   | 0.0187 | 0.0172 (-8%)  | 0.0229 (+22%) |
+| `alpha0_2` | 0.1089 | 0.1400 (+29%) | 0.1210 (+11%) |
+| `alpha1_2` | 0.0182 | 0.0376 (+107%) | 0.0189 (+4%) |
+| `beta_2`   | 0.0233 | 0.0233 (0%)   | 0.0288 (+24%) |
+| `P_1_1`    | 0.0019 | 0.0020 (+3%)  | 0.0025 (+32%) |
+| `P_2_1`    | 0.0019 | 0.0021 (+11%) | 0.0017 (-10%) |
+
+MSGARCH overstates the `alpha` standard errors by 1.5-2x. MSGARCHModel's
+are within about +-35% of the Monte Carlo SD for every parameter, but they
+come from a single sample, whose own SEs vary from sample to sample, and a
+40-sample SD is itself uncertain by about 11%. So read them as "the right
+size", not as more precise than that.
 
 ## Speed comparison
 

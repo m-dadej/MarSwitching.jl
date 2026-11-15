@@ -1,5 +1,5 @@
 ```@meta
-Description = "MarSwitching.jl estimates Markov switching (regime switching) dynamic regression models in Julia: k regimes, time-varying transition probabilities, MS-ARCH, filtered and smoothed probabilities, by maximum likelihood."
+Description = "MarSwitching.jl estimates Markov switching (regime switching) dynamic regression models in Julia: k regimes, time-varying transition probabilities, MS-ARCH, MS-GARCH, filtered and smoothed probabilities, by maximum likelihood."
 ```
 
 # MarSwitching.jl: Markov Switching dynamic models in Julia
@@ -64,6 +64,7 @@ Assuming that you already have at least Julia 1.6 (stable version) installed.
         - exogenous variables
         - shape of error distribution
     - Markov Switching ARCH model (`MSARCHModel()`), with regime-specific ARCH($q$) coefficients (Haas, Mittnik & Paolella, 2004)
+    - Markov Switching GARCH model (`MSGARCHModel()`), with regime-specific GARCH($p$,$q$) coefficients (Haas, Mittnik & Paolella, 2004)
     - Model with time-varying transition probabilities (TVTP) (à la Filardo 1994) 
     - Alternative error distributions (Normal, Student's $t$-distribution and Generalized Error Distribution) with regime-switching shape parameter
     - Filtered probabilities
@@ -74,7 +75,6 @@ Assuming that you already have at least Julia 1.6 (stable version) installed.
     - Simulation of data both from estimated model and from given parameters
     - Variable and number of states selection (with random and grid search)
 - Planned functionality:
-    - Markov Switching GARCH model
     - Markov Switching VAR model
     - Markov Switching model with lagged states. E.g. $y_t = \mu_{S_t} + \phi(y_{t-1} - \mu_{S_{t-1}})$
 

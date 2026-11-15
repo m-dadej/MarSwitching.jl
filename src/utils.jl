@@ -51,6 +51,16 @@ end
 # (msmodel.jl random-search noise/multi-start, results.jl SE splice) keeps
 # working unmodified when q == 0, and continues to address the correct ν
 # entries even when q > 0.
+#
+# MS-GARCH(p,q) models (see trans_θ_garch below) additionally insert a γ block
+# right after the α block:
+#
+# n_var+n_ν+n_α+1:n_var+n_ν+n_α+n_γ            - γ raw (n_γ = k*p if switching_var, else p)
+#                                              - state-major, like α
+#
+# On the GARCH path (p > 0) α and γ of one regime are mapped JOINTLY (garch_coefs):
+# coef = raw² / (1 + Σ raw²), so every regime satisfies Σα + Σγ < 1 by construction.
+# The MS-ARCH path (p == 0) keeps its own α = raw² map, unchanged.
 
 # true if error distribution has a state-specific shape parameter ν
 has_shape_param(error_dist::Symbol) = error_dist in (:t, :ged)
@@ -238,6 +248,73 @@ function trans_θ_arch(θ::Vector{Float64},
     else
         ω, β, P, ν = trans_θ(θ_c, k, n_β, n_β_ns, intercept, switching_var, false, error_dist)
         return ω, α, β, P, ν
+    end
+end
+
+# MS-GARCH stationarity-preserving map for ONE regime's [α raw; γ raw] block:
+# coef_i = r_i² / (1 + Σ r²) ≥ 0, hence Σα + Σγ = S/(1+S) < 1 for any raw vector.
+# Smooth everywhere, so it works for both derivative-free and gradient-based NLopt solvers.
+function garch_coefs(r::AbstractVector{Float64})
+    r2 = r.^2
+    return r2 ./ (1.0 + sum(r2))
+end
+
+# inverse of garch_coefs(): raw vector giving the requested coefficients (needs Σcoef < 1)
+function garch_raw(coefs::AbstractVector{Float64})
+    @assert all(coefs .>= 0) && sum(coefs) < 1 "GARCH coefficients must be non-negative with sum < 1"
+    return sqrt.(coefs ./ (1.0 - sum(coefs)))
+end
+
+# MS-GARCH(p,q) parameter vector transform (Haas, Mittnik & Paolella 2004).
+# Same splice-and-delegate approach as trans_θ_arch(): the α and γ blocks are removed
+# from θ, and trans_θ() parses the rest exactly as for the constant-variance model.
+#
+# Returns (ω, α, γ, β, ν) when tvtp, else (ω, α, γ, β, P, ν).
+# α[state] is the length-q vector of ARCH coefficients, γ[state] the length-p vector of
+# GARCH (lagged-variance) coefficients; per regime Σα + Σγ < 1 (see garch_coefs()).
+function trans_θ_garch(θ::Vector{Float64},
+                       k::Int64,
+                       n_β::Int64,
+                       n_β_ns::Int64,
+                       intercept::String,
+                       switching_var::Bool,
+                       tvtp::Bool,
+                       error_dist::Symbol,
+                       q::Int64,
+                       p::Int64)
+
+    n_var = switching_var ? k : 1
+    n_ν   = has_shape_param(error_dist) ? k : 0
+    n_α   = switching_var ? k*q : q
+    n_γ   = switching_var ? k*p : p
+    off   = n_var + n_ν
+
+    α_raw = θ[off+1:off+n_α]
+    γ_raw = θ[off+n_α+1:off+n_α+n_γ]
+    θ_c   = vcat(θ[1:off], θ[off+n_α+n_γ+1:end])
+
+    α = Vector{Vector{Float64}}(undef, k)
+    γ = Vector{Vector{Float64}}(undef, k)
+    if switching_var
+        for s in 1:k
+            c    = garch_coefs(vcat(α_raw[(s-1)*q+1:s*q], γ_raw[(s-1)*p+1:s*p]))
+            α[s] = c[1:q]
+            γ[s] = c[q+1:end]
+        end
+    else
+        c = garch_coefs(vcat(α_raw, γ_raw))
+        for s in 1:k
+            α[s] = c[1:q]       # slicing copies: each state stored independently on the struct
+            γ[s] = c[q+1:end]
+        end
+    end
+
+    if tvtp
+        ω, β, ν = trans_θ(θ_c, k, n_β, n_β_ns, intercept, switching_var, true, error_dist)
+        return ω, α, γ, β, ν
+    else
+        ω, β, P, ν = trans_θ(θ_c, k, n_β, n_β_ns, intercept, switching_var, false, error_dist)
+        return ω, α, γ, β, P, ν
     end
 end
 
