@@ -21,11 +21,13 @@ spec <- CreateSpec(variance.spec = list(model = "sARCH"),
 
 N <- 20
 times <- numeric(N)
+lls <- numeric(N)
 set.seed(42)
 for (i in 1:N) {
   t0 <- Sys.time()
   fit <- FitML(spec = spec, data = y)
   times[i] <- as.numeric(Sys.time() - t0, units = "secs")
+  lls[i] <- fit$loglik
 }
 
 cat("calls, N =", N, "(default effort: 1 optimization run)\n")
@@ -33,4 +35,4 @@ cat("  mean   =", round(mean(times), 4), "s\n")
 cat("  median =", round(median(times), 4), "s\n")
 cat("  min    =", round(min(times), 4), "s\n")
 cat("  max    =", round(max(times), 4), "s\n")
-cat("\nLikelihood =", fit$loglik, "\n")
+cat(sprintf("\nlog-likelihood range: %.4f to %.4f\n", min(lls), max(lls)))

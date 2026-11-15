@@ -271,6 +271,27 @@ function obj_func_tvtp_arch(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_v
     return -_loglik_tvtp_arch(θ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist, q, true)[1]
 end
 
+# Runs NLopt from each starting point and returns (minf, θ, ret) per start. With several Julia
+# threads (e.g. `julia -t auto`) the runs go in parallel, each on its own copy of `opt` (an Opt
+# must not be shared between threads). A copy carries all of `opt`'s settings and objective, and
+# NLopt chooses each run's initial step from that run's own starting point, so the results are
+# the same as running the starts one after another on `opt`, as happens with a single thread.
+function run_starts(opt::Opt, starts::AbstractVector{<:AbstractVector{<:Real}};
+                    parallel::Bool = Threads.nthreads() > 1)
+    res = Vector{Tuple{Float64, Vector{Float64}, Symbol}}(undef, length(starts))
+    if parallel && length(starts) > 1
+        opts = [copy(opt) for _ in starts]
+        Threads.@threads for i in eachindex(starts)
+            res[i] = NLopt.optimize(opts[i], starts[i])
+        end
+    else
+        for i in eachindex(starts)
+            res[i] = NLopt.optimize(opt, starts[i])
+        end
+    end
+    return res
+end
+
 # MS-GARCH objectives: gradients come from bounded_gradient!() instead of FiniteDiff, so the
 # default gradient-based solver (SLSQP) never sees a likelihood evaluated outside the bounds.
 function obj_func_garch(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist, q, p, lb, ub)
@@ -310,6 +331,10 @@ Function to estimate the Markov Switching Model. Returns an instance of MSM stru
 Note:
 The model likelihood function is very nonlinear and prone to local maxima. Increasing number of random searches can help, for the cost of longer training time.
 For the same reason, it is recommended not to estimate model with many states (e.g. more than 5), altough it is possible.
+
+When Julia is started with several threads (e.g. `julia -t auto`), the independent optimization
+runs (the random searches and the structured multi-starts of MS-ARCH, MS-GARCH and Student-t/GED
+models) are run in parallel. The estimates are identical to a single-threaded run.
 
 # Arguments
 - `y::VecOrMat{V}`: dependent variable.
@@ -521,7 +546,6 @@ function MSModel(y::VecOrMat{V},
 
     # only binds on the MS-GARCH path (finite upper bounds); a user-supplied x0 may exceed the caps
     p > 0 && (x0 = clamp.(x0, lb, ub))
-    (minf_init, θ_hat_init, ret_init) = NLopt.optimize(opt, x0)
 
     ### Optimization random search ###
     n_starts = random_search + 1
@@ -543,8 +567,42 @@ function MSModel(y::VecOrMat{V},
     # starts matter because regime switching itself absorbs part of the volatility persistence.
     garch_grid  = p > 0 ? [(0.05, 0.90), (0.10, 0.80), (0.20, 0.50), (0.30, 0.10)] : Tuple{Float64, Float64}[]
     n_g_starts  = length(garch_grid)
-    param_space = [[minf_init, θ_hat_init, ret_init] for _ in 1:(n_starts + n_ν_starts + n_α_starts + n_g_starts)]
 
+    # The optimizations run in two batches of mutually independent starts, each batch in
+    # parallel when Julia has several threads (see run_starts()).
+
+    # Batch 1: the run from x0, plus the structured GARCH multi-start, which also starts from x0
+    # (not from the first fit, as the ARCH multi-start does: when the first fit lands in a poor
+    # basin its P is poor too, and every restart inherited it in simulations). Each GARCH start
+    # sets (Σα, Σγ) to a grid node and rescales ω so every regime keeps x0's unconditional
+    # variance ω/(1 - Σα - Σγ). It also starts from persistent regimes (P[s,s] = 0.95): the EM
+    # starting point ignores the time ordering of the data, so its transition matrix is often
+    # barely persistent, which sent SLSQP into a worse optimum with short-lived regimes in
+    # simulations. (TVTP: P comes from δ, left as in x0.)
+    garch_starts = Vector{Vector{Float64}}()
+    if n_γ > 0 && n_g_starts > 0
+        off = n_var + n_ν
+        for (αg, γg) in garch_grid
+            θ_try = copy(x0)
+            r_new = garch_raw([fill(αg / q, q); fill(γg / p, p)])
+            for s in 1:n_var                    # n_var = number of regimes with own ω/α/γ
+                ia = off + (s-1)*q .+ (1:q)
+                ig = off + n_α + (s-1)*p .+ (1:p)
+                π_base   = sum(garch_coefs(vcat(x0[ia], x0[ig])))
+                θ_try[s] = x0[s] * sqrt((1 - αg - γg) / (1 - π_base))
+                θ_try[ia] .= r_new[1:q]
+                θ_try[ig] .= r_new[q+1:end]
+            end
+            n_δ == 0 && (θ_try[end-n_p+1:end] .= persistent_P_raw(k, 0.95))
+            push!(garch_starts, θ_try)
+        end
+    end
+    first_runs = run_starts(opt, [[x0]; garch_starts])
+    (minf_init, θ_hat_init, ret_init) = first_runs[1]
+
+    # Batch 2: starts around the first fit θ_hat_init. The random perturbations are drawn
+    # here, in the same order as when each one was optimized right after being drawn.
+    around = Vector{Vector{Float64}}()
     for i in 2:n_starts
         # wider noise on log(ν) helps escape flat regions of the df parameters
         noise = rand(Uniform(-0.5, 0.5), length(θ_hat_init))
@@ -556,64 +614,44 @@ function MSModel(y::VecOrMat{V},
             # Σα across an implausibly wide range (same for the GARCH γ block)
             noise[n_var+n_ν+1:n_var+n_ν+n_α+n_γ] .= rand(Uniform(-0.2, 0.2), n_α + n_γ)
         end
-        rand_θ = param_space[1][2] .+ noise
-        rand_θ = clamp.(rand_θ, lb, ub)            # ub is all Inf except on the MS-GARCH path
-
-        param_space[i][1], param_space[i][2], param_space[i][3] = NLopt.optimize(opt, rand_θ)
-        verbose && println("Optimization random search: $(i-1) out of $random_search | LL = $(-round.(param_space[i][1]))")
+        push!(around, clamp.(θ_hat_init .+ noise, lb, ub))   # ub is all Inf except on the MS-GARCH path
     end
-
     # structured ν multi-start: keep best β,σ,P and try distinct shape vectors
     if n_ν > 0 && n_ν_starts > 0
-        base_θ = param_space[1][2]
-        for (g, νg) in enumerate(ν_grid)
-            θ_try = copy(base_θ)
+        for νg in ν_grid
+            θ_try = copy(θ_hat_init)
             # spread shape across states around grid node
             ν_vec = [νg * (0.7 + 0.3*(j-1)/(max(k-1,1))) for j in 1:k]
             θ_try[n_var+1:n_var+n_ν] .= log.(ν_vec)
-            idx = n_starts + g
-            param_space[idx][1], param_space[idx][2], param_space[idx][3] = NLopt.optimize(opt, θ_try)
-            verbose && println("Shape multi-start ν≈$νg | LL = $(-round.(param_space[idx][1]))")
+            push!(around, θ_try)
         end
     end
-
     # structured α multi-start: keep best ω,β,P (and ν) and try distinct total-persistence levels
     if n_α > 0 && n_α_starts > 0
-        base_θ = param_space[1][2]
-        for (g, αg) in enumerate(α_grid)
-            θ_try = copy(base_θ)
+        for αg in α_grid
+            θ_try = copy(θ_hat_init)
             θ_try[n_var+n_ν+1:n_var+n_ν+n_α] .= sqrt(αg / q)
-            idx = n_starts + n_ν_starts + g
-            param_space[idx][1], param_space[idx][2], param_space[idx][3] = NLopt.optimize(opt, θ_try)
-            verbose && println("ARCH multi-start Σα≈$αg | LL = $(-round.(param_space[idx][1]))")
+            push!(around, θ_try)
         end
     end
+    later_runs = run_starts(opt, around)
 
-    # structured GARCH multi-start: from the STARTING point x0 (not the first fit, as the ARCH
-    # multi-start does: when the first fit lands in a poor basin its P is poor too, and every
-    # restart inherited it in simulations), set (Σα, Σγ) to each grid node and rescale ω so
-    # every regime keeps x0's unconditional variance ω/(1 - Σα - Σγ). Each restart also starts
-    # from persistent regimes (P[s,s] = 0.95): the EM starting point ignores the time ordering
-    # of the data, so its transition matrix is often barely persistent, which sent SLSQP into a
-    # worse optimum with short-lived regimes in simulations. (TVTP: P comes from δ, left as in x0.)
-    if n_γ > 0 && n_g_starts > 0
-        base_θ = x0
-        off    = n_var + n_ν
-        for (g, (αg, γg)) in enumerate(garch_grid)
-            θ_try = copy(base_θ)
-            r_new = garch_raw([fill(αg / q, q); fill(γg / p, p)])
-            for s in 1:n_var                    # n_var = number of regimes with own ω/α/γ
-                ia = off + (s-1)*q .+ (1:q)
-                ig = off + n_α + (s-1)*p .+ (1:p)
-                π_base   = sum(garch_coefs(vcat(base_θ[ia], base_θ[ig])))
-                θ_try[s] = base_θ[s] * sqrt((1 - αg - γg) / (1 - π_base))
-                θ_try[ia] .= r_new[1:q]
-                θ_try[ig] .= r_new[q+1:end]
-            end
-            n_δ == 0 && (θ_try[end-n_p+1:end] .= persistent_P_raw(k, 0.95))
-            idx = n_starts + n_ν_starts + n_α_starts + g
-            param_space[idx][1], param_space[idx][2], param_space[idx][3] = NLopt.optimize(opt, θ_try)
-            verbose && println("GARCH multi-start (Σα, Σγ)≈($αg, $γg) | LL = $(-round.(param_space[idx][1]))")
+    # results in a fixed order (first fit, random, ν, α, GARCH starts), so that ties in the
+    # likelihood are broken the same way however many threads ran them
+    param_space = [first_runs[1:1]; later_runs; first_runs[2:end]]
+    if verbose
+        i = 1
+        for r in 1:random_search
+            println("Optimization random search: $r out of $random_search | LL = $(-round.(param_space[i += 1][1]))")
+        end
+        for νg in (n_ν > 0 ? ν_grid : Float64[])
+            println("Shape multi-start ν≈$νg | LL = $(-round.(param_space[i += 1][1]))")
+        end
+        for αg in (n_α > 0 ? α_grid : Float64[])
+            println("ARCH multi-start Σα≈$αg | LL = $(-round.(param_space[i += 1][1]))")
+        end
+        for (αg, γg) in (n_γ > 0 ? garch_grid : Tuple{Float64, Float64}[])
+            println("GARCH multi-start (Σα, Σγ)≈($αg, $γg) | LL = $(-round.(param_space[i += 1][1]))")
         end
     end
 

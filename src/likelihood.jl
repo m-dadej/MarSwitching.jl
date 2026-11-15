@@ -1,4 +1,11 @@
 
+# Standard Student-t density at z, given the log normalizing constant K = logpdf(TDist(ν), 0):
+# exp(K - (ν+1)/2 · log1p(z²/ν)). The same expression, in the same order, as Distributions.jl's
+# pdf(TDist(ν), z) (via StatsFuns.tdistpdf), so the result is bit-identical; but it evaluates
+# the two log-gamma functions in K once per call of error_density() instead of once per
+# observation, which made the t density the most expensive part of the likelihood.
+@inline t_density(z, ν, K) = exp(K - (ν + 1) / 2 * log1p(z^2 / ν))
+
 # Conditional density f(y | μ, σ, ν) for error_dist ∈ {:normal, :t, :ged}
 function error_density(dist::Symbol, y, μ, σ::Float64, ν::Float64=Inf)
     σs = max(σ, 1e-10)  # numerical floor during optimization
@@ -7,7 +14,7 @@ function error_density(dist::Symbol, y, μ, σ::Float64, ν::Float64=Inf)
     elseif dist == :t
         # location-scale Student-t: y = μ + σ * T(ν)
         νs = min(max(ν, 1e-6), 1e6)
-        return pdf.(TDist(νs), (y .- μ) ./ σs) ./ σs
+        return t_density.((y .- μ) ./ σs, νs, logpdf(TDist(νs), 0.0)) ./ σs
     elseif dist == :ged
         # unit-variance Generalized Error Distribution (exponential power):
         # f(z) ∝ exp(-|z/α|^ν) with α chosen so Var(z)=1, then y = μ + σ z
@@ -39,7 +46,7 @@ function error_density(dist::Symbol, y, μ, σ::AbstractVector{Float64}, ν::Flo
         return pdf.(Normal.(μ, σs), y)
     elseif dist == :t
         νs = min(max(ν, 1e-6), 1e6)
-        return pdf.(TDist(νs), (y .- μ) ./ σs) ./ σs
+        return t_density.((y .- μ) ./ σs, νs, logpdf(TDist(νs), 0.0)) ./ σs
     elseif dist == :ged
         return ged_density(y, μ, σs, ν)
     else

@@ -262,6 +262,8 @@ MSModel(y::VecOrMat{V},                    # vector of dependent variable
         ) where V <: AbstractFloat  
 ```
 
+If Julia is started with several threads (`julia -t auto`), the independent optimization runs (random searches and the structured multi-starts of the ARCH, GARCH and Student-t/GED models) run in parallel, with estimates identical to a single-threaded run.
+
 ### Markov-Switching ARCH in a nutshell
 
 Instead of a constant, regime-specific variance, each regime can carry its own ARCH($q$) conditional-variance process (Haas, Mittnik & Paolella, 2004), letting volatility cluster *within* a regime while the regime itself still switches according to the Markov chain above:

@@ -809,9 +809,12 @@ end
     @test length(model.raw_params) == 15
     @test MarSwitching.loglik(model.raw_params, model.x, k, model.n_β, model.n_β_ns,
                               model.intercept, model.switching_var, :t, model.q, model.p)[1] == model.Likelihood
-    # switching slopes should be recovered with the right signs (regime order is arbitrary)
-    @test sort([model.β[s][2] for s in 1:k]) ≈ [-1.0, 1.0] atol = 0.3
-    @test model.β[1][3] ≈ 0.3 atol = 0.15
+    # switching slopes should be recovered with the right signs (regime order is arbitrary).
+    # Tolerances are ~4 standard errors (SE ≈ 0.06-0.10 for the switching slopes and ≈ 0.055
+    # for the non-switching one at T = 800): tighter ones fail on legitimate samples, e.g. one
+    # where the maximum-likelihood estimate of the 0.3 slope is 0.479 (3.2 SE away).
+    @test sort([model.β[s][2] for s in 1:k]) ≈ [-1.0, 1.0] atol = 0.4
+    @test model.β[1][3] ≈ 0.3 atol = 0.25
     @test isnothing(summary_msm(model))
     @test size(MarSwitching.predict(model)[1], 1) == T - 1
 end
@@ -878,6 +881,37 @@ end
     x0 = copy(m.raw_params); x0[3] = 10 * MarSwitching.GARCH_RAW_CAP; x0[7] = 10 * MarSwitching.P_RAW_CAP
     m_x0 = MSGARCHModel(y, k, 1, 1, intercept = "no", x0 = x0, maxtime = 10, verbose = false)
     @test isfinite(m_x0.Likelihood) && all(m_x0.raw_params[3:6] .<= MarSwitching.GARCH_RAW_CAP)
+end
+
+@testset "Student-t density matches Distributions.jl exactly" begin
+    yy, mm, ss = 3 .* randn(2000), randn(2000), 0.1 .+ 2 .* rand(2000)
+    for ν in (1e-9, 0.5, 2.5, 6.0, 40.0, 1e9)              # includes values beyond both clamps
+        νs = min(max(ν, 1e-6), 1e6)
+        d = MarSwitching.TDist(νs)
+        @test MarSwitching.error_density(:t, yy, mm, 1.3, ν) == MarSwitching.pdf.(d, (yy .- mm) ./ 1.3) ./ 1.3
+        @test MarSwitching.error_density(:t, yy, mm, ss, ν) == MarSwitching.pdf.(d, (yy .- mm) ./ ss) ./ ss
+    end
+end
+
+@testset "Parallel restarts reproduce serial ones" begin
+    # run_starts(parallel = true) optimizes each start on its own copy of the Opt; that must
+    # give exactly the serial results (forced here, since tests may run on a single thread)
+    k, T = 2, 600
+    y, _, _ = generate_msm([0.0, 0.0], [0.05, 0.5], [[0.1], [0.2]], [[0.8], [0.6]], [0.97 0.03; 0.03 0.97], T)
+    x = [y zeros(T)]
+    for alg in (:LN_SBPLX, :LD_SLSQP)
+        opt = MarSwitching.Opt(alg, 8)
+        opt.lower_bounds = zeros(8); opt.upper_bounds = [Inf, Inf, fill(100.0, 4)..., 1e4, 1e4]
+        opt.xtol_rel = 1e-6; opt.maxtime = 30
+        lb, ub = opt.lower_bounds, opt.upper_bounds
+        opt.min_objective = (θ, g) -> MarSwitching.obj_func_garch(θ, g, x, k, 0, 0, "no", true, :normal, 1, 1, lb, ub)
+        starts = [[0.3, 0.8, 1.0, 1.0, 2.0, 2.0, 9.0, 0.1], [0.2, 0.9, 0.5, 1.5, 3.0, 1.0, 19.0, 0.05],
+                  [0.4, 0.6, 1.5, 0.5, 1.0, 2.5, 4.0, 0.3]]
+        serial   = MarSwitching.run_starts(opt, starts; parallel = false)
+        parallel = MarSwitching.run_starts(opt, starts; parallel = true)
+        @test [r[1] for r in serial] == [r[1] for r in parallel]
+        @test [r[2] for r in serial] == [r[2] for r in parallel]
+    end
 end
 
 @testset "Less crucial functions" begin
