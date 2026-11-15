@@ -271,22 +271,20 @@ function obj_func_tvtp_arch(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_v
     return -_loglik_tvtp_arch(θ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist, q, true)[1]
 end
 
-function obj_func_garch(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist, q, p)
+# MS-GARCH objectives: gradients come from bounded_gradient!() instead of FiniteDiff, so the
+# default gradient-based solver (SLSQP) never sees a likelihood evaluated outside the bounds.
+function obj_func_garch(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist, q, p, lb, ub)
 
-    if length(fΔ) > 0
-        fΔ[1:length(θ)] .= FiniteDiff.finite_difference_gradient(θ -> -_loglik_garch(θ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist, q, p, true)[1], θ)
-    end
+    f(θ) = -_loglik_garch(θ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist, q, p, true)[1]
 
-    return -_loglik_garch(θ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist, q, p, true)[1]
+    return length(fΔ) > 0 ? bounded_gradient!(fΔ, f, θ, lb, ub) : f(θ)
 end
 
-function obj_func_tvtp_garch(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist, q, p)
+function obj_func_tvtp_garch(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist, q, p, lb, ub)
 
-    if length(fΔ) > 0
-        fΔ[1:length(θ)] .= FiniteDiff.finite_difference_gradient(θ -> -_loglik_tvtp_garch(θ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist, q, p, true)[1], θ)
-    end
+    f(θ) = -_loglik_tvtp_garch(θ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist, q, p, true)[1]
 
-    return -_loglik_tvtp_garch(θ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist, q, p, true)[1]
+    return length(fΔ) > 0 ? bounded_gradient!(fΔ, f, θ, lb, ub) : f(θ)
 end
 
 """
@@ -301,7 +299,7 @@ end
             error_dist::Symbol = :normal,
             exog_tvtp::VecOrMat{V},
             x0::Vector{V},
-            algorithm::Symbol = :LN_SBPLX,
+            algorithm::Symbol = (p > 0 ? :LD_SLSQP : :LN_SBPLX),
             maxtime::Int64 = -1,
             random_search::Int64 = 0,
             random_search_em::Int64,
@@ -330,7 +328,9 @@ For the same reason, it is recommended not to estimate model with many states (e
 - `exog_tvtp::VecOrMat{V}`: optional exogenous variables for the tvtp part of the model.
 
 - `x0::Vector{V}`: initial guess for the parameters. If empty, the initial guess is generated from k-means clustering.
-- `algorithm::Symbol`: optimization algorithm to use. One of [`:LD_VAR2`, `:LD_VAR1`, `:LD_LBFGS`, `:LN_SBPLX`]
+- `algorithm::Symbol`: optimization algorithm to use. One of [`:LD_VAR2`, `:LD_VAR1`, `:LD_LBFGS`, `:LN_SBPLX`],
+  plus `:LD_SLSQP` for MS-GARCH models (`p > 0`). Defaults to `:LN_SBPLX`, or to `:LD_SLSQP` for
+  MS-GARCH, where it needs far fewer likelihood evaluations than `:LN_SBPLX`.
 - `maxtime::Int64`: maximum time in seconds to run the optimization. If negative, the maximum time is equal T/2.
 - `random_search_em::Int64`: number of random searches to perform for the EM algorithm. If 0, no random search is performed.
 - `random_search::Int64`: number of random searches to perform.
@@ -353,7 +353,7 @@ function MSModel(y::VecOrMat{V},
                  error_dist::Symbol = :normal,
                  exog_tvtp::VecOrMat{V} = Matrix{Float64}(undef, 0, 0),
                  x0::Vector{V} = Vector{Float64}(undef, 0),
-                 algorithm::Symbol = :LN_SBPLX,
+                 algorithm::Symbol = (p > 0 ? :LD_SLSQP : :LN_SBPLX),
                  maxtime::Int64 = -1,
                  random_search_em::Int64 = 0,
                  random_search::Int64 = 0,
@@ -365,7 +365,10 @@ function MSModel(y::VecOrMat{V},
     @assert p >= 0 "p should be non-negative"
     @assert p == 0 || q >= 1 "GARCH terms (p > 0) require at least one ARCH term (q >= 1); without it γ is not identified"
     @assert intercept in ["switching", "non-switching", "no"] "intercept should be either 'switching', 'non-switching' or 'no'"
-    @assert algorithm in [:LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX] "algorithm should be either :LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX"
+    @assert algorithm in [:LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX, :LD_SLSQP] "algorithm should be either :LD_VAR2, :LD_VAR1, :LD_LBFGS, :LN_SBPLX or, for MS-GARCH models, :LD_SLSQP"
+    # SLSQP relies on the MS-GARCH path's bound-aware gradients and parameter caps (see
+    # bounded_gradient!() in utils.jl); other models compute gradients with plain FiniteDiff
+    @assert algorithm != :LD_SLSQP || p > 0 "algorithm = :LD_SLSQP is only supported for MS-GARCH models (p > 0)"
     @assert error_dist in ERROR_DISTS "error_dist should be one of $ERROR_DISTS"
     @assert (random_search_em >= 0) & (random_search >= 0) "Number of random searches for EM and optimization needs to be positive"
 
@@ -419,17 +422,23 @@ function MSModel(y::VecOrMat{V},
     opt               = Opt(algorithm, n_params)
     # σ/ω raw ≥ 0 (scale/variance = raw²); log(ν) unconstrained; α, γ raw ≥ 0; β unconstrained; P ≥ 0
     # (α raw is unbounded above on the ARCH path; on the GARCH path Σα+Σγ < 1 via garch_coefs())
-    opt.lower_bounds  = [repeat([0.0], n_var); repeat([-Inf], n_ν); repeat([0.0], n_α); repeat([0.0], n_γ);
+    lb                = [repeat([0.0], n_var); repeat([-Inf], n_ν); repeat([0.0], n_α); repeat([0.0], n_γ);
                          repeat([-Inf], k*n_β + n_β_ns + n_intercept); repeat([n_δ > 0 ? -Inf : 0.0], n_p)]
+    # MS-GARCH only: cap the α/γ and (non-TVTP) transition-probability raw blocks, see GARCH_RAW_CAP
+    ub                = p > 0 ? [repeat([Inf], n_var + n_ν); repeat([GARCH_RAW_CAP], n_α + n_γ);
+                                 repeat([Inf], k*n_β + n_β_ns + n_intercept); repeat([n_δ > 0 ? Inf : P_RAW_CAP], n_p)] :
+                                repeat([Inf], n_params)
+    opt.lower_bounds  = lb
+    p > 0 && (opt.upper_bounds = ub)
     opt.xtol_rel      = (has_shape_param(error_dist) || q > 0) ? 1e-6 : 1e-4
     opt.maxtime       = maxtime < 0 ? T/2 : maxtime
 
     if n_δ == 0
-        opt.min_objective = p > 0 ? (θ, fΔ) -> obj_func_garch(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist, q, p) :
+        opt.min_objective = p > 0 ? (θ, fΔ) -> obj_func_garch(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist, q, p, lb, ub) :
                             q > 0 ? (θ, fΔ) -> obj_func_arch(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist, q) :
                                     (θ, fΔ) -> obj_func_const(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, error_dist)
     else
-        opt.min_objective = p > 0 ? (θ, fΔ) -> obj_func_tvtp_garch(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist, q, p) :
+        opt.min_objective = p > 0 ? (θ, fΔ) -> obj_func_tvtp_garch(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist, q, p, lb, ub) :
                             q > 0 ? (θ, fΔ) -> obj_func_tvtp_arch(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist, q) :
                                     (θ, fΔ) -> obj_func_tvtp_const(θ, fΔ, x, k, n_β, n_β_ns, intercept, switching_var, n_δ, error_dist)
     end
@@ -510,6 +519,8 @@ function MSModel(y::VecOrMat{V},
         end
     end
 
+    # only binds on the MS-GARCH path (finite upper bounds); a user-supplied x0 may exceed the caps
+    p > 0 && (x0 = clamp.(x0, lb, ub))
     (minf_init, θ_hat_init, ret_init) = NLopt.optimize(opt, x0)
 
     ### Optimization random search ###
@@ -546,7 +557,7 @@ function MSModel(y::VecOrMat{V},
             noise[n_var+n_ν+1:n_var+n_ν+n_α+n_γ] .= rand(Uniform(-0.2, 0.2), n_α + n_γ)
         end
         rand_θ = param_space[1][2] .+ noise
-        rand_θ = max.(opt.lower_bounds, rand_θ)
+        rand_θ = clamp.(rand_θ, lb, ub)            # ub is all Inf except on the MS-GARCH path
 
         param_space[i][1], param_space[i][2], param_space[i][3] = NLopt.optimize(opt, rand_θ)
         verbose && println("Optimization random search: $(i-1) out of $random_search | LL = $(-round.(param_space[i][1]))")
@@ -581,7 +592,10 @@ function MSModel(y::VecOrMat{V},
     # structured GARCH multi-start: from the STARTING point x0 (not the first fit, as the ARCH
     # multi-start does: when the first fit lands in a poor basin its P is poor too, and every
     # restart inherited it in simulations), set (Σα, Σγ) to each grid node and rescale ω so
-    # every regime keeps x0's unconditional variance ω/(1 - Σα - Σγ)
+    # every regime keeps x0's unconditional variance ω/(1 - Σα - Σγ). Each restart also starts
+    # from persistent regimes (P[s,s] = 0.95): the EM starting point ignores the time ordering
+    # of the data, so its transition matrix is often barely persistent, which sent SLSQP into a
+    # worse optimum with short-lived regimes in simulations. (TVTP: P comes from δ, left as in x0.)
     if n_γ > 0 && n_g_starts > 0
         base_θ = x0
         off    = n_var + n_ν
@@ -596,6 +610,7 @@ function MSModel(y::VecOrMat{V},
                 θ_try[ia] .= r_new[1:q]
                 θ_try[ig] .= r_new[q+1:end]
             end
+            n_δ == 0 && (θ_try[end-n_p+1:end] .= persistent_P_raw(k, 0.95))
             idx = n_starts + n_ν_starts + n_α_starts + g
             param_space[idx][1], param_space[idx][2], param_space[idx][3] = NLopt.optimize(opt, θ_try)
             verbose && println("GARCH multi-start (Σα, Σγ)≈($αg, $γg) | LL = $(-round.(param_space[idx][1]))")
@@ -750,6 +765,13 @@ When a regime's ARCH coefficients are close to zero its `γ` is weakly identifie
 then just settles at ``\\omega_s/(1-\\sum_j\\gamma_{s,j})``), and its standard errors will be large.
 MS-GARCH likelihoods are also more multimodal than MS-ARCH ones; consider increasing
 `random_search_em` and `random_search`.
+
+The default optimizer is `algorithm = :LD_SLSQP` (gradient-based, with finite-difference
+gradients that stay inside the parameter bounds), which needs far fewer likelihood evaluations
+than the derivative-free `:LN_SBPLX` used for the other models; pass `algorithm = :LN_SBPLX`
+to use it here too. To keep the solver's steps finite, each regime's persistence is capped at
+``\\sum_j \\alpha_{s,j} + \\sum_j \\gamma_{s,j} \\approx 0.99995`` (for GARCH(1,1)) and, without TVTP,
+each regime's probability of staying at about 0.9999.
 
 # Arguments
 - `y::VecOrMat{V}`: dependent variable.

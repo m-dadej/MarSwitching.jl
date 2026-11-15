@@ -816,6 +816,70 @@ end
     @test size(MarSwitching.predict(model)[1], 1) == T - 1
 end
 
+@testset "Hamilton filter matches the original per-step loop" begin
+    # the loop hamilton_filter() replaced, kept here as the reference
+    function filter_reference(η, P, ξ_0, logsum)
+        T, k = size(η); ξ = zeros(T, k); L = zeros(T); ξ_next = zeros(k)
+        for t in 1:T
+            ξ[t,:] = t == 1 ? ξ_0 : view(ξ, t-1, :)
+            mul!(ξ_next, P, view(ξ, t, :))
+            L[t] = max(view(η, t, :)'ξ_next, 1e-300)
+            @views @. ξ[t,:] = (1/L[t]) * ξ_next * η[t, :]
+        end
+        return (logsum ? sum(log.(L)) : L), ξ
+    end
+    for k in 2:4
+        P = rand(k, k) .+ 5 .* Matrix(1.0I, k, k); P = P ./ sum(P, dims = 1)
+        η = rand(500, k) .* 3
+        η[17, :] .= 0.0                                   # exercises the 1e-300 floor
+        ξ_0 = ergodic_probs(P, k)
+        for logsum in (true, false)
+            a = MarSwitching.hamilton_filter(η, P, ξ_0, logsum)
+            b = filter_reference(η, P, ξ_0, logsum)
+            @test all(isapprox.(a[1], b[1]; rtol = 1e-12))
+            @test isapprox(a[2], b[2]; rtol = 1e-12)
+        end
+    end
+end
+
+@testset "MS-GARCH optimizer safeguards" begin
+    # bounded_gradient!: never evaluates f outside [lb, ub], central differences inside
+    lb, ub = [0.0, -Inf, -Inf], [Inf, 1.0, Inf]
+    f(θ) = any(θ .< lb) || any(θ .> ub) ? error("evaluated outside the bounds") : θ[1]^2 + θ[1] + 2θ[2]^2 + sin(θ[3])
+    g = zeros(3)
+    @test MarSwitching.bounded_gradient!(g, f, [0.0, 1.0, 0.3], lb, ub) == f([0.0, 1.0, 0.3])
+    @test g ≈ [1.0, 4.0, cos(0.3)] rtol = 1e-6          # one-sided at θ[1] = lb, θ[2] = ub
+    MarSwitching.bounded_gradient!(g, f, [0.7, -0.4, 0.3], lb, ub)
+    @test g ≈ [2*0.7 + 1, -1.6, cos(0.3)] rtol = 1e-8   # interior: central differences
+
+    # persistent_P_raw: P[s,s] = pstay, the rest spread evenly, in trans_θ()'s layout
+    for k in 2:4
+        _, _, P, _ = MarSwitching.trans_θ([ones(k); zeros(k); MarSwitching.persistent_P_raw(k, 0.95)],
+                                          k, 0, 0, "switching", true, false)
+        @test all(diag(P) .≈ 0.95)
+        @test all(P[i, j] ≈ 0.05 / (k - 1) for i in 1:k, j in 1:k if i != j)
+    end
+
+    k, T = 2, 800
+    y, _, _ = generate_msm([0.0, 0.0], [0.05, 0.5], [[0.1], [0.2]], [[0.8], [0.6]], [0.97 0.03; 0.03 0.97], T)
+
+    # SLSQP relies on the GARCH path's safeguards, so other models reject it
+    @test_throws AssertionError MSModel(y, k, algorithm = :LD_SLSQP, verbose = false)
+    @test_throws AssertionError MSARCHModel(y, k, 1, algorithm = :LD_SLSQP, verbose = false)
+
+    # the previous default stays available for MS-GARCH
+    m_sb = MSGARCHModel(y, k, 1, 1, intercept = "no", algorithm = :LN_SBPLX, maxtime = 10, verbose = false)
+    @test m_sb isa MSM && isfinite(m_sb.Likelihood)
+
+    # default (SLSQP) fit respects the raw-parameter caps, even from a user-supplied x0 beyond them
+    m = MSGARCHModel(y, k, 1, 1, intercept = "no", verbose = false)
+    @test all(m.raw_params[3:6] .<= MarSwitching.GARCH_RAW_CAP)
+    @test all(m.raw_params[7:8] .<= MarSwitching.P_RAW_CAP)
+    x0 = copy(m.raw_params); x0[3] = 10 * MarSwitching.GARCH_RAW_CAP; x0[7] = 10 * MarSwitching.P_RAW_CAP
+    m_x0 = MSGARCHModel(y, k, 1, 1, intercept = "no", x0 = x0, maxtime = 10, verbose = false)
+    @test isfinite(m_x0.Likelihood) && all(m_x0.raw_params[3:6] .<= MarSwitching.GARCH_RAW_CAP)
+end
+
 @testset "Less crucial functions" begin
     @test add_lags([1.0,2.0,3.0,4.0], 1) == [2.0 1.0; 3.0 2.0; 4.0 3.0]
     A = rand(4,4)

@@ -92,16 +92,18 @@ julia benchmark/msarch_vs_msgarch/fit_msgarch11.jl
 Rscript benchmark/msarch_vs_msgarch/fit_msgarch11.R
 ```
 
-Obtained 2026-11-14, MarSwitching.jl on `garch` branch, MSGARCH 2.51.
-`MSGARCHModel` was run with `random_search_em = 8, random_search = 8`
-(about 90 s); MSGARCH's `FitML` used its defaults (a few seconds).
+Obtained 2026-11-15, MarSwitching.jl on `garch` branch, MSGARCH 2.51.
+`MSGARCHModel` was run with its default optimizer (`:LD_SLSQP`) and
+`random_search_em = 8, random_search = 8` (16 s; 93 s with
+`algorithm = :LN_SBPLX`, which reaches the same estimates); MSGARCH's
+`FitML` used its defaults (a few seconds).
 
 | Parameter | MSGARCH (R) | MSGARCHModel (Julia) |
 |---|---|---|
 | omega, regime 1 (calm, persistent) | 6.097e-06 | 5.343e-06 |
 | alpha, regime 1 | 0.0658 | 0.0649 |
 | beta / gamma, regime 1 | 0.8980 | 0.8997 |
-| omega, regime 2 (short volatility bursts) | 6.807e-04 | 5.772e-04 |
+| omega, regime 2 (short volatility bursts) | 6.807e-04 | 5.773e-04 |
 | alpha, regime 2 | 0.4334 | 0.4404 |
 | beta / gamma, regime 2 | 0.5244 | 0.5596 |
 | P(stay in regime 1) | 0.9504 | 0.9448 |
@@ -114,8 +116,9 @@ For the persistent regime, alpha and gamma agree to 2-3 significant
 figures; omega, which is tiny and trades off against the persistence,
 agrees to within ~15%. The burst regime is less precisely determined. It lives 1.5 weeks on average, so only
 about 7% of the sample informs it. `MSGARCHModel` puts it at the
-stationarity bound (`alpha + gamma = 1`, which is why `summary_msm` reports
-no standard errors for that regime's `alpha` and `gamma`), while MSGARCH stops at 0.958.
+stationarity bound (`alpha + gamma` = 0.99994, the cap that keeps the
+optimizer's steps finite; `summary_msm` therefore reports no standard
+errors for that regime's `alpha` and `gamma`), while MSGARCH stops at 0.958.
 
 **On the log-likelihood gap (~3.6 nats):** as for ARCH, ~3.4 nats are the
 reporting convention. `MarSwitching.loglik` at MSGARCH's exact estimates
@@ -156,10 +159,12 @@ Rscript benchmark/msarch_vs_msgarch/sim_msgarch11_mc.R    # optional, ~7 min
 ```
 
 Both fit scripts sort the regimes by unconditional variance (the regime
-labels are arbitrary) and print the same table. Obtained 2026-11-14,
+labels are arbitrary) and print the same table. Obtained 2026-11-15,
 MarSwitching.jl on `garch` branch, MSGARCH 2.51. `MSGARCHModel` was run with
-`random_search_em = 2, random_search = 2` (335 s); MSGARCH's `FitML` used
-its defaults (about 10 s). Standard errors in parentheses.
+its default optimizer (`:LD_SLSQP`) and `random_search_em = 2,
+random_search = 2` (28 s; 335 s with `algorithm = :LN_SBPLX`, which reaches
+the same estimates); MSGARCH's `FitML` used its defaults (about 10 s).
+Standard errors in parentheses.
 
 | Parameter | True | MSGARCH (R) | MSGARCHModel (Julia) |
 |---|---|---|---|

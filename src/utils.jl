@@ -259,6 +259,48 @@ function garch_coefs(r::AbstractVector{Float64})
     return r2 ./ (1.0 + sum(r2))
 end
 
+# Upper limits on raw parameters, used on the MS-GARCH path only. Large steps of the
+# default gradient-based solver (SLSQP) can otherwise overflow these blocks to Inf.
+# GARCH_RAW_CAP bounds each α/γ raw value: with q = p = 1, Σα + Σγ <= 1 - 1/(1 + 2·100²) ≈ 0.99995.
+# P_RAW_CAP bounds each transition-probability raw value (see trans_θ()): with k = 2 a
+# regime's persistence is at most 1e4/(1 + 1e4) ≈ 0.9999, i.e. expected duration <= 10,000.
+const GARCH_RAW_CAP = 100.0
+const P_RAW_CAP     = 1e4
+
+# Finite-difference gradient of f at θ that never evaluates f outside [lb, ub]. Central
+# differences with FiniteDiff's default step (cbrt(eps)·max(1, |θᵢ|)) in the interior;
+# one-sided (step sqrt(eps)·max(1, |θᵢ|), pointing away from the bound) within one step of a
+# bound. A central step below a transition-probability raw value of 0 would give negative
+# "probabilities" and a NaN likelihood. Writes the gradient into g and returns f(θ).
+function bounded_gradient!(g::AbstractVector{Float64}, f, θ::Vector{Float64},
+                           lb::Vector{Float64}, ub::Vector{Float64})
+    f0 = f(θ)
+    θh = copy(θ)
+    @inbounds for i in eachindex(θ)
+        hc = cbrt(eps(Float64)) * max(1.0, abs(θ[i]))
+        if θ[i] - hc >= lb[i] && θ[i] + hc <= ub[i]
+            θh[i] = θ[i] + hc; fp = f(θh)
+            θh[i] = θ[i] - hc; fm = f(θh)
+            g[i]  = (fp - fm) / (2hc)
+        else
+            hf    = sqrt(eps(Float64)) * max(1.0, abs(θ[i]))
+            hf    = θ[i] + hf <= ub[i] ? hf : -hf
+            θh[i] = θ[i] + hf
+            g[i]  = (f(θh) - f0) / hf
+        end
+        θh[i] = θ[i]
+    end
+    return f0
+end
+
+# Raw transition-probability block (in trans_θ()'s layout) for a k-state chain that stays in
+# each state with probability pstay and moves to each other state with (1 - pstay)/(k - 1).
+# Column j of P is [R[:, j]; 1] / (1 + Σᵢ R[i, j]), so R[i, j] = P[i, j] / P[k, j].
+function persistent_P_raw(k::Int64, pstay::Float64)
+    c = (1 - pstay) / (k - 1)
+    return vec([(i == j ? pstay : c) / (j == k ? pstay : c) for i in 1:k-1, j in 1:k])
+end
+
 # inverse of garch_coefs(): raw vector giving the requested coefficients (needs Σcoef < 1)
 function garch_raw(coefs::AbstractVector{Float64})
     @assert all(coefs .>= 0) && sum(coefs) < 1 "GARCH coefficients must be non-negative with sum < 1"

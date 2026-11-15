@@ -146,7 +146,8 @@ function state_coeftable(model::MSM, state::Int64; digits::Int64=3)
             se_c = sqrt.(abs.(diag(J * vcov[idx, idx] * J')))
             # at Σα+Σγ → 1 the raw parameters diverge and d(coef)/d(raw) → 0, so the
             # delta-method SEs collapse towards 0 instead of reflecting uncertainty
-            at_bound = 1 - sum(m) < 1e-5
+            # 1e-4: also catches the GARCH_RAW_CAP limit (1 - Σ ≈ 5e-5 for GARCH(1,1))
+            at_bound = 1 - sum(m) < 1e-4
             at_bound && (se_c .= NaN)
             names = [["α_$j" for j in 1:q]; ["γ_$j" for j in 1:p]]
             for i in 1:(q+p)

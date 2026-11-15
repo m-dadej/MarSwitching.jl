@@ -256,7 +256,7 @@ MSModel(y::VecOrMat{V},                    # vector of dependent variable
         error_dist::Symbol = :normal,      # error distribution. :normal, :t or :ged 
         exog_tvtp::VecOrMat{V},            # optional matrix of exogenous variables for time-varying transition matrix
         x0::Vector{V},                     # optional initial values of parameters for optimization
-        algorithm::Symbol = :LN_SBPLX,     # optional algorithm for NLopt.jl
+        algorithm::Symbol = :LN_SBPLX,     # optional algorithm for NLopt.jl (default :LD_SLSQP for MS-GARCH)
         maxtime::Int64 = -1,               # optional maximum time for optimization
         random_search::Int64 = 0           # Number of random search iterations (model estimations with random disturbance to the x0)
         ) where V <: AbstractFloat  
@@ -293,7 +293,7 @@ Adding $p$ lags of each regime's own conditional variance gives the Markov-Switc
 h_{t,s} = \omega_s + \sum_{j=1}^{q} \alpha_{s,j} \, \varepsilon_{t-j,s}^2 + \sum_{j=1}^{p} \gamma_{s,j} \, h_{t-j,s}
 ```
 
-Each regime's variance feeds back only on its own past variance, so $h_{t,s}$ is still independent of the realized state path and the Hamilton filter is unchanged. The GARCH coefficients are called $\gamma$ (field `γ`), since $\beta$ already holds the regression coefficients. Every regime is constrained to $\sum_j \alpha_{s,j} + \sum_j \gamma_{s,j} < 1$. Exogenous variables in the mean equation (`exog_vars`, `exog_switching_vars`), time-varying transition probabilities (`exog_tvtp`) and the alternative error distributions all work as for the other models. Use the `MSGARCHModel()` wrapper (orders follow Bollerslev's GARCH($p$,$q$) convention):
+Each regime's variance feeds back only on its own past variance, so $h_{t,s}$ is still independent of the realized state path and the Hamilton filter is unchanged. The GARCH coefficients are called $\gamma$ (field `γ`), since $\beta$ already holds the regression coefficients. Every regime is constrained to $\sum_j \alpha_{s,j} + \sum_j \gamma_{s,j} < 1$. Exogenous variables in the mean equation (`exog_vars`, `exog_switching_vars`), time-varying transition probabilities (`exog_tvtp`) and the alternative error distributions all work as for the other models. MS-GARCH models are estimated with the gradient-based `:LD_SLSQP` optimizer by default, which needs far fewer likelihood evaluations than the derivative-free `:LN_SBPLX` used for the other models (`algorithm = :LN_SBPLX` is still available). Use the `MSGARCHModel()` wrapper (orders follow Bollerslev's GARCH($p$,$q$) convention):
 
 ```Julia
 MSGARCHModel(y::VecOrMat{V},               # vector of dependent variable
