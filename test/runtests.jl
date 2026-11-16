@@ -256,9 +256,70 @@ end
 
     ŷ, P̂ = MarSwitching.predict(model, false)
 
-    @test (cor([ŷ y[1:end-1]])[2]) > 0.6
+    # a genuine one-step-ahead forecast of y_{t+1}: 0.26-0.46 over 20 seeds, well below the
+    # instantaneous fit (the earlier > 0.6 compared it with y_t instead)
+    @test (cor([ŷ y[2:end]])[2]) > 0.15
 
     @test all(isapprox.(sum(ergodic_probs(model), dims=2), 1.0))
+end
+
+@testset "TVTP timing: simulation, filter, smoother and predict agree" begin
+    # row t of exog_tvtp moves the regime from t-1 to t everywhere in the package
+    k, T = 2, 2000
+    μ, σ, δ = [1.2, -0.1], [0.2, 0.1], [2.2, 0.9]
+    P0 = [0.5 0.05; 0.5 0.95]
+    y, s_t, X = generate_msm(μ, σ, P0, T, δ = δ, tvtp_intercept = false)
+    z = reshape(X[:, 2], T, 1)
+
+    # simulation: staying in regime 1 depends on z at t+1 (≈ 0.31-0.39 over 15 seeds), not at t (|cor| < 0.05)
+    i1   = [t for t in 1:T-1 if s_t[t] == 1]
+    stay = Float64.(s_t[i1 .+ 1] .== 1)
+    @test cor(stay, z[i1 .+ 1, 1]) > 0.2
+    @test abs(cor(stay, z[i1, 1])) < 0.12
+
+    model = MSModel(y, k, exog_tvtp = z, random_search_em = 3, verbose = false)
+
+    # δ is recovered, up to relabelling the regimes (for k = 2 a swap maps δ to -reverse(δ))
+    @test min(maximum(abs.(model.δ .- δ)), maximum(abs.(model.δ .+ reverse(δ)))) < 0.6
+
+    # Kim smoother on a short new sample vs brute force over all k^n regime paths, with the
+    # filter's own start: P(S_1) = P_1 * ones(k)/k. The y's sit where both regime densities are
+    # alike; with the well-separated regimes of the simulated y, the data alone would pin the
+    # probabilities to 0/1 and the check could not tell the transition timing apart.
+    n = 8
+    dens(yy, s) = exp(-(yy - model.β[s][1])^2 / (2 * model.σ[s]^2)) / (model.σ[s] * sqrt(2π))
+    grid = range(minimum(first.(model.β)), maximum(first.(model.β)), length = 2001)
+    y_mid = grid[argmin([abs(log(dens(g, 1)) - log(dens(g, 2))) for g in grid])]
+    yn, zn = y_mid .+ 0.02 .* randn(n), z[1:n, :]
+    P_t(t) = MarSwitching.P_tvtp(zn[t, :], model.δ, k, 1)
+    η = [dens(yn[t], s) for t in 1:n, s in 1:k]
+    sm = zeros(n, k)
+    for path in Iterators.product(ntuple(_ -> 1:k, n)...)
+        w = (P_t(1) * fill(1/k, k))[path[1]] * η[1, path[1]]
+        for t in 2:n
+            w *= P_t(t)[path[t], path[t-1]] * η[t, path[t]]
+        end
+        for t in 1:n
+            sm[t, path[t]] += w
+        end
+    end
+    sm ./= sum(sm, dims = 2)
+    @test smoothed_probs(model, y = yn, exog_tvtp = zn) ≈ sm atol = 1e-8
+    @test smoothed_probs(model)[1:3, :] ≈ smoothed_probs(model, y = y, exog_tvtp = z)[1:3, :]
+
+    # one-step-ahead prediction on new data: P(S_{t+1} | Ψ_t) = P_{t+1} P(S_t | Ψ_t)
+    T_o = 300
+    y_o, _, X_o = generate_msm(μ, σ, P0, T_o, δ = δ, tvtp_intercept = false)
+    z_o = reshape(X_o[:, 2], T_o, 1)
+    yhat, ξ_pred = MarSwitching.predict(model, false, y = y_o, exog_tvtp = z_o)
+    ξ_filt = filtered_probs(model, y = y_o, exog_tvtp = z_o)
+    @test size(ξ_pred) == (T_o - 1, k)
+    @test ξ_pred ≈ reduce(vcat, [(MarSwitching.P_tvtp(z_o[t+1, :], model.δ, k, 1) * ξ_filt[t, :])' for t in 1:T_o-1])
+    @test yhat ≈ sum([model.β[s][1] for s in 1:k]' .* ξ_pred, dims = 2)
+    @test MarSwitching.predict(model, true, y = y_o, exog_tvtp = z_o)[2] ≈ ξ_filt
+
+    # in-sample prediction equals prediction on the estimation data passed explicitly
+    @test MarSwitching.predict(model, false)[1] ≈ MarSwitching.predict(model, false, y = y, exog_tvtp = z)[1]
 end
 
 @testset "predict function" begin 

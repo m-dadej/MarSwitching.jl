@@ -127,3 +127,5 @@ The package also provide time-varying transition probabilities (TVTP) (Filardo, 
 p_{i,j,t} = \dfrac{exp(\delta_{i,j}'\mathbf{Z}_t)}{\textstyle \sum_{j=1} exp(\delta_{i,j}'\mathbf{Z}_t)}
 ```
 
+Here ``p_{i,j,t} = P(S_t = i | S_{t-1} = j)``, so row ``t`` of `exog_tvtp` drives the transition from ``t-1`` to ``t``. For forecasting, it should hold information available at ``t-1``, e.g. lagged variables.
+

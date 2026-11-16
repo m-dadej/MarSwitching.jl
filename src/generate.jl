@@ -36,7 +36,7 @@ Note, in order to have non-switching parameter provide it k-times.
 - `T::Int64`: number of observations to generate.
 - `β::Vector{AbstractFloat}`: switching coefficients. (first k elements in vector are coefficeints of the first state equation).
 - `β_ns::Vector{AbstractFloat}`: non-switching coefficients.
-- `δ::Vector{AbstractFloat}`: tvtp coefficients.
+- `δ::Vector{AbstractFloat}`: tvtp coefficients. Row `t` of the generated tvtp variables drives the transition into the regime at `t`, as in [`MSModel`](@ref).
 - `tvtp_intercept::Bool`: whether to include an intercept in the tvtp model.
 - `error_dist::Symbol`: error distribution (`:normal`, `:t`, or `:ged`).
 - `ν::Vector{AbstractFloat}`: shape parameters for each state when `error_dist` is `:t` (df) or `:ged` (shape; 2 = normal, 1 = Laplace).
@@ -81,8 +81,10 @@ function generate_msm(μ::Vector{V},
         # generate tvtp exogenous variables from standard normal
         x_tvtp = tvtp_intercept ? [ones(T) rand(Normal(1,0.5), T, n_δ-1)] : rand(Normal(1,0.5), T, n_δ)
 
+        # row t+1 of x_tvtp moves the regime from t to t+1: the timing of the Hamilton filter,
+        # so models estimated on this data recover δ
         for t in 1:(T-1)
-            P = P_tvtp(x_tvtp[t, :], δ, k, n_δ)
+            P = P_tvtp(x_tvtp[t+1, :], δ, k, n_δ)
             push!(s_t, sample(1:k, Weights(P[:, s_t[end]])))
         end
     else
@@ -134,7 +136,7 @@ Note, in order to have a non-switching parameter provide it k-times.
 - `T::Int64`: number of observations to generate.
 - `β::Vector{AbstractFloat}`: switching coefficients. (first k elements in vector are coefficeints of the first state equation).
 - `β_ns::Vector{AbstractFloat}`: non-switching coefficients.
-- `δ::Vector{AbstractFloat}`: tvtp coefficients.
+- `δ::Vector{AbstractFloat}`: tvtp coefficients. Row `t` of the generated tvtp variables drives the transition into the regime at `t`, as in [`MSModel`](@ref).
 - `tvtp_intercept::Bool`: whether to include an intercept in the tvtp model.
 - `error_dist::Symbol`: error distribution (`:normal`, `:t`, or `:ged`).
 - `ν::Vector{AbstractFloat}`: shape parameters for each state when `error_dist` is `:t` (df) or `:ged` (shape; 2 = normal, 1 = Laplace).
@@ -174,7 +176,7 @@ Note, in order to have a non-switching parameter provide it k-times.
 - `T::Int64`: number of observations to generate.
 - `β::Vector{AbstractFloat}`: switching coefficients. (first k elements in vector are coefficeints of the first state equation).
 - `β_ns::Vector{AbstractFloat}`: non-switching coefficients.
-- `δ::Vector{AbstractFloat}`: tvtp coefficients.
+- `δ::Vector{AbstractFloat}`: tvtp coefficients. Row `t` of the generated tvtp variables drives the transition into the regime at `t`, as in [`MSModel`](@ref).
 - `tvtp_intercept::Bool`: whether to include an intercept in the tvtp model.
 - `error_dist::Symbol`: error distribution (`:normal`, `:t`, or `:ged`).
 - `ν::Vector{AbstractFloat}`: shape parameters for each state when `error_dist` is `:t` (df) or `:ged` (shape; 2 = normal, 1 = Laplace).
@@ -231,8 +233,10 @@ function generate_msm(μ::Vector{V},
         # generate tvtp exogenous variables from standard normal
         x_tvtp = tvtp_intercept ? [ones(T) rand(Normal(1,0.5), T, n_δ-1)] : rand(Normal(1,0.5), T, n_δ)
 
+        # row t+1 of x_tvtp moves the regime from t to t+1: the timing of the Hamilton filter,
+        # so models estimated on this data recover δ
         for t in 1:(T-1)
-            P = P_tvtp(x_tvtp[t, :], δ, k, n_δ)
+            P = P_tvtp(x_tvtp[t+1, :], δ, k, n_δ)
             push!(s_t, sample(1:k, Weights(P[:, s_t[end]])))
         end
     else

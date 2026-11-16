@@ -350,7 +350,9 @@ models) are run in parallel. The estimates are identical to a single-threaded ru
 - `error_dist::Symbol`: distribution of the error term. One of `[:normal, :t, :ged]`.
   For `:t` / `:ged`, state-specific shape parameters ``\\nu`` are estimated
   (`:t` = degrees of freedom; `:ged` = GED shape with ``\\nu=2`` = normal, ``\\nu=1`` = Laplace).
-- `exog_tvtp::VecOrMat{V}`: optional exogenous variables for the tvtp part of the model.
+- `exog_tvtp::VecOrMat{V}`: optional exogenous variables for the tvtp part of the model. Row `t` drives the
+  transition from the regime at `t-1` to the regime at `t`, so it should hold information available at `t-1`
+  (e.g. lagged variables) when the model is used for forecasting.
 
 - `x0::Vector{V}`: initial guess for the parameters. If empty, the initial guess is generated from k-means clustering.
 - `algorithm::Symbol`: optimization algorithm to use. One of [`:LD_VAR2`, `:LD_VAR1`, `:LD_LBFGS`, `:LN_SBPLX`],

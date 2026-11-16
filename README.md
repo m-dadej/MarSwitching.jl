@@ -77,6 +77,8 @@ The package also provide time-varying transition probabilities (TVTP) (Filardo, 
 p_{i,j,t} = \dfrac{exp(\mathbf{Z}_t \delta_{i,j})}{\textstyle \sum_{j=1} exp(\mathbf{Z}_t \delta_{i,j})}
 ```
 
+Here $p_{i,j,t} = P(S_t = i | S_{t-1} = j)$, so row $t$ of `exog_tvtp` drives the transition from $t-1$ to $t$. For forecasting, it should hold information available at $t-1$, e.g. lagged variables.
+
 For more thorough introduction to the Markov switching models, see 9th chapter of Guidolin and Pedio, 2018.
 
 

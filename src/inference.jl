@@ -20,8 +20,25 @@ function check_args(model::MSM; kwargs...)
         model.n_β_ns > 0 && @assert size(exog_vars) == (size(y)[1], model.n_β_ns) "If data is provided, exog_vars should be a matrix with dimensions ($(size(y)[1]), $(model.n_β_ns))"
         model.n_β > 0 && @assert size(exog_switching_vars) == (size(y)[1], model.n_β) "If data is provided, exog_switching_vars should be a matrix with dimensions ($(size(y)[1]), $(model.n_β))"
         n_δ > 0 && @assert size(exog_tvtp) == (size(y)[1], n_δ) "If data is provided, exog_tvtp should be a matrix with dimensions ($(size(y)[1]), $(Int(length(model.δ)/(model.k*(model.k-1)))))"
-    end        
+    end
 
+end
+
+# TVTP variables of a model: the provided `exog_tvtp` when new data is passed, the in-sample
+# ones otherwise. Empty for models with a constant transition matrix.
+function tvtp_data(model::MSM; kwargs...)
+    isempty(model.P) || return Matrix{Float64}(undef, 0, 0)
+    n_δ = length(model.δ) ÷ (model.k*(model.k-1))
+    return isempty(kwargs) ? model.x[:, end-n_δ+1:end] : convert_arg(:exog_tvtp; kwargs...)
+end
+
+# Transition matrix that moves the regime from t-1 to t. With TVTP it is driven by row t of
+# `exog_tvtp`: the timing used by the Hamilton filter in likelihood.jl, so every function that
+# steps the regime probabilities forward (smoother, predict, simulation) must use this one.
+function trans_mat(model::MSM, exog_tvtp::AbstractMatrix, t::Integer)
+    isempty(model.P) || return model.P
+    n_δ = length(model.δ) ÷ (model.k*(model.k-1))
+    return P_tvtp(exog_tvtp[t, :], model.δ, model.k, n_δ)
 end
 
 @doc raw"""
@@ -268,28 +285,17 @@ Kim, Chang Jin (1994). Dynamic Linear Models with Markov-Switching. Journal of E
 """
 function smoothed_probs(model::MSM; kwargs...)
     
-    check_args(model; kwargs...)   
-    
-    P   = model.P
-    k   = model.k
-    δ   = model.δ
-    n_δ = Int(length(δ)/(k*(k-1)))
-                        
-    if isempty(kwargs)
-        ξ = filtered_probs(model)
-        exog_tvtp = isempty(P) ? model.x[:, end-n_δ+1:end] : nothing
-        T = model.T
-    else
-        ξ = filtered_probs(model; kwargs...)   
-        exog_tvtp = isempty(P) ? kwargs[:exog_tvtp] : nothing 
-        T = size(ξ)[1]
-    end
-    
+    check_args(model; kwargs...)
+
+    ξ         = filtered_probs(model; kwargs...)
+    exog_tvtp = tvtp_data(model; kwargs...)
+    T         = size(ξ)[1]
+
     ξ_T      = zeros(size(ξ))
     ξ_T[T,:] = ξ[T, :]
 
     for t in reverse(1:T-1)
-        P          = isempty(P) ? P_tvtp(exog_tvtp[t, :],δ, k, n_δ) : P
+        P          = trans_mat(model, exog_tvtp, t+1)   # moves the regime from t to t+1
         ξ_rate     = ξ_T[t+1, :] ./ (P*ξ[t, :])
         ξ_T[t, :] .= P' * ξ_rate .* ξ[t, :]
     end
@@ -310,12 +316,17 @@ Which is the probability weighted average of predictions of each state equation:
 And for one step ahead, the state probabilities have to be predicted themselves:
 
 ```math
-\hat{y}_{t+1} = \sum_{i=1}^{k} (P\hat{\xi}_{i,t})X_{t+1}'\hat{\beta}_{i}
+\hat{y}_{t+1} = \sum_{i=1}^{k} (P_{t+1}\hat{\xi}_{t})_i X_{t+1}'\hat{\beta}_{i}
 ```
+
+where ``P_{t+1}`` is the transition matrix from ``t`` to ``t+1``: the constant `model.P`, or for a
+model with time-varying transition probabilities, the one implied by row ``t+1`` of `exog_tvtp`.
 
 If only MSM model is provided, in-sample data is used.
 
-Returns a tuple of `(ŷ, ξ_t)` where `ŷ` is the predicted value of the dependent variable and `ξ_t` is the filtered probabilities of each state at each time period.
+Returns a tuple of `(ŷ, ξ_t)` where `ŷ` is the predicted value of the dependent variable and `ξ_t` holds the state
+probabilities used for it: the filtered probabilities ``P(S_t | \Psi_t)`` (``T \times k``) for the instantaneous
+prediction, or the one-step-ahead probabilities ``P(S_{t+1} | \Psi_t)`` (``(T-1) \times k``) otherwise.
 
 # Arguments
 - `model::MSM`: estimated model.
@@ -330,34 +341,30 @@ function predict(model::MSM, instantaneous::Bool = false; kwargs...)
     check_args(model; kwargs...)   
 
     if isempty(kwargs)
-        ξ_t = filtered_probs(model) 
         T = model.T
         n_δ = Int(length(model.δ)/(model.k*(model.k-1)))
-        exog_tvtp = model.x[:, end-n_δ+1:end]
         x = model.x[:,2:end-n_δ]
     else
         T = length(kwargs[:y])
         x = model.intercept == "no" ? zeros(T) : ones(T)       
         x = haskey(kwargs, :exog_switching_vars) ? [x kwargs[:exog_switching_vars]] : x
         x = haskey(kwargs, :exog_vars) ? [x kwargs[:exog_vars]] : x
-
-        ξ_t = filtered_probs(model; kwargs...) 
     end
 
     @assert T != 1 "In order to infer the state probabilites, the model requires at least 2 observations."
 
+    ξ_t = filtered_probs(model; kwargs...)
+
     if instantaneous
         ŷ_s = (x*hcat(model.β...))
     else
-        if isempty(model.P)
-            for t in 1:T
-                P = P_tvtp(exog_tvtp[t, :], model.δ, model.k, Int(length(model.δ)/(model.k*(model.k-1))))
-                ξ_t[t, :] = P'ξ_t[t, :]
-            end
-            ξ_t = ξ_t[1:end-1,:]
-        else
-            ξ_t = (model.P * ξ_t')'[1:end-1,:]
+        # P(S_{t+1} | Ψ_t) = P_{t+1} P(S_t | Ψ_t), with P_{t+1} moving the regime from t to t+1
+        exog_tvtp = tvtp_data(model; kwargs...)
+        ξ_pred    = zeros(T-1, model.k)
+        for t in 1:T-1
+            ξ_pred[t, :] = trans_mat(model, exog_tvtp, t+1) * ξ_t[t, :]
         end
+        ξ_t = ξ_pred
         ŷ_s  = (x*hcat(model.β...))[2:end,:]
     end
 
