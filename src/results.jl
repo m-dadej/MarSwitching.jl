@@ -21,6 +21,14 @@ The formula is squared diagonal values of the inverse (moore-penrose) of the hes
 ```
 """
 function get_std_errors(model::MSM)
+    return sqrt.(abs.(diag(raw_vcov(model))))
+end
+
+# (Moore-Penrose) inverse of the negative finite-difference Hessian of the log-likelihood
+# w.r.t. raw_params. get_std_errors() only needs its diagonal; the MS-GARCH coefficient
+# table also needs the off-diagonal α/γ block, since every α and γ of a regime is a joint
+# function of that regime's whole raw α/γ block (see garch_coefs()).
+function raw_vcov(model::MSM)
 
     if !isempty(model.P)
         H = FiniteDiff.finite_difference_hessian(θ -> loglik(θ,
@@ -31,7 +39,8 @@ function get_std_errors(model::MSM)
                                                          model.intercept,
                                                          model.switching_var,
                                                          model.error_dist,
-                                                         model.q)[1], model.raw_params) # hessian
+                                                         model.q,
+                                                         model.p)[1], model.raw_params) # hessian
     else
         n_δ = Int(length(model.δ)/(model.k*(model.k-1)))
         H = FiniteDiff.finite_difference_hessian(θ -> loglik_tvtp(θ,
@@ -42,10 +51,11 @@ function get_std_errors(model::MSM)
                                                             model.intercept,
                                                             model.switching_var, n_δ,
                                                             model.error_dist,
-                                                            model.q)[1], model.raw_params) # hessian
+                                                            model.q,
+                                                            model.p)[1], model.raw_params) # hessian
     end
 
-    return sqrt.(abs.(diag(mp_inverse(-H))))
+    return mp_inverse(-H)
 end
 
 # function to clean estimates and provide stats for coefficients
@@ -83,17 +93,19 @@ function state_coeftable(model::MSM, state::Int64; digits::Int64=3)
     @printf "Coefficient  |  Estimate  |  Std. Error  |  z value  |  Pr(>|z|) \n"
     @printf "-------------------------------------------------------------------\n"
 
-    se = get_std_errors(model)
+    vcov  = raw_vcov(model)
+    se    = sqrt.(abs.(diag(vcov)))     # == get_std_errors(model), without a second Hessian
     n_var = model.switching_var ? model.k : 1
     n_ν   = has_shape_param(model.error_dist) ? model.k : 0
     n_α   = model.switching_var ? model.k*model.q : model.q
+    n_γ   = model.switching_var ? model.k*model.p : model.p
 
     # drop ν SEs so vec2param_* keep the same layout as for the normal model
     se_no_ν = n_ν > 0 ? vcat(se[1:n_var], se[n_var+n_ν+1:end]) : se
     V_ν = n_ν > 0 ? se[n_var+1:n_var+n_ν] : Float64[]
 
-    # drop MS-ARCH α SEs (they sit right after ν in the raw layout) for the same reason
-    se_no_α = n_α > 0 ? vcat(se_no_ν[1:n_var], se_no_ν[n_var+n_α+1:end]) : se_no_ν
+    # drop MS-ARCH α (and MS-GARCH γ) SEs (they sit right after ν in the raw layout) for the same reason
+    se_no_α = n_α + n_γ > 0 ? vcat(se_no_ν[1:n_var], se_no_ν[n_var+n_α+n_γ+1:end]) : se_no_ν
     V_α_raw = n_α > 0 ? se_no_ν[n_var+1:n_var+n_α] : Float64[]
 
     if model.intercept == "switching"
@@ -120,12 +132,38 @@ function state_coeftable(model::MSM, state::Int64; digits::Int64=3)
         ω_std_err = ω_std_err > 1e6 ? "> 10e6" : ω_std_err
         @printf "%0s%13s%13s%15s%12s%12s\n" "ω" "|" "$estimate_ω  |" "$ω_std_err  |" "$ω_z  |" "$ω_pr  "
 
-        for j in 1:model.q
-            idx = model.switching_var ? (state-1)*model.q + j : j
-            α_raw = sqrt(model.α[state][j])
-            estimate_α, α_std_err, α_z, α_pr = coef_clean(model.α[state][j], 2*α_raw*V_α_raw[idx], digits)
-            α_std_err = α_std_err > 1e6 ? "> 10e6" : α_std_err
-            @printf "%0s%11s%13s%15s%12s%12s\n" "α_$j" "|" "$estimate_α  |" "$α_std_err  |" "$α_z  |" "$α_pr  "
+        if model.p > 0
+            # GARCH: [α; γ] = garch_coefs(r) jointly, so use the full delta method
+            # J·Cov(r)·J' with J = (I - m·1')·diag(2r/D), D = 1 + Σr², m = garch_coefs(r)
+            q, p = model.q, model.p
+            off  = n_var + n_ν
+            s0   = model.switching_var ? state - 1 : 0
+            idx  = [off .+ (s0*q+1:s0*q+q); off + n_α .+ (s0*p+1:s0*p+p)]
+            r    = model.raw_params[idx]
+            D    = 1.0 + sum(r.^2)
+            m    = garch_coefs(r)
+            J    = (I - m * ones(1, q+p)) * Diagonal(2 .* r ./ D)
+            se_c = sqrt.(abs.(diag(J * vcov[idx, idx] * J')))
+            # at Σα+Σγ → 1 the raw parameters diverge and d(coef)/d(raw) → 0, so the
+            # delta-method SEs collapse towards 0 instead of reflecting uncertainty
+            # 1e-4: also catches the GARCH_RAW_CAP limit (1 - Σ ≈ 5e-5 for GARCH(1,1))
+            at_bound = 1 - sum(m) < 1e-4
+            at_bound && (se_c .= NaN)
+            names = [["α_$j" for j in 1:q]; ["γ_$j" for j in 1:p]]
+            for i in 1:(q+p)
+                estimate_c, c_std_err, c_z, c_pr = coef_clean(m[i], se_c[i], digits)
+                c_std_err = c_std_err > 1e6 ? "> 10e6" : c_std_err
+                @printf "%0s%11s%13s%15s%12s%12s\n" names[i] "|" "$estimate_c  |" "$c_std_err  |" "$c_z  |" "$c_pr  "
+            end
+            at_bound && @printf "Note: Σα + Σγ is at the stationarity bound (1), so SEs of α and γ are not available.\n"
+        else
+            for j in 1:model.q
+                idx = model.switching_var ? (state-1)*model.q + j : j
+                α_raw = sqrt(model.α[state][j])
+                estimate_α, α_std_err, α_z, α_pr = coef_clean(model.α[state][j], 2*α_raw*V_α_raw[idx], digits)
+                α_std_err = α_std_err > 1e6 ? "> 10e6" : α_std_err
+                @printf "%0s%11s%13s%15s%12s%12s\n" "α_$j" "|" "$estimate_α  |" "$α_std_err  |" "$α_z  |" "$α_pr  "
+            end
         end
     else
         # σ statistics
@@ -257,7 +295,8 @@ function summary_msm(model::MSM; digits::Int64=3)
     dist_name = model.error_dist == :t ? "Student-t" :
                 model.error_dist == :ged ? "GED" : "Gaussian"
 
-    model_name = model.q > 0 ? "Markov Switching ARCH($(model.q)) Model" : "Markov Switching Model"
+    model_name = model.p > 0 ? "Markov Switching GARCH($(model.p),$(model.q)) Model" :
+                 model.q > 0 ? "Markov Switching ARCH($(model.q)) Model" : "Markov Switching Model"
     println("$model_name with $(model.k) regimes")
     @printf "=================================================================\n"
     @printf "%0s%13s%5s%30s\n" "# of observations:" "$(model.T)" "AIC:" "$aic"

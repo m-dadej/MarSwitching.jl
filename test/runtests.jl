@@ -595,6 +595,325 @@ end
                                    model.intercept, model.switching_var, 1, :normal, model.q)[1] == model.Likelihood
 end
 
+@testset "MS-GARCH: garch_var" begin
+    y  = [1.0, 2.0, -1.0, 0.5]
+    μ  = [zeros(4), zeros(4)]
+    h  = MarSwitching.garch_var(y, μ, [0.5, 1.0], [[0.2], [0.3]], [[0.6], [0.0]], 2, 1, 1)
+    e2 = y.^2
+    b  = sum(e2) / 4
+
+    @test h[1,1] ≈ 0.5 + 0.2*b + 0.6*b              # pre-sample backcast for both ε² and h
+    @test h[2,1] ≈ 0.5 + 0.2*e2[1] + 0.6*h[1,1]
+    @test h[4,1] ≈ 0.5 + 0.2*e2[3] + 0.6*h[3,1]
+    @test size(h) == (4, 2)
+    # γ = 0 reproduces arch_var() exactly
+    @test h[:,2] == MarSwitching.arch_var(y, μ, [0.5, 1.0], [[0.2], [0.3]], 2, 1)[:,2]
+end
+
+@testset "MS-GARCH: trans_θ_garch parameter transformation" begin
+    k, q, p, n_β, n_β_ns = 3, 2, 1, 1, 1
+    ω_raw = [0.5, 1.0, 1.5]
+    α_raw = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6]   # state-major: s1=[.1,.2], s2=[.3,.4], s3=[.5,.6]
+    γ_raw = [2.0, 1.0, 3.0]                  # s1, s2, s3
+    rest  = [randn(k); randn(n_β*k); randn(n_β_ns); rand(k*(k-1))]
+
+    ω, α, γ, β, P, ν = MarSwitching.trans_θ_garch([ω_raw; α_raw; γ_raw; rest], k, n_β, n_β_ns,
+                                                  "switching", true, false, :normal, q, p)
+    D1 = 1 + 0.1^2 + 0.2^2 + 2.0^2
+    D3 = 1 + 0.5^2 + 0.6^2 + 3.0^2
+    @test ω ≈ ω_raw.^2
+    @test α[1] ≈ [0.01, 0.04] ./ D1
+    @test γ[1] ≈ [4.0] ./ D1
+    @test α[3] ≈ [0.25, 0.36] ./ D3
+    @test γ[3] ≈ [9.0] ./ D3
+    @test all(sum(α[s]) + sum(γ[s]) < 1 for s in 1:k)    # stationarity by construction
+    @test isempty(ν)
+
+    # β and P blocks must parse identically to the constant-variance model on the same tail
+    _, β2, P2, _ = MarSwitching.trans_θ([ω_raw; rest], k, n_β, n_β_ns, "switching", true, false)
+    @test β == β2
+    @test P == P2
+
+    # garch_raw() inverts garch_coefs()
+    c = [0.1, 0.05, 0.8]
+    @test MarSwitching.garch_coefs(MarSwitching.garch_raw(c)) ≈ c
+    @test_throws AssertionError MarSwitching.garch_raw([0.5, 0.6])
+
+    # shared ω / α / γ under switching_var = false
+    ωn, αn, γn, _, _, _ = MarSwitching.trans_θ_garch([[0.5]; [0.1, 0.2]; [2.0]; rest], k, n_β, n_β_ns,
+                                                     "switching", false, false, :normal, q, p)
+    @test all(ωn .== 0.25)
+    @test all(αn[s] ≈ [0.01, 0.04] ./ D1 for s in 1:k)
+    @test all(γn[s] ≈ [4.0] ./ D1 for s in 1:k)
+
+    # ν still read from the right offset with both α and γ blocks present
+    θ_t = [ω_raw; fill(log(6.0), k); α_raw; γ_raw; rest]
+    _, αt, γt, _, _, νt = MarSwitching.trans_θ_garch(θ_t, k, n_β, n_β_ns, "switching", true, false, :t, q, p)
+    @test all(isapprox.(νt, 6.0; rtol=1e-10))
+    @test αt[1] ≈ α[1] && γt[1] ≈ γ[1]
+
+    # TVTP variant returns no P
+    @test length(MarSwitching.trans_θ_garch([ω_raw; α_raw; γ_raw; rest], k, n_β, n_β_ns,
+                                            "switching", true, true, :normal, q, p)) == 5
+end
+
+@testset "MS-GARCH nests MS-ARCH at γ = 0" begin
+    k, T = 2, 400
+    y, _, _ = generate_msm([0.0, 0.0], [0.2, 0.8], [[0.3], [0.1]], [0.9 0.1; 0.1 0.9], T)
+    x     = [y zeros(T)]
+    ω_raw = [0.4, 0.9]
+    a     = [0.6, 0.3]                       # GARCH-path α raw
+    P_raw = [0.9/0.1, 0.1/0.9]
+    α_c   = a.^2 ./ (1 .+ a.^2)              # α implied by garch_coefs() when γ raw = 0
+
+    ll_g = MarSwitching.loglik([ω_raw; a; zeros(k); P_raw], x, k, 0, 0, "no", true, :normal, 1, 1)[1]
+    ll_a = MarSwitching.loglik([ω_raw; sqrt.(α_c); P_raw], x, k, 0, 0, "no", true, :normal, 1)[1]
+    @test isapprox(ll_g, ll_a; rtol = 1e-10)
+
+    # same on the TVTP path (constant tvtp regressor)
+    xt = [x ones(T)]
+    δ  = [2.0, -2.0]
+    ll_gt = MarSwitching.loglik_tvtp([ω_raw; a; zeros(k); δ], xt, k, 0, 0, "no", true, 1, :normal, 1, 1)[1]
+    ll_at = MarSwitching.loglik_tvtp([ω_raw; sqrt.(α_c); δ], xt, k, 0, 0, "no", true, 1, :normal, 1)[1]
+    @test isapprox(ll_gt, ll_at; rtol = 1e-10)
+
+    # MS-ARCH simulation is MS-GARCH simulation with γ = 0: identical draws for the same seed
+    μ, ω, α, P = [0.0, 0.5], [0.2, 0.8], [[0.3], [0.1]], [0.9 0.1; 0.1 0.9]
+    sd = rand(UInt32)
+    Random.seed!(sd); y1, s1, X1 = generate_msm(μ, ω, α, P, 300)
+    Random.seed!(sd); y2, s2, X2 = generate_msm(μ, ω, α, [[0.0], [0.0]], P, 300)
+    @test y1 == y2 && s1 == s2 && X1 == X2
+end
+
+@testset "MSGARCHModel estimation" begin
+    k, T = 2, 1500
+    μ = [0.0, 0.0]                 # regimes identified through variance only
+    ω = [0.05, 0.60]
+    α = [[0.05], [0.15]]
+    γ = [[0.85], [0.60]]
+    P = [0.98 0.02; 0.02 0.98]
+    y, s_t, X = generate_msm(μ, ω, α, γ, P, T)
+
+    model = MSGARCHModel(y, k, 1, 1, intercept = "no", random_search_em = 2,
+                         maxtime = 30, verbose = false)
+
+    @test model isa MSM
+    @test model.p == 1 && model.q == 1
+    @test length(model.γ) == k && length(model.γ[1]) == 1
+    @test length(model.raw_params) == 8      # ω(2) + α(2) + γ(2) + P raw(2)
+    @test all(model.ω .> 0)
+    @test all(model.α[s][1] >= 0 && model.γ[s][1] >= 0 for s in 1:k)
+    @test all(sum(model.α[s]) + sum(model.γ[s]) < 1 for s in 1:k)
+    @test !isnan(model.Likelihood) && (model.Likelihood != Inf)
+
+    @test MarSwitching.loglik(model.raw_params, model.x, k, model.n_β, model.n_β_ns,
+                              model.intercept, model.switching_var, :normal, model.q, model.p)[1] == model.Likelihood
+
+    # the fit should be at least about as good as the data-generating parameters
+    r_true = [MarSwitching.garch_raw([α[s]; γ[s]]) for s in 1:k]
+    θ_true = [sqrt.(ω); r_true[1][1]; r_true[2][1]; r_true[1][2]; r_true[2][2];
+              P[1,1]/(1-P[1,1]); P[1,2]/(1-P[1,2])]
+    ll_true = MarSwitching.loglik(θ_true, model.x, k, 0, 0, "no", true, :normal, 1, 1)[1]
+    @test model.Likelihood > ll_true - 15.0
+
+    @test size(filtered_probs(model)) == (T, k)
+    @test size(smoothed_probs(model)) == (T, k)
+    @test size(get_std_errors(model))[1] == size(model.raw_params)[1]
+    @test isnothing(summary_msm(model))
+    @test isnothing(display(model))
+
+    @test maximum(cor([smoothed_probs(model) (s_t .== 2)])[1:k, end]) > 0.4
+
+    cv = conditional_variance(model)
+    @test size(cv) == (T, k)
+    @test all(cv .> 0)
+    @test all(isapprox.([sum(view(cv, :, s))/T for s in 1:k], model.σ.^2; rtol = 1e-8))
+
+    # a GARCH model should not fit GARCH-generated data worse than an ARCH one
+    m_arch = MSARCHModel(y, k, 1, intercept = "no", random_search_em = 2, maxtime = 20, verbose = false)
+    @test model.Likelihood > m_arch.Likelihood - 2.0
+
+    y2, s2, _ = generate_msm(model, 500)
+    @test length(y2) == 500 && sort(unique(s2)) == collect(1:k)
+
+    @test_throws AssertionError generate_msm(μ, ω, α, [[0.5], [0.3, 0.1]], P, 100)
+    @test_throws AssertionError generate_msm(μ, ω, α, [[-0.1], [0.3]], P, 100)
+    @test_throws AssertionError MSGARCHModel(y, k, 0, 1)
+    @test_throws AssertionError MSGARCHModel(y, k, 1, 0)
+    @test_throws AssertionError MSModel(y, k, p = 1)        # GARCH terms without ARCH terms
+end
+
+@testset "MS-GARCH: switching_var = false and p = 0 regression" begin
+    k, T = 2, 800
+    y, _, _ = generate_msm([0.0, 0.0], [0.1, 0.1], [[0.1], [0.1]], [[0.8], [0.8]], [0.9 0.1; 0.1 0.9], T)
+
+    m = MSGARCHModel(y, k, 1, 1, switching_var = false, intercept = "no", maxtime = 15, verbose = false)
+    @test all(m.ω .== m.ω[1])
+    @test all(m.α[s] == m.α[1] for s in 1:k)
+    @test all(m.γ[s] == m.γ[1] for s in 1:k)
+    @test length(m.raw_params) == 5   # ω(1) + α(1) + γ(1) + P raw(2)
+    @test isnothing(summary_msm(m))
+
+    m_a = MSARCHModel(y, k, 1, intercept = "no", maxtime = 15, verbose = false)
+    @test m_a.p == 0 && isempty(m_a.γ)
+    m0 = MSModel(y, k, intercept = "no", verbose = false)
+    @test m0.p == 0 && isempty(m0.γ)
+end
+
+@testset "MS-GARCH with TVTP" begin
+    k, T = 2, 600
+    μ = [0.0, 0.0]
+    ω = [0.05, 0.5]
+    α = [[0.1], [0.2]]
+    γ = [[0.8], [0.5]]
+    P = [0.9 0.1; 0.1 0.9]
+    δ = [2.0, 0.5]
+
+    y, s_t, X = generate_msm(μ, ω, α, γ, P, T, δ = δ, tvtp_intercept = false)
+    x_tvtp = reshape(X[:,2], T, 1)
+
+    # short maxtime: this testset checks the TVTP plumbing, not estimation quality
+    model = MSGARCHModel(y, k, 1, 1, intercept = "no", exog_tvtp = x_tvtp,
+                         maxtime = 6, random_search_em = 1, verbose = false)
+
+    @test model isa MSM
+    @test model.p == 1
+    @test isempty(model.P)
+    @test !isempty(model.δ)
+    @test size(filtered_probs(model)) == (T, k)
+    @test size(conditional_variance(model)) == (T, k)
+    @test size(get_std_errors(model))[1] == size(model.raw_params)[1]
+    @test isnothing(summary_msm(model))
+    @test MarSwitching.loglik_tvtp(model.raw_params, model.x, k, model.n_β, model.n_β_ns,
+                                   model.intercept, model.switching_var, 1, :normal, model.q, model.p)[1] == model.Likelihood
+end
+
+@testset "MS-GARCH with exogenous mean variables and Student-t errors" begin
+    k, T = 2, 800
+    μ    = [0.5, -0.5]
+    β    = [1.0, -1.0]                # switching slope of one exogenous variable
+    β_ns = [0.3]                      # non-switching slope of another
+    ω    = [0.05, 0.4]
+    α    = [[0.1], [0.15]]
+    γ    = [[0.8], [0.6]]
+    P    = [0.95 0.05; 0.05 0.95]
+
+    y, s_t, X = generate_msm(μ, ω, α, γ, P, T, β = β, β_ns = β_ns, error_dist = :t, ν = [6.0, 6.0])
+
+    model = MSGARCHModel(y, k, 1, 1, exog_switching_vars = X[:, 2], exog_vars = X[:, 3],
+                         error_dist = :t, maxtime = 20, random_search_em = 2, verbose = false)
+
+    @test model.p == 1 && model.n_β == 1 && model.n_β_ns == 1
+    @test length(model.ν) == k && all(model.ν .> 0)
+    # ω(2) + ν(2) + α(2) + γ(2) + intercepts(2) + switching β(2) + non-switching β(1) + P(2)
+    @test length(model.raw_params) == 15
+    @test MarSwitching.loglik(model.raw_params, model.x, k, model.n_β, model.n_β_ns,
+                              model.intercept, model.switching_var, :t, model.q, model.p)[1] == model.Likelihood
+    # switching slopes should be recovered with the right signs (regime order is arbitrary).
+    # Tolerances are ~4 standard errors (SE ≈ 0.06-0.10 for the switching slopes and ≈ 0.055
+    # for the non-switching one at T = 800): tighter ones fail on legitimate samples, e.g. one
+    # where the maximum-likelihood estimate of the 0.3 slope is 0.479 (3.2 SE away).
+    @test sort([model.β[s][2] for s in 1:k]) ≈ [-1.0, 1.0] atol = 0.4
+    @test model.β[1][3] ≈ 0.3 atol = 0.25
+    @test isnothing(summary_msm(model))
+    @test size(MarSwitching.predict(model)[1], 1) == T - 1
+end
+
+@testset "Hamilton filter matches the original per-step loop" begin
+    # the loop hamilton_filter() replaced, kept here as the reference
+    function filter_reference(η, P, ξ_0, logsum)
+        T, k = size(η); ξ = zeros(T, k); L = zeros(T); ξ_next = zeros(k)
+        for t in 1:T
+            ξ[t,:] = t == 1 ? ξ_0 : view(ξ, t-1, :)
+            mul!(ξ_next, P, view(ξ, t, :))
+            L[t] = max(view(η, t, :)'ξ_next, 1e-300)
+            @views @. ξ[t,:] = (1/L[t]) * ξ_next * η[t, :]
+        end
+        return (logsum ? sum(log.(L)) : L), ξ
+    end
+    for k in 2:4
+        P = rand(k, k) .+ 5 .* Matrix(1.0I, k, k); P = P ./ sum(P, dims = 1)
+        η = rand(500, k) .* 3
+        η[17, :] .= 0.0                                   # exercises the 1e-300 floor
+        ξ_0 = ergodic_probs(P, k)
+        for logsum in (true, false)
+            a = MarSwitching.hamilton_filter(η, P, ξ_0, logsum)
+            b = filter_reference(η, P, ξ_0, logsum)
+            @test all(isapprox.(a[1], b[1]; rtol = 1e-12))
+            @test isapprox(a[2], b[2]; rtol = 1e-12)
+        end
+    end
+end
+
+@testset "MS-GARCH optimizer safeguards" begin
+    # bounded_gradient!: never evaluates f outside [lb, ub], central differences inside
+    lb, ub = [0.0, -Inf, -Inf], [Inf, 1.0, Inf]
+    f(θ) = any(θ .< lb) || any(θ .> ub) ? error("evaluated outside the bounds") : θ[1]^2 + θ[1] + 2θ[2]^2 + sin(θ[3])
+    g = zeros(3)
+    @test MarSwitching.bounded_gradient!(g, f, [0.0, 1.0, 0.3], lb, ub) == f([0.0, 1.0, 0.3])
+    @test g ≈ [1.0, 4.0, cos(0.3)] rtol = 1e-6          # one-sided at θ[1] = lb, θ[2] = ub
+    MarSwitching.bounded_gradient!(g, f, [0.7, -0.4, 0.3], lb, ub)
+    @test g ≈ [2*0.7 + 1, -1.6, cos(0.3)] rtol = 1e-8   # interior: central differences
+
+    # persistent_P_raw: P[s,s] = pstay, the rest spread evenly, in trans_θ()'s layout
+    for k in 2:4
+        _, _, P, _ = MarSwitching.trans_θ([ones(k); zeros(k); MarSwitching.persistent_P_raw(k, 0.95)],
+                                          k, 0, 0, "switching", true, false)
+        @test all(diag(P) .≈ 0.95)
+        @test all(P[i, j] ≈ 0.05 / (k - 1) for i in 1:k, j in 1:k if i != j)
+    end
+
+    k, T = 2, 800
+    y, _, _ = generate_msm([0.0, 0.0], [0.05, 0.5], [[0.1], [0.2]], [[0.8], [0.6]], [0.97 0.03; 0.03 0.97], T)
+
+    # SLSQP relies on the GARCH path's safeguards, so other models reject it
+    @test_throws AssertionError MSModel(y, k, algorithm = :LD_SLSQP, verbose = false)
+    @test_throws AssertionError MSARCHModel(y, k, 1, algorithm = :LD_SLSQP, verbose = false)
+
+    # the previous default stays available for MS-GARCH
+    m_sb = MSGARCHModel(y, k, 1, 1, intercept = "no", algorithm = :LN_SBPLX, maxtime = 10, verbose = false)
+    @test m_sb isa MSM && isfinite(m_sb.Likelihood)
+
+    # default (SLSQP) fit respects the raw-parameter caps, even from a user-supplied x0 beyond them
+    m = MSGARCHModel(y, k, 1, 1, intercept = "no", verbose = false)
+    @test all(m.raw_params[3:6] .<= MarSwitching.GARCH_RAW_CAP)
+    @test all(m.raw_params[7:8] .<= MarSwitching.P_RAW_CAP)
+    x0 = copy(m.raw_params); x0[3] = 10 * MarSwitching.GARCH_RAW_CAP; x0[7] = 10 * MarSwitching.P_RAW_CAP
+    m_x0 = MSGARCHModel(y, k, 1, 1, intercept = "no", x0 = x0, maxtime = 10, verbose = false)
+    @test isfinite(m_x0.Likelihood) && all(m_x0.raw_params[3:6] .<= MarSwitching.GARCH_RAW_CAP)
+end
+
+@testset "Student-t density matches Distributions.jl exactly" begin
+    yy, mm, ss = 3 .* randn(2000), randn(2000), 0.1 .+ 2 .* rand(2000)
+    for ν in (1e-9, 0.5, 2.5, 6.0, 40.0, 1e9)              # includes values beyond both clamps
+        νs = min(max(ν, 1e-6), 1e6)
+        d = MarSwitching.TDist(νs)
+        @test MarSwitching.error_density(:t, yy, mm, 1.3, ν) == MarSwitching.pdf.(d, (yy .- mm) ./ 1.3) ./ 1.3
+        @test MarSwitching.error_density(:t, yy, mm, ss, ν) == MarSwitching.pdf.(d, (yy .- mm) ./ ss) ./ ss
+    end
+end
+
+@testset "Parallel restarts reproduce serial ones" begin
+    # run_starts(parallel = true) optimizes each start on its own copy of the Opt; that must
+    # give exactly the serial results (forced here, since tests may run on a single thread)
+    k, T = 2, 600
+    y, _, _ = generate_msm([0.0, 0.0], [0.05, 0.5], [[0.1], [0.2]], [[0.8], [0.6]], [0.97 0.03; 0.03 0.97], T)
+    x = [y zeros(T)]
+    for alg in (:LN_SBPLX, :LD_SLSQP)
+        opt = MarSwitching.Opt(alg, 8)
+        opt.lower_bounds = zeros(8); opt.upper_bounds = [Inf, Inf, fill(100.0, 4)..., 1e4, 1e4]
+        opt.xtol_rel = 1e-6; opt.maxtime = 30
+        lb, ub = opt.lower_bounds, opt.upper_bounds
+        opt.min_objective = (θ, g) -> MarSwitching.obj_func_garch(θ, g, x, k, 0, 0, "no", true, :normal, 1, 1, lb, ub)
+        starts = [[0.3, 0.8, 1.0, 1.0, 2.0, 2.0, 9.0, 0.1], [0.2, 0.9, 0.5, 1.5, 3.0, 1.0, 19.0, 0.05],
+                  [0.4, 0.6, 1.5, 0.5, 1.0, 2.5, 4.0, 0.3]]
+        serial   = MarSwitching.run_starts(opt, starts; parallel = false)
+        parallel = MarSwitching.run_starts(opt, starts; parallel = true)
+        @test [r[1] for r in serial] == [r[1] for r in parallel]
+        @test [r[2] for r in serial] == [r[2] for r in parallel]
+    end
+end
+
 @testset "Less crucial functions" begin
     @test add_lags([1.0,2.0,3.0,4.0], 1) == [2.0 1.0; 3.0 2.0; 4.0 3.0]
     A = rand(4,4)

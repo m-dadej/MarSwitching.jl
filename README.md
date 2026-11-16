@@ -89,6 +89,7 @@ For more thorough introduction to the Markov switching models, see 9th chapter o
         - exogenous variables
         - shape of error distribution
     - Markov Switching ARCH model (`MSARCHModel()`), with regime-specific ARCH($q$) coefficients (Haas, Mittnik & Paolella, 2004)
+    - Markov Switching GARCH model (`MSGARCHModel()`), with regime-specific GARCH($p$,$q$) coefficients (Haas, Mittnik & Paolella, 2004)
     - Model with time-varying transition probabilities (TVTP) (à la Filardo 1994) 
     - Alternative error distributions (Normal, Student's $t$-distribution and Generalized Error Distribution) with regime-switching shape parameter 
     - Filtered probabilities
@@ -99,7 +100,6 @@ For more thorough introduction to the Markov switching models, see 9th chapter o
     - Simulation of data both from estimated model and from given parameters
     - Variable and number of states selection (with random and grid search)
 - Planned functionality:
-    - Markov Switching GARCH model
     - Markov Switching VAR model
     - Markov Switching model with lagged states. E.g. $y_t = \mu_{S_t} + \phi(y_{t-1} - \mu_{S_{t-1}})$
 
@@ -252,14 +252,17 @@ MSModel(y::VecOrMat{V},                    # vector of dependent variable
         exog_switching_vars::VecOrMat{V},  # optional matrix of exogenous variables with regime switching
         switching_var::Bool = true,        # is variance state-dependent?
         q::Int64 = 0,                      # order of the Markov-Switching ARCH process (0 = constant variance)
+        p::Int64 = 0,                      # order of the Markov-Switching GARCH terms (0 = none; requires q >= 1)
         error_dist::Symbol = :normal,      # error distribution. :normal, :t or :ged 
         exog_tvtp::VecOrMat{V},            # optional matrix of exogenous variables for time-varying transition matrix
         x0::Vector{V},                     # optional initial values of parameters for optimization
-        algorithm::Symbol = :LN_SBPLX,     # optional algorithm for NLopt.jl
+        algorithm::Symbol = :LN_SBPLX,     # optional algorithm for NLopt.jl (default :LD_SLSQP for MS-GARCH)
         maxtime::Int64 = -1,               # optional maximum time for optimization
         random_search::Int64 = 0           # Number of random search iterations (model estimations with random disturbance to the x0)
         ) where V <: AbstractFloat  
 ```
+
+If Julia is started with several threads (`julia -t auto`), the independent optimization runs (random searches and the structured multi-starts of the ARCH, GARCH and Student-t/GED models) run in parallel, with estimates identical to a single-threaded run.
 
 ### Markov-Switching ARCH in a nutshell
 
@@ -284,7 +287,26 @@ MSARCHModel(y::VecOrMat{V},                # vector of dependent variable
             ) where V <: AbstractFloat
 ```
 
-Both functions return an `MSM` type object:
+### Markov-Switching GARCH
+
+Adding $p$ lags of each regime's own conditional variance gives the Markov-Switching GARCH($p$,$q$) model of Haas, Mittnik & Paolella (2004):
+
+```math
+h_{t,s} = \omega_s + \sum_{j=1}^{q} \alpha_{s,j} \, \varepsilon_{t-j,s}^2 + \sum_{j=1}^{p} \gamma_{s,j} \, h_{t-j,s}
+```
+
+Each regime's variance feeds back only on its own past variance, so $h_{t,s}$ is still independent of the realized state path and the Hamilton filter is unchanged. The GARCH coefficients are called $\gamma$ (field `γ`), since $\beta$ already holds the regression coefficients. Every regime is constrained to $\sum_j \alpha_{s,j} + \sum_j \gamma_{s,j} < 1$. Exogenous variables in the mean equation (`exog_vars`, `exog_switching_vars`), time-varying transition probabilities (`exog_tvtp`) and the alternative error distributions all work as for the other models. MS-GARCH models are estimated with the gradient-based `:LD_SLSQP` optimizer by default, which needs far fewer likelihood evaluations than the derivative-free `:LN_SBPLX` used for the other models (`algorithm = :LN_SBPLX` is still available). Use the `MSGARCHModel()` wrapper (orders follow Bollerslev's GARCH($p$,$q$) convention):
+
+```Julia
+MSGARCHModel(y::VecOrMat{V},               # vector of dependent variable
+             k::Int64,                     # number of regimes
+             p::Int64 = 1,                 # number of lagged conditional variances (GARCH order)
+             q::Int64 = 1;                 # number of lagged squared residuals (ARCH order)
+             <same keyword arguments as MSModel>
+             ) where V <: AbstractFloat
+```
+
+All three functions return an `MSM` type object:
 
 ```Julia
 struct MSM{V <: AbstractFloat}
@@ -300,6 +322,8 @@ struct MSM{V <: AbstractFloat}
     q::Int64              # MS-ARCH order (0 = constant variance, i.e. a plain MSModel)
     ω::Vector{V}          # MS-ARCH intercepts (variance units); empty when q == 0
     α::Vector{Vector{V}}  # α[state][lag], MS-ARCH coefficients; empty when q == 0
+    p::Int64              # MS-GARCH order (0 = no lagged-variance terms)
+    γ::Vector{Vector{V}}  # γ[state][lag], MS-GARCH coefficients on lagged variances; empty when p == 0
     error_dist::Symbol    # error distribution (:normal, :t, or :ged)
     ν::Vector{V}          # shape params for :t/:ged (empty for :normal)
     x::Matrix{V}          # data matrix

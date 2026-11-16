@@ -151,6 +151,47 @@ function generate_msm(μ::Vector{V},
                       error_dist::Symbol = :normal,
                       ν::Vector{V} = Vector{V}([])) where V <: AbstractFloat
 
+    # MS-ARCH is MS-GARCH with no lagged-variance terms (p = 0); the simulation draws the
+    # same random numbers in the same order either way
+    return generate_msm(μ, ω, α, [V[] for _ in 1:length(μ)], P, T; β = β, β_ns = β_ns, δ = δ,
+                        tvtp_intercept = tvtp_intercept, error_dist = error_dist, ν = ν)
+end
+
+"""
+generate_msm(μ::Vector{Float64}, ω::Vector{Float64}, α::Vector{Vector{Float64}}, γ::Vector{Vector{Float64}}, P::Matrix{Float64}, T::Int64; <keyword arguments>)
+
+Generate artificial data from a Markov-Switching GARCH model (see [`MSGARCHModel`](@ref)) from provided parameters.
+Returns a tuple of `(y, s_t, X)` where `y` is the generated data, `s_t` is the state sequence and `X` is the design matrix.
+
+Note, in order to have a non-switching parameter provide it k-times.
+
+# Arguments
+- `μ::Vector{AbstractFloat}`: intercepts for each state.
+- `ω::Vector{AbstractFloat}`: GARCH intercepts (variance units) for each state.
+- `α::Vector{Vector{AbstractFloat}}`: `α[state]` holds the ARCH coefficients (length `q`) for that state; every state must have the same `q`.
+- `γ::Vector{Vector{AbstractFloat}}`: `γ[state]` holds the GARCH coefficients on lagged variances (length `p`) for that state; every state must have the same `p`.
+- `P::Matrix{AbstractFloat}`: transition matrix.
+- `T::Int64`: number of observations to generate.
+- `β::Vector{AbstractFloat}`: switching coefficients. (first k elements in vector are coefficeints of the first state equation).
+- `β_ns::Vector{AbstractFloat}`: non-switching coefficients.
+- `δ::Vector{AbstractFloat}`: tvtp coefficients.
+- `tvtp_intercept::Bool`: whether to include an intercept in the tvtp model.
+- `error_dist::Symbol`: error distribution (`:normal`, `:t`, or `:ged`).
+- `ν::Vector{AbstractFloat}`: shape parameters for each state when `error_dist` is `:t` (df) or `:ged` (shape; 2 = normal, 1 = Laplace).
+"""
+function generate_msm(μ::Vector{V},
+                      ω::Vector{V},
+                      α::Vector{Vector{V}},
+                      γ::Vector{Vector{V}},
+                      P::Matrix{V},
+                      T::Int64;
+                      β::Vector{V} = Vector{V}([]),
+                      β_ns::Vector{V} = Vector{V}([]),
+                      δ::Vector{V} = Vector{V}([]),
+                      tvtp_intercept::Bool = true,
+                      error_dist::Symbol = :normal,
+                      ν::Vector{V} = Vector{V}([])) where V <: AbstractFloat
+
     isempty(δ) && @assert size(μ)[1] == size(ω)[1] == size(P)[2] "size of μ, ω and P implies different number of states"
     !isempty(δ) && @assert size(μ)[1] == size(ω)[1] "size of μ and ω implies different number of states"
     @assert T > 0 "T should be a positive integer"
@@ -164,8 +205,11 @@ function generate_msm(μ::Vector{V},
     k = length(μ)
     @assert length(α) == k "α must hold one vector of ARCH coefficients per state"
     @assert all(length(α[s]) == length(α[1]) for s in 1:k) "every state needs the same ARCH order q"
+    @assert length(γ) == k "γ must hold one vector of GARCH coefficients per state"
+    @assert all(length(γ[s]) == length(γ[1]) for s in 1:k) "every state needs the same GARCH order p"
     @assert all(ω .> 0) "ω must be positive"
     @assert all(all(α[s] .>= 0) for s in 1:k) "α must be non-negative"
+    @assert all(all(γ[s] .>= 0) for s in 1:k) "γ must be non-negative"
 
     # for transition matrix without last row, add it and normalize
     if size(P)[2] != size(P)[1]
@@ -174,6 +218,7 @@ function generate_msm(μ::Vector{V},
     end
 
     q      = length(α[1])
+    p      = length(γ[1])
     n_β    = Int(size(β)[1]/k)
     n_β_ns = size(β_ns)[1]
     s_t    = [1]
@@ -209,17 +254,21 @@ function generate_msm(μ::Vector{V},
     y  = zeros(T)
     e2 = zeros(T, k)               # e2[t,s] = (y_t - M[t,s])^2, ALL states, using the one realised y_t
     h  = zeros(T, k)
-    # pre-sample variance: unconditional variance when the state is stationary, ω otherwise
-    h0 = [sum(α[s]) < 1 ? ω[s] / (1 - sum(α[s])) : ω[s] for s in 1:k]
+    # pre-sample variance (used for both ε² and h): unconditional variance when the
+    # state is stationary, ω otherwise
+    h0 = [sum(α[s]) + sum(γ[s]) < 1 ? ω[s] / (1 - sum(α[s]) - sum(γ[s])) : ω[s] for s in 1:k]
 
     # sequential: unlike the constant-variance method above, states cannot be drawn
     # independently per column, since every regime's variance path is driven by the
-    # single realised y_t (see arch_var() in likelihood.jl for the estimation-side analogue)
+    # single realised y_t (see arch_var()/garch_var() in likelihood.jl for the estimation-side analogue)
     @inbounds for t in 1:T
         for s in 1:k
             v = ω[s]
             for j in 1:q
                 v += α[s][j] * (t - j >= 1 ? e2[t-j, s] : h0[s])
+            end
+            for j in 1:p
+                v += γ[s][j] * (t - j >= 1 ? h[t-j, s] : h0[s])
             end
             h[t, s] = max(v, 1e-12)
         end
@@ -254,6 +303,12 @@ function generate_msm(model::MSM, T::Int64 = 0)
     n_δ = Int(length(δ)/(model.k*(model.k-1)))
     exog_tvtp = model.x[:, end-n_δ+1:end]
     tvtp_intercept = isempty(δ) ? false : all(exog_tvtp[:,1] .== exog_tvtp[1,1])
+
+    if model.p > 0
+        return generate_msm(μ, model.ω, model.α, model.γ, model.P, T, β = β, β_ns = β_ns, δ = δ,
+                            tvtp_intercept = tvtp_intercept,
+                            error_dist = model.error_dist, ν = model.ν)
+    end
 
     if model.q > 0
         return generate_msm(μ, model.ω, model.α, model.P, T, β = β, β_ns = β_ns, δ = δ,

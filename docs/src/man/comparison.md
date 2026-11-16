@@ -20,7 +20,7 @@ alternatives, so that the choice can be made on features rather than on familiar
 | [`MS_Regress`](https://github.com/msperlin/MS_Regress-Matlab) | MATLAB | Markov switching regression, including some GARCH specifications. |
 | EViews, Stata (`mswitch`), SAS | Commercial | Markov switching regression and autoregression, with GUI workflows. |
 | [`HiddenMarkovModels.jl`](https://github.com/gdalle/HiddenMarkovModels.jl) | Julia | General-purpose HMM inference — Baum-Welch, Viterbi, forward-backward — over arbitrary observation distributions. |
-| **MarSwitching.jl** | Julia | Markov switching regression with `k` regimes, per-parameter switching control, time-varying transition probabilities and MS-ARCH. |
+| **MarSwitching.jl** | Julia | Markov switching regression with `k` regimes, per-parameter switching control, time-varying transition probabilities, MS-ARCH and MS-GARCH. |
 
 ## Where MarSwitching.jl is distinctive
 
@@ -34,8 +34,9 @@ alternatives, so that the choice can be made on features rather than on familiar
   non-switching independently, rather than the whole equation switching together.
 - **Non-Gaussian errors** — Student's ``t`` and the Generalized Error Distribution, with a
   regime-switching shape parameter.
-- **Markov switching ARCH** (`MSARCHModel`), with regime-specific ARCH(``q``) coefficients
-  following Haas, Mittnik & Paolella (2004).
+- **Markov switching ARCH and GARCH** (`MSARCHModel`, `MSGARCHModel`), with regime-specific
+  ARCH(``q``) and GARCH(``p``,``q``) coefficients following Haas, Mittnik & Paolella (2004),
+  combinable with switching regressors, TVTP and non-Gaussian errors.
 - **Speed.** See below.
 
 ## Performance
@@ -72,9 +73,9 @@ Windows 11 x64, Intel(R) Core(TM) i7-9850H @ 2.60GHz, 6 cores. The benchmark cod
 
 MarSwitching.jl is not the right tool for every regime switching problem:
 
-- **You need MS-GARCH rather than MS-ARCH.** `MSGARCH` in R is the mature choice, and it
-  additionally offers Bayesian estimation and built-in risk measures. MS-GARCH is on the
-  MarSwitching.jl roadmap but is not implemented yet.
+- **You need GARCH variants beyond the standard GARCH(``p``,``q``)** (EGARCH, GJR,
+  threshold GARCH), Bayesian estimation, or built-in risk measures. `MSGARCH` in R is the
+  mature choice for these.
 - **You need a Markov switching VAR.** Not yet implemented here; this is also on the roadmap.
 - **You need autoregressive dynamics with lagged states**, i.e.
   ``y_t = \mu_{S_t} + \phi(y_{t-1} - \mu_{S_{t-1}})``. `MSwM` and the `statsmodels`

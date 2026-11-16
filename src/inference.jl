@@ -162,7 +162,8 @@ function filtered_probs(model::MSM; kwargs...)
                     model.intercept,
                     model.switching_var,
                     model.error_dist,
-                    model.q)[2]
+                    model.q,
+                    model.p)[2]
     else
         ξ = loglik_tvtp(model.raw_params,
                         x,
@@ -173,7 +174,8 @@ function filtered_probs(model::MSM; kwargs...)
                         model.switching_var,
                         Int(length(model.δ)/(model.k*(model.k-1))),
                         model.error_dist,
-                        model.q)[2]
+                        model.q,
+                        model.p)[2]
     end
 
 
@@ -184,8 +186,8 @@ end
     conditional_variance(model::MSM; kwargs...)
 
 Returns the ``T \times k`` matrix of regime-conditional variances ``h_{t,s}`` implied by an
-estimated MS-ARCH model (see [`MSARCHModel`](@ref)). If only `model` is provided, in-sample
-data is used.
+estimated MS-ARCH or MS-GARCH model (see [`MSARCHModel`](@ref), [`MSGARCHModel`](@ref)).
+If only `model` is provided, in-sample data is used.
 
 Note:
 - For `error_dist = :t`, `h` is a squared *scale*, not the variance of the error term:
@@ -195,17 +197,17 @@ Note:
   ``\sum_s \xi_{t,s}(h_{t,s} + \mu_{t,s}^2) - (\sum_s \xi_{t,s}\mu_{t,s})^2``.
 
 # Arguments
-- `model::MSM`: estimated MS-ARCH model (requires `model.q > 0`).
+- `model::MSM`: estimated MS-ARCH or MS-GARCH model (requires `model.q > 0`).
 - `y`: optional data for dependent variabla.
 - `exog_vars`: optional exogenous variables for the non-switching part of the model.
 - `exog_switching_vars`: optional exogenous variables for the switching part of the model.
 - `exog_tvtp`: optional exogenous variables for the tvtp part of the model.
 
-See also [`MSARCHModel`](@ref), [`filtered_probs`](@ref).
+See also [`MSARCHModel`](@ref), [`MSGARCHModel`](@ref), [`filtered_probs`](@ref).
 """
 function conditional_variance(model::MSM; kwargs...)
 
-    @assert model.q > 0 "conditional_variance() is only defined for MS-ARCH models (model.q > 0)"
+    @assert model.q > 0 "conditional_variance() is only defined for MS-ARCH/MS-GARCH models (model.q > 0)"
 
     check_args(model; kwargs...)
 
@@ -221,6 +223,14 @@ function conditional_variance(model::MSM; kwargs...)
 
     n_δ   = Int(length(model.δ)/(model.k*(model.k-1)))
     x_lik = n_δ > 0 ? x[:, 1:end-n_δ] : x
+
+    if model.p > 0
+        # GARCH path in a separate branch so the ARCH branch below stays as it was
+        ω, α, γ, β = trans_θ_garch(model.raw_params, model.k, model.n_β, model.n_β_ns, model.intercept,
+                                   model.switching_var, isempty(model.P), model.error_dist, model.q, model.p)
+        μ = [view(x_lik, :, 2:model.n_β+model.n_β_ns+2) * β[i] for i in 1:model.k]
+        return garch_var(view(x_lik, :, 1), μ, ω, α, γ, model.k, model.q, model.p)
+    end
 
     if isempty(model.P)
         ω, α, β, ν = trans_θ_arch(model.raw_params, model.k, model.n_β, model.n_β_ns,
